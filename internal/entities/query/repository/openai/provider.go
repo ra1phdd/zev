@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/ra1phdd/zev-go/internal/core/domain"
 	"github.com/ra1phdd/zev-go/internal/entities/query/repository"
@@ -19,7 +20,7 @@ type Provider struct {
 }
 
 // New создаёт новый OpenAI провайдер.
-func New(apiKey, model, baseURL string) (*Provider, error) {
+func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, error) {
 	if apiKey == "" {
 		return nil, errors.New("OPENAI_API_KEY is required. Run `zev setup` to configure")
 	}
@@ -29,9 +30,13 @@ func New(apiKey, model, baseURL string) (*Provider, error) {
 	if baseURL == "" {
 		return nil, errors.New("OPENAI_BASE_URL is required in config")
 	}
+	if httpClient == nil {
+		return nil, errors.New("httpClient is required")
+	}
 
 	config := openai.DefaultConfig(apiKey)
 	config.BaseURL = baseURL
+	config.HTTPClient = httpClient
 	client := openai.NewClientWithConfig(config)
 
 	return &Provider{
