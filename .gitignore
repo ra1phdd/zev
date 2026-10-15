@@ -6,6 +6,7 @@
 *.dylib
 zev
 /cmd/zev/zev
+bin/
 
 # Test binary
 *.test

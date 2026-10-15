@@ -136,24 +136,44 @@ zev-go/
 
 ### Команды
 
-**Сборка:**
+**С использованием Make (рекомендуется):**
 
 ```bash
+# Показать все доступные команды
+make help
+
+# Собрать
+make build
+
+# Собрать с версией
+make build VERSION=1.0.0
+
+# Запустить тесты
+make test
+
+# Запустить линтер
+make lint
+
+# Собрать и установить
+make install
+
+# Собрать для всех платформ
+make build-all
+```
+
+**Напрямую через Go:**
+
+```bash
+# Сборка
 go build -o zev ./cmd/zev
 
 # С версией
 go build -ldflags "-X main.version=1.0.0" -o zev ./cmd/zev
-```
 
-**Запуск линтера:**
-
-```bash
+# Линтер
 golangci-lint run --fix
-```
 
-**Запуск тестов:**
-
-```bash
+# Тесты
 go test ./...
 ```
 
