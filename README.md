@@ -29,13 +29,9 @@ zev setup
 
 Интерактивный мастер предложит выбрать LLM-провайдера и ввести необходимые параметры:
 
-- **OpenAI**: API key + опциональный custom base URL (для OpenAI-compatible провайдеров)
-- **Gemini**: Google API key
-- **Ollama**: локальный URL (по умолчанию `http://localhost:11434`)
-
-При выборе OpenAI можно:
-- Оставить base URL пустым → используется стандартный OpenAI API
-- Указать custom URL → работа через совместимые провайдеры (Together, Anyscale, local proxies)
+- **OpenAI**: требуется API key, можно указать custom base URL для совместимых API
+- **Gemini**: требуется Google API key
+- **Ollama**: требуется локальный URL (например, `http://localhost:11434/v1`)
 
 Конфигурация сохраняется в `~/.zevrc` (основной файл) и `~/.zevrc.security.yaml` (секреты).
 
@@ -68,37 +64,22 @@ zev --recent
 
 ### OpenAI
 
-Поддерживаются как оригинальный OpenAI API, так и OpenAI-compatible провайдеры.
+Поддерживаются как оригинальный OpenAI API, так и OpenAI-compatible роутеры (Azure OpenAI, LiteLLM, vLLM и др.).
 
-**Стандартный OpenAI:**
+**Переменные окружения:**
 
 ```bash
-export OPENAI_API_KEY="sk-proj-..."
+export OPENAI_API_KEY="sk-..."
 export OPENAI_MODEL="gpt-4-turbo"
 export OPENAI_BASE_URL="https://api.openai.com/v1"  # по умолчанию
 ```
 
-**OpenAI-compatible провайдеры:**
+**Пример для Azure OpenAI:**
 
-Together AI:
 ```bash
-export OPENAI_API_KEY="your-together-key"
-export OPENAI_MODEL="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
-export OPENAI_BASE_URL="https://api.together.xyz/v1"
-```
-
-Anyscale:
-```bash
-export OPENAI_API_KEY="your-anyscale-key"
-export OPENAI_MODEL="meta-llama/Meta-Llama-3-70B-Instruct"
-export OPENAI_BASE_URL="https://api.endpoints.anyscale.com/v1"
-```
-
-Local proxy:
-```bash
-export OPENAI_API_KEY="local"
+export OPENAI_API_KEY="your-azure-key"
 export OPENAI_MODEL="gpt-4"
-export OPENAI_BASE_URL="http://localhost:8000/v1"
+export OPENAI_BASE_URL="https://your-resource.openai.azure.com/openai/deployments/your-deployment/chat/completions?api-version=2024-02-15-preview"
 ```
 
 ### Gemini
@@ -113,15 +94,8 @@ export GEMINI_MODEL="gemini-3-flash-preview"
 Локальная модель без API ключа:
 
 ```bash
-export OLLAMA_BASE_URL="http://localhost:11434"  # по умолчанию
-export OLLAMA_MODEL="llama2"
-```
-
-Или для удалённого Ollama:
-
-```bash
-export OLLAMA_BASE_URL="http://192.168.1.100:11434"
-export OLLAMA_MODEL="mistral"
+export OLLAMA_BASE_URL="http://localhost:11434/v1"
+export OLLAMA_MODEL="llama3"
 ```
 
 ## Структура проекта

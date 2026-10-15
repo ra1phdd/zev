@@ -13,8 +13,11 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.LLMProvider != "openai" {
 		t.Errorf("expected default provider=openai, got %s", cfg.LLMProvider)
 	}
-	if cfg.OpenAIModel != "gpt-4-turbo" {
-		t.Errorf("expected default model=gpt-4-turbo, got %s", cfg.OpenAIModel)
+	if cfg.OpenAIModel != "gpt-5.6-luna" {
+		t.Errorf("expected default model=gpt-5.6-luna, got %s", cfg.OpenAIModel)
+	}
+	if cfg.GeminiModel != "gemini-3.1-flash-lite" {
+		t.Errorf("expected default gemini model=gemini-3.1-flash-lite, got %s", cfg.GeminiModel)
 	}
 	if cfg.OpenAIBaseURL != "https://api.openai.com/v1" {
 		t.Errorf("expected default base_url=https://api.openai.com/v1, got %s", cfg.OpenAIBaseURL)
@@ -53,8 +56,8 @@ func TestSaveConfig(t *testing.T) {
 	cfg := &Config{
 		LLMProvider:   "gemini",
 		GeminiAPIKey:  "test-key",
-		GeminiModel:   "gemini-3-flash-preview",
-		OpenAIModel:   "gpt-4-turbo",
+		GeminiModel:   "gemini-3.1-flash-lite",
+		OpenAIModel:   "gpt-5.6-luna",
 		OpenAIBaseURL: "https://api.openai.com/v1",
 	}
 

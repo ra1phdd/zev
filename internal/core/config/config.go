@@ -30,9 +30,9 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		LLMProvider:   "openai",
-		OpenAIModel:   "gpt-4-turbo",
+		OpenAIModel:   "gpt-5.6-luna",
 		OpenAIBaseURL: "https://api.openai.com/v1",
-		GeminiModel:   "gemini-3-flash-preview",
+		GeminiModel:   "gemini-3.1-flash-lite",
 	}
 }
 
