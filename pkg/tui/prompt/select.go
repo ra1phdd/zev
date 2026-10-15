@@ -16,13 +16,15 @@ func Select(promptText string, options []string) (string, error) {
 
 	delegate := list.NewDefaultDelegate()
 	delegate.ShowDescription = false
+	delegate.SetHeight(1)   // одна строка на item
+	delegate.SetSpacing(0)  // без отступов
 
-	// Компактный размер: width=60, height=items+title+help
-	l := list.New(items, delegate, 60, len(items)+4)
+	// Компактный размер
+	l := list.New(items, delegate, 60, len(items)+3)
 	l.Title = promptText
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
-	l.SetShowHelp(true)
+	l.SetShowHelp(false) // убираем help
 
 	m := selectModel{list: l}
 	p := tea.NewProgram(m) // убираем tea.WithAltScreen() для inline режима
