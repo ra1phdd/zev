@@ -71,7 +71,7 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("gemini API call failed: %w", err)
+		return nil, repository.WrapNetworkError("Gemini", err)
 	}
 	defer resp.Body.Close()
 

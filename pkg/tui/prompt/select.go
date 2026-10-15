@@ -21,7 +21,7 @@ func Select(promptText string, options []string) (string, error) {
 	delegate.SetSpacing(0) // без отступов
 
 	// Компактный размер: только items без padding
-	l := list.New(items, delegate, 60, len(items))
+	l := list.New(items, delegate, 60, len(items)*3)
 	l.Title = promptText + ":"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
