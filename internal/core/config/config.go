@@ -14,7 +14,8 @@ import (
 // Config представляет конфигурацию zev.
 type Config struct {
 	// Общие настройки
-	LLMProvider string `env:"LLM_PROVIDER"`
+	LLMProvider string            `env:"LLM_PROVIDER"`
+	HTTPHeaders map[string]string `env:"HTTP_HEADERS" envSeparator:","` // Формат: "Header1:Value1,Header2:Value2"
 
 	// OpenAI (и OpenAI-compatible)
 	OpenAIAPIKey  string `env:"OPENAI_API_KEY"`
@@ -33,7 +34,10 @@ type Config struct {
 // DefaultConfig возвращает конфигурацию с дефолтными значениями.
 func DefaultConfig() *Config {
 	return &Config{
-		LLMProvider:   "openai",
+		LLMProvider: "openai",
+		HTTPHeaders: map[string]string{
+			"User-Agent": "zev/1.0",
+		},
 		OpenAIModel:   "gpt-5.6-luna",
 		OpenAIBaseURL: "https://api.openai.com/v1",
 		GeminiModel:   "gemini-3.1-flash-lite",
@@ -82,6 +86,22 @@ func Save(cfg *Config) error {
 		}
 
 		value := v.Field(i)
+
+		// Специальная обработка для HTTPHeaders
+		if field.Name == "HTTPHeaders" && value.Kind() == reflect.Map {
+			var headerPairs []string
+			iter := value.MapRange()
+			for iter.Next() {
+				k := iter.Key().String()
+				v := iter.Value().String()
+				headerPairs = append(headerPairs, fmt.Sprintf("%s:%s", k, v))
+			}
+			if len(headerPairs) > 0 {
+				lines = append(lines, fmt.Sprintf("%s=%s", envTag, strings.Join(headerPairs, ",")))
+			}
+			continue
+		}
+
 		lines = append(lines, fmt.Sprintf("%s=%v", envTag, value.Interface()))
 	}
 

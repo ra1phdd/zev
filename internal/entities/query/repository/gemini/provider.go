@@ -22,12 +22,15 @@ type Provider struct {
 }
 
 // New создаёт новый Gemini провайдер.
-func New(apiKey, model string) (*Provider, error) {
+func New(apiKey, model string, httpClient *http.Client) (*Provider, error) {
 	if apiKey == "" {
 		return nil, errors.New("GEMINI_API_KEY is required. Run `zev setup` to configure")
 	}
 	if model == "" {
 		return nil, errors.New("GEMINI_MODEL is required in config")
+	}
+	if httpClient == nil {
+		return nil, errors.New("httpClient is required")
 	}
 
 	apiURL := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, apiKey)
@@ -36,7 +39,7 @@ func New(apiKey, model string) (*Provider, error) {
 		apiKey: apiKey,
 		model:  model,
 		apiURL: apiURL,
-		client: &http.Client{},
+		client: httpClient,
 	}, nil
 }
 

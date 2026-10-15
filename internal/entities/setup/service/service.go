@@ -62,7 +62,7 @@ func (s *Service) setupOpenAI(cfg *config.Config) error {
 	}
 	cfg.OpenAIAPIKey = apiKey
 
-	model, err := prompt.Input("Enter the model to use (default: gpt-4-turbo):")
+	model, err := prompt.Input("Enter the model to use (default: gpt-5.6-luna):")
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (s *Service) setupGemini(cfg *config.Config) error {
 	}
 	cfg.GeminiAPIKey = apiKey
 
-	model, err := prompt.Input("Enter the model to use (default: gemini-3-flash-preview):")
+	model, err := prompt.Input("Enter the model to use (default: gemini-3.1-flash-lite):")
 	if err != nil {
 		return err
 	}
