@@ -24,20 +24,24 @@ func Select(commands []domain.Command) (*domain.Command, error) {
 
 	delegate := commandDelegate{}
 
-	// Высота должна вместить title + все items + внутренние отступы bubbles/list
-	// Эмпирически: title занимает ~2-3 строки, каждый item = 1 строка
-	height := 3 + len(items)
+	// Устанавливаем большую высоту, чтобы вместить все элементы без пагинации
+	// title (~1-2 строки) + len(items) * (Height + Spacing) + запас
+	height := 10 + len(items)*2
 
 	l := list.New(items, delegate, 80, height)
 	l.Title = "Select a command to run:"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
+	l.SetShowPagination(false) // отключаем пагинацию (••)
 
 	// Убираем все стили title (без цвета, без отступов)
 	l.Styles.Title = lipgloss.NewStyle()
 	// Убираем padding после title (сразу начинаем список)
 	l.Styles.TitleBar = lipgloss.NewStyle()
+	// Убираем padding всех остальных компонентов
+	l.Styles.PaginationStyle = lipgloss.NewStyle()
+	l.Styles.HelpStyle = lipgloss.NewStyle()
 
 	m := model{list: l}
 	p := tea.NewProgram(m) // убираем tea.WithAltScreen() для inline режима

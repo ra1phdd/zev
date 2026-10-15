@@ -20,19 +20,22 @@ func Select(promptText string, options []string) (string, error) {
 	delegate.SetHeight(1)  // одна строка на item
 	delegate.SetSpacing(0) // без отступов
 
-	// Высота должна вместить title + все items + внутренние отступы bubbles/list
-	height := 3 + len(items)
+	// Устанавливаем большую высоту для всех элементов
+	height := 10 + len(items)*2
 
 	l := list.New(items, delegate, 60, height)
 	l.Title = promptText + ":"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
+	l.SetShowPagination(false) // отключаем пагинацию
 
 	// Убираем все стили title (без цвета, без отступов)
 	l.Styles.Title = lipgloss.NewStyle()
 	// Убираем padding после title (сразу начинаем список)
 	l.Styles.TitleBar = lipgloss.NewStyle()
+	l.Styles.PaginationStyle = lipgloss.NewStyle()
+	l.Styles.HelpStyle = lipgloss.NewStyle()
 
 	m := selectModel{list: l}
 	p := tea.NewProgram(m) // убираем tea.WithAltScreen() для inline режима
