@@ -49,13 +49,52 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 
 // GetOptions получает варианты команд от Anthropic.
 func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
-	assembledPrompt := fmt.Sprintf(repository.PromptTemplate, envContext, prompt)
+	userMessage := fmt.Sprintf(repository.UserPromptTemplate, envContext, prompt)
 
 	resp, err := p.client.CreateMessages(ctx, anthropic.MessagesRequest{
-		Model: anthropic.Model(p.model),
+		Model:  anthropic.Model(p.model),
+		System: repository.SystemPrompt,
 		Messages: []anthropic.Message{
-			anthropic.NewUserTextMessage(assembledPrompt),
+			anthropic.NewUserTextMessage(userMessage),
 		},
+		MaxTokens: 2048,
+	})
+
+	if err != nil {
+		return nil, repository.WrapNetworkError(p.Name(), err)
+	}
+
+	textContent := resp.GetFirstContentText()
+	if textContent == "" {
+		return nil, domain.ErrNoResponse
+	}
+
+	var result domain.OptionsResponse
+	if err := json.Unmarshal([]byte(textContent), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetOptionsWithHistory получает варианты команд с учётом истории диалога.
+func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
+	messages := []anthropic.Message{}
+
+	// Добавляем историю сообщений
+	for _, msg := range history.Messages {
+		switch msg.Role {
+		case "user":
+			messages = append(messages, anthropic.NewUserTextMessage(msg.Content))
+		case "assistant":
+			messages = append(messages, anthropic.NewAssistantTextMessage(msg.Content))
+		}
+	}
+
+	resp, err := p.client.CreateMessages(ctx, anthropic.MessagesRequest{
+		Model:     anthropic.Model(p.model),
+		System:    history.SystemPrompt,
+		Messages:  messages,
 		MaxTokens: 2048,
 	})
 

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/ra1phdd/zev-go/internal/core/config"
+	"github.com/ra1phdd/zev-go/pkg/tui/list"
 	"github.com/ra1phdd/zev-go/pkg/tui/prompt"
 )
 
@@ -21,13 +22,21 @@ func (s *Service) Run() error {
 	cfg := config.DefaultConfig()
 
 	// Выбор провайдера
-	provider, err := prompt.Select(
-		"Which LLM provider would you like to use?",
-		[]string{"openai", "gemini", "anthropic", "ollama", "opencode"},
-	)
+	providers := []string{"openai", "gemini", "anthropic", "ollama", "opencode"}
+	items := make([]list.Item, len(providers))
+	for i, p := range providers {
+		items[i] = list.NewSimpleItem(p, "")
+	}
+
+	selected, err := list.Select(list.SelectOptions{
+		Title: "Which LLM provider would you like to use?",
+		Items: items,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to select provider: %w", err)
 	}
+
+	provider := selected.(list.SimpleItem).Title()
 	cfg.LLMProvider = provider
 
 	// Настройка выбранного провайдера
@@ -104,7 +113,7 @@ func (s *Service) setupGemini(cfg *config.Config) error {
 		cfg.GeminiModel = model
 	}
 
-	baseURL, err := prompt.Input("Enter custom base URL (press Enter for default):")
+	baseURL, err := prompt.Input("Enter custom base URL (default: https://generativelanguage.googleapis.com):")
 	if err != nil {
 		return err
 	}
@@ -130,7 +139,7 @@ func (s *Service) setupAnthropic(cfg *config.Config) error {
 		cfg.AnthropicModel = model
 	}
 
-	baseURL, err := prompt.Input("Enter custom base URL (press Enter for default):")
+	baseURL, err := prompt.Input("Enter custom base URL (default: https://api.anthropic.com/v1):")
 	if err != nil {
 		return err
 	}

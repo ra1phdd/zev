@@ -49,13 +49,54 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 
 // GetOptions получает варианты команд от OpenAI.
 func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
-	assembledPrompt := fmt.Sprintf(repository.PromptTemplate, envContext, prompt)
+	userMessage := fmt.Sprintf(repository.UserPromptTemplate, envContext, prompt)
 
 	resp, err := p.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model: p.model,
 		Messages: []openai.ChatCompletionMessage{
-			{Role: openai.ChatMessageRoleUser, Content: assembledPrompt},
+			{Role: openai.ChatMessageRoleSystem, Content: repository.SystemPrompt},
+			{Role: openai.ChatMessageRoleUser, Content: userMessage},
 		},
+		ResponseFormat: &openai.ChatCompletionResponseFormat{
+			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
+		},
+	})
+
+	if err != nil {
+		return nil, repository.WrapNetworkError(p.Name(), err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return nil, domain.ErrNoResponse
+	}
+
+	var result domain.OptionsResponse
+	if err := json.Unmarshal([]byte(resp.Choices[0].Message.Content), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetOptionsWithHistory получает варианты команд с учётом истории диалога.
+func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
+	messages := make([]openai.ChatCompletionMessage, 0, 1+len(history.Messages))
+	messages = append(messages, openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleSystem,
+		Content: history.SystemPrompt,
+	})
+
+	// Добавляем историю сообщений
+	for _, msg := range history.Messages {
+		messages = append(messages, openai.ChatCompletionMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
+	resp, err := p.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		Model:    p.model,
+		Messages: messages,
 		ResponseFormat: &openai.ChatCompletionResponseFormat{
 			Type: openai.ChatCompletionResponseFormatTypeJSONObject,
 		},
