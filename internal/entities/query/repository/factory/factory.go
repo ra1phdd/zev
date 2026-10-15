@@ -24,9 +24,9 @@ func NewProvider(cfg *config.Config, httpClient *http.Client) (domain.InferenceP
 	case "openai":
 		return openai.New(cfg.OpenAIAPIKey, cfg.OpenAIModel, cfg.OpenAIBaseURL, httpClient)
 	case "gemini":
-		return gemini.New(cfg.GeminiAPIKey, cfg.GeminiModel, httpClient)
+		return gemini.New(cfg.GeminiAPIKey, cfg.GeminiModel, cfg.GeminiBaseURL, httpClient)
 	case "anthropic":
-		return anthropic.New(cfg.AnthropicAPIKey, cfg.AnthropicModel, httpClient)
+		return anthropic.New(cfg.AnthropicAPIKey, cfg.AnthropicModel, cfg.AnthropicBaseURL, httpClient)
 	case "ollama":
 		return ollama.New(cfg.OllamaBaseURL, cfg.OllamaModel, httpClient)
 	case "opencode":

@@ -15,31 +15,36 @@ import (
 
 // Provider реализует domain.InferenceProvider для Gemini API.
 type Provider struct {
-	apiKey string
-	model  string
-	apiURL string
-	client *http.Client
+	apiKey  string
+	model   string
+	baseURL string
+	apiURL  string
+	client  *http.Client
 }
 
 // New создаёт новый Gemini провайдер.
-func New(apiKey, model string, httpClient *http.Client) (*Provider, error) {
+func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, error) {
 	if apiKey == "" {
 		return nil, errors.New("GEMINI_API_KEY is required. Run `zev setup` to configure")
 	}
 	if model == "" {
 		return nil, errors.New("GEMINI_MODEL is required in config")
 	}
+	if baseURL == "" {
+		return nil, errors.New("GEMINI_BASE_URL is required in config")
+	}
 	if httpClient == nil {
 		return nil, errors.New("httpClient is required")
 	}
 
-	apiURL := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, apiKey)
+	apiURL := fmt.Sprintf("%s/v1beta/models/%s:generateContent?key=%s", baseURL, model, apiKey)
 
 	return &Provider{
-		apiKey: apiKey,
-		model:  model,
-		apiURL: apiURL,
-		client: httpClient,
+		apiKey:  apiKey,
+		model:   model,
+		baseURL: baseURL,
+		apiURL:  apiURL,
+		client:  httpClient,
 	}, nil
 }
 

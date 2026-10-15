@@ -104,6 +104,14 @@ func (s *Service) setupGemini(cfg *config.Config) error {
 		cfg.GeminiModel = model
 	}
 
+	baseURL, err := prompt.Input("Enter custom base URL (press Enter for default):")
+	if err != nil {
+		return err
+	}
+	if baseURL != "" {
+		cfg.GeminiBaseURL = baseURL
+	}
+
 	return nil
 }
 
@@ -120,6 +128,14 @@ func (s *Service) setupAnthropic(cfg *config.Config) error {
 	}
 	if model != "" {
 		cfg.AnthropicModel = model
+	}
+
+	baseURL, err := prompt.Input("Enter custom base URL (press Enter for default):")
+	if err != nil {
+		return err
+	}
+	if baseURL != "" {
+		cfg.AnthropicBaseURL = baseURL
 	}
 
 	return nil

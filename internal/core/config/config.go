@@ -23,12 +23,14 @@ type Config struct {
 	OpenAIBaseURL string `env:"OPENAI_BASE_URL"`
 
 	// Gemini
-	GeminiAPIKey string `env:"GEMINI_API_KEY"`
-	GeminiModel  string `env:"GEMINI_MODEL"`
+	GeminiAPIKey  string `env:"GEMINI_API_KEY"`
+	GeminiModel   string `env:"GEMINI_MODEL"`
+	GeminiBaseURL string `env:"GEMINI_BASE_URL"`
 
 	// Anthropic
-	AnthropicAPIKey string `env:"ANTHROPIC_API_KEY"`
-	AnthropicModel  string `env:"ANTHROPIC_MODEL"`
+	AnthropicAPIKey  string `env:"ANTHROPIC_API_KEY"`
+	AnthropicModel   string `env:"ANTHROPIC_MODEL"`
+	AnthropicBaseURL string `env:"ANTHROPIC_BASE_URL"`
 
 	// Ollama
 	OllamaBaseURL string `env:"OLLAMA_BASE_URL"`
@@ -42,10 +44,12 @@ func DefaultConfig() *Config {
 		HTTPHeaders: map[string]string{
 			"User-Agent": "zev/1.0",
 		},
-		OpenAIModel:    "gpt-5.6-luna",
-		OpenAIBaseURL:  "https://api.openai.com/v1",
-		GeminiModel:    "gemini-3.1-flash-lite",
-		AnthropicModel: "claude-haiku-5.5",
+		OpenAIModel:      "gpt-5.6-luna",
+		OpenAIBaseURL:    "https://api.openai.com/v1",
+		GeminiModel:      "gemini-3.1-flash-lite",
+		GeminiBaseURL:    "https://generativelanguage.googleapis.com",
+		AnthropicModel:   "claude-haiku-5.5",
+		AnthropicBaseURL: "https://api.anthropic.com",
 	}
 }
 
