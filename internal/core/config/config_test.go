@@ -72,4 +72,20 @@ func TestSaveConfig(t *testing.T) {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		t.Errorf("config file not created")
 	}
+
+	// Проверяем, что можем загрузить сохранённый конфиг обратно
+	loadedCfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load after save failed: %v", err)
+	}
+
+	if loadedCfg.LLMProvider != cfg.LLMProvider {
+		t.Errorf("LLMProvider mismatch: got %s, want %s", loadedCfg.LLMProvider, cfg.LLMProvider)
+	}
+	if loadedCfg.GeminiAPIKey != cfg.GeminiAPIKey {
+		t.Errorf("GeminiAPIKey mismatch: got %s, want %s", loadedCfg.GeminiAPIKey, cfg.GeminiAPIKey)
+	}
+	if loadedCfg.GeminiModel != cfg.GeminiModel {
+		t.Errorf("GeminiModel mismatch: got %s, want %s", loadedCfg.GeminiModel, cfg.GeminiModel)
+	}
 }
