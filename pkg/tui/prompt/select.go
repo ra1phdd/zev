@@ -17,28 +17,27 @@ func Select(promptText string, options []string) (string, error) {
 
 	delegate := list.NewDefaultDelegate()
 	delegate.ShowDescription = false
-	delegate.SetHeight(1)  // одна строка на item
-	delegate.SetSpacing(0) // без отступов
+	delegate.SetHeight(1)
+	delegate.SetSpacing(0)
 
-	// Устанавливаем большую высоту для всех элементов
-	height := 10 + len(items)*2
+	height := len(items) * 2
 
-	l := list.New(items, delegate, 60, height)
-	l.Title = promptText + ":"
+	l := list.New(items, delegate, 80, height)
+	l.Title = "Select a command to run:"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
-	l.SetShowPagination(false) // отключаем пагинацию
+	l.SetShowTitle(true)
+	l.SetShowPagination(false)
+	l.SetShowFilter(false)
 
-	// Убираем все стили title (без цвета, без отступов)
-	l.Styles.Title = lipgloss.NewStyle()
-	// Убираем padding после title (сразу начинаем список)
-	l.Styles.TitleBar = lipgloss.NewStyle()
-	l.Styles.PaginationStyle = lipgloss.NewStyle()
-	l.Styles.HelpStyle = lipgloss.NewStyle()
+	l.Styles.Title = lipgloss.NewStyle().Margin(0).Padding(0)
+	l.Styles.TitleBar = lipgloss.NewStyle().Margin(0).Padding(0)
+	l.Styles.PaginationStyle = lipgloss.NewStyle().Margin(0).Padding(0)
+	l.Styles.HelpStyle = lipgloss.NewStyle().Margin(0).Padding(0)
 
 	m := selectModel{list: l}
-	p := tea.NewProgram(m) // убираем tea.WithAltScreen() для inline режима
+	p := tea.NewProgram(m)
 
 	result, err := p.Run()
 	if err != nil {

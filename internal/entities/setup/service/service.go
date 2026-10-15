@@ -23,7 +23,7 @@ func (s *Service) Run() error {
 	// Выбор провайдера
 	provider, err := prompt.Select(
 		"Which LLM provider would you like to use?",
-		[]string{"openai", "gemini", "ollama", "opencode"},
+		[]string{"openai", "gemini", "anthropic", "ollama", "opencode"},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to select provider: %w", err)
@@ -38,6 +38,10 @@ func (s *Service) Run() error {
 		}
 	case "gemini":
 		if err := s.setupGemini(cfg); err != nil {
+			return err
+		}
+	case "anthropic":
+		if err := s.setupAnthropic(cfg); err != nil {
 			return err
 		}
 	case "ollama":
@@ -98,6 +102,24 @@ func (s *Service) setupGemini(cfg *config.Config) error {
 	}
 	if model != "" {
 		cfg.GeminiModel = model
+	}
+
+	return nil
+}
+
+func (s *Service) setupAnthropic(cfg *config.Config) error {
+	apiKey, err := prompt.Input("Enter your Anthropic API key:")
+	if err != nil {
+		return err
+	}
+	cfg.AnthropicAPIKey = apiKey
+
+	model, err := prompt.Input("Enter the model to use (default: claude-haiku-5.5):")
+	if err != nil {
+		return err
+	}
+	if model != "" {
+		cfg.AnthropicModel = model
 	}
 
 	return nil

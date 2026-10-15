@@ -7,6 +7,7 @@ import (
 
 	"github.com/ra1phdd/zev-go/internal/core/config"
 	"github.com/ra1phdd/zev-go/internal/core/domain"
+	"github.com/ra1phdd/zev-go/internal/entities/query/repository/anthropic"
 	"github.com/ra1phdd/zev-go/internal/entities/query/repository/gemini"
 	"github.com/ra1phdd/zev-go/internal/entities/query/repository/ollama"
 	"github.com/ra1phdd/zev-go/internal/entities/query/repository/openai"
@@ -24,6 +25,8 @@ func NewProvider(cfg *config.Config, httpClient *http.Client) (domain.InferenceP
 		return openai.New(cfg.OpenAIAPIKey, cfg.OpenAIModel, cfg.OpenAIBaseURL, httpClient)
 	case "gemini":
 		return gemini.New(cfg.GeminiAPIKey, cfg.GeminiModel, httpClient)
+	case "anthropic":
+		return anthropic.New(cfg.AnthropicAPIKey, cfg.AnthropicModel, httpClient)
 	case "ollama":
 		return ollama.New(cfg.OllamaBaseURL, cfg.OllamaModel, httpClient)
 	case "opencode":

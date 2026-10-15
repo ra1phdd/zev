@@ -23,28 +23,24 @@ func Select(commands []domain.Command) (*domain.Command, error) {
 	}
 
 	delegate := commandDelegate{}
-
-	// Устанавливаем большую высоту, чтобы вместить все элементы без пагинации
-	// title (~1-2 строки) + len(items) * (Height + Spacing) + запас
-	height := 10 + len(items)*2
+	height := len(items) * 2
 
 	l := list.New(items, delegate, 80, height)
 	l.Title = "Select a command to run:"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
-	l.SetShowPagination(false) // отключаем пагинацию (••)
+	l.SetShowTitle(true)
+	l.SetShowPagination(false)
+	l.SetShowFilter(false)
 
-	// Убираем все стили title (без цвета, без отступов)
-	l.Styles.Title = lipgloss.NewStyle()
-	// Убираем padding после title (сразу начинаем список)
-	l.Styles.TitleBar = lipgloss.NewStyle()
-	// Убираем padding всех остальных компонентов
-	l.Styles.PaginationStyle = lipgloss.NewStyle()
-	l.Styles.HelpStyle = lipgloss.NewStyle()
+	l.Styles.Title = lipgloss.NewStyle().Margin(0).Padding(0)
+	l.Styles.TitleBar = lipgloss.NewStyle().Margin(0).Padding(0)
+	l.Styles.PaginationStyle = lipgloss.NewStyle().Margin(0).Padding(0)
+	l.Styles.HelpStyle = lipgloss.NewStyle().Margin(0).Padding(0)
 
 	m := model{list: l}
-	p := tea.NewProgram(m) // убираем tea.WithAltScreen() для inline режима
+	p := tea.NewProgram(m)
 
 	result, err := p.Run()
 	if err != nil {
@@ -81,8 +77,8 @@ func (i commandItem) FilterValue() string { return i.cmd.Command }
 
 type commandDelegate struct{}
 
-func (d commandDelegate) Height() int                             { return 1 } // одна строка вместо двух
-func (d commandDelegate) Spacing() int                            { return 0 } // без отступов между items
+func (d commandDelegate) Height() int                             { return 1 }
+func (d commandDelegate) Spacing() int                            { return 0 }
 func (d commandDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d commandDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	i, ok := item.(commandItem)
