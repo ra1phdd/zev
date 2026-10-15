@@ -17,11 +17,10 @@ func Select(promptText string, options []string) (string, error) {
 
 	delegate := list.NewDefaultDelegate()
 	delegate.ShowDescription = false
-	delegate.SetHeight(1)  // одна строка на item
 	delegate.SetSpacing(0) // без отступов
 
 	// Компактный размер: только items без padding
-	l := list.New(items, delegate, 60, len(items)*3)
+	l := list.New(items, delegate, 60, len(items)*3+3)
 	l.Title = promptText + ":"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
