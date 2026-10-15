@@ -14,17 +14,21 @@ import (
 
 // Provider реализует domain.InferenceProvider для Anthropic API.
 type Provider struct {
-	client *anthropic.Client
-	model  string
+	client  *anthropic.Client
+	model   string
+	baseURL string
 }
 
 // New создаёт новый Anthropic провайдер.
-func New(apiKey, model string, httpClient *http.Client) (*Provider, error) {
+func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, error) {
 	if apiKey == "" {
 		return nil, errors.New("ANTHROPIC_API_KEY is required. Run `zev setup` to configure")
 	}
 	if model == "" {
 		return nil, errors.New("ANTHROPIC_MODEL is required in config")
+	}
+	if baseURL == "" {
+		return nil, errors.New("ANTHROPIC_BASE_URL is required in config")
 	}
 	if httpClient == nil {
 		return nil, errors.New("httpClient is required")
@@ -33,11 +37,13 @@ func New(apiKey, model string, httpClient *http.Client) (*Provider, error) {
 	client := anthropic.NewClient(
 		apiKey,
 		anthropic.WithHTTPClient(httpClient),
+		anthropic.WithBaseURL(baseURL),
 	)
 
 	return &Provider{
-		client: client,
-		model:  model,
+		client:  client,
+		model:   model,
+		baseURL: baseURL,
 	}, nil
 }
 
