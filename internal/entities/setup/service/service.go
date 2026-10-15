@@ -143,8 +143,8 @@ func (s *Service) setupOpenCode(cfg *config.Config) error {
 
 	// Формируем заголовки OpenCode
 	cfg.HTTPHeaders = map[string]string{
-		"User-Agent":       "opencode/latest/2.0.29/cli",
-		"opencode-session": "ses_ebeea89daffe69kTavLoPHLIzF",
+		"User-Agent":         "opencode/latest/2.0.29/cli",
+		"x-opencode-session": "ses_ebeea89daffe69kTavLoPHLIzF",
 	}
 
 	return nil

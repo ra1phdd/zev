@@ -48,12 +48,12 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 
 // openCodeRequest представляет запрос к OpenCode API.
 type openCodeRequest struct {
-	Model               string                 `json:"model"`
-	Messages            []openCodeMessage      `json:"messages"`
-	Tools               []openCodeTool         `json:"tools"`
-	Stream              bool                   `json:"stream"`
-	StreamOptions       openCodeStreamOptions  `json:"stream_options"`
-	MaxCompletionTokens int                    `json:"max_completion_tokens"`
+	Model               string                  `json:"model"`
+	Messages            []openCodeMessage       `json:"messages"`
+	Tools               []openCodeTool          `json:"tools"`
+	Stream              bool                    `json:"stream"`
+	StreamOptions       openCodeStreamOptions   `json:"stream_options"`
+	MaxCompletionTokens int                     `json:"max_completion_tokens"`
 	ResponseFormat      *openCodeResponseFormat `json:"response_format,omitempty"`
 }
 
@@ -122,6 +122,8 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Host", "opencode.ai")
 	req.Header.Set("Authorization", "Bearer "+p.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
