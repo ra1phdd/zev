@@ -20,8 +20,8 @@ func Select(promptText string, options []string) (string, error) {
 	delegate.SetHeight(1)  // одна строка на item
 	delegate.SetSpacing(0) // без отступов
 
-	// Высота = title (1 строка) + все items (len(items) строк)
-	height := 1 + len(items)
+	// Высота должна вместить title + все items + внутренние отступы bubbles/list
+	height := 3 + len(items)
 
 	l := list.New(items, delegate, 60, height)
 	l.Title = promptText + ":"

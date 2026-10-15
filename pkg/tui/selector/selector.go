@@ -24,8 +24,9 @@ func Select(commands []domain.Command) (*domain.Command, error) {
 
 	delegate := commandDelegate{}
 
-	// Высота = title (1 строка) + все items (len(items) строк)
-	height := 1 + len(items)
+	// Высота должна вместить title + все items + внутренние отступы bubbles/list
+	// Эмпирически: title занимает ~2-3 строки, каждый item = 1 строка
+	height := 3 + len(items)
 
 	l := list.New(items, delegate, 80, height)
 	l.Title = "Select a command to run:"
