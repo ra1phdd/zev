@@ -46,6 +46,7 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 	}, nil
 }
 
+
 // GetOptions получает варианты команд от OpenAI.
 func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
 	assembledPrompt := fmt.Sprintf(repository.PromptTemplate, envContext, prompt)
