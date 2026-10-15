@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
@@ -67,25 +69,23 @@ func Save(cfg *Config) error {
 		return fmt.Errorf("failed to create config dir: %w", err)
 	}
 
-	// Формируем содержимое .env
-	content := fmt.Sprintf(`LLM_PROVIDER=%s
-OPENAI_API_KEY=%s
-OPENAI_MODEL=%s
-OPENAI_BASE_URL=%s
-GEMINI_API_KEY=%s
-GEMINI_MODEL=%s
-OLLAMA_BASE_URL=%s
-OLLAMA_MODEL=%s
-`,
-		cfg.LLMProvider,
-		cfg.OpenAIAPIKey,
-		cfg.OpenAIModel,
-		cfg.OpenAIBaseURL,
-		cfg.GeminiAPIKey,
-		cfg.GeminiModel,
-		cfg.OllamaBaseURL,
-		cfg.OllamaModel,
-	)
+	// Формируем содержимое .env через рефлексию
+	var lines []string
+	v := reflect.ValueOf(*cfg)
+	t := v.Type()
+
+	for i := range t.NumField() {
+		field := t.Field(i)
+		envTag := field.Tag.Get("env")
+		if envTag == "" {
+			continue
+		}
+
+		value := v.Field(i)
+		lines = append(lines, fmt.Sprintf("%s=%v", envTag, value.Interface()))
+	}
+
+	content := strings.Join(lines, "\n") + "\n"
 
 	// Записываем файл с правами 0600 (только владелец может читать/писать)
 	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
