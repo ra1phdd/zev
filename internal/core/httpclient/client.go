@@ -34,12 +34,9 @@ type headersTransport struct {
 }
 
 func (t *headersTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Клонируем запрос, чтобы не изменять оригинал
 	reqCopy := req.Clone(req.Context())
 
-	// Применяем все заголовки из конфига (сохраняя оригинальный регистр)
 	for key, value := range t.headers {
-		// Используем прямую запись в map для сохранения оригинального регистра
 		reqCopy.Header[key] = []string{value}
 	}
 
