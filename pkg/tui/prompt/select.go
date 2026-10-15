@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Select показывает список опций для выбора.
@@ -19,12 +20,17 @@ func Select(promptText string, options []string) (string, error) {
 	delegate.SetHeight(1)  // одна строка на item
 	delegate.SetSpacing(0) // без отступов
 
-	// Компактный размер
+	// Компактный размер: только items без padding
 	l := list.New(items, delegate, 60, len(items))
-	l.Title = promptText
+	l.Title = promptText + ":"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
-	l.SetShowHelp(false) // убираем help
+	l.SetShowHelp(false)
+
+	// Убираем все стили title (без цвета, без отступов)
+	l.Styles.Title = lipgloss.NewStyle()
+	// Убираем padding после title (сразу начинаем список)
+	l.Styles.TitleBar = lipgloss.NewStyle()
 
 	m := selectModel{list: l}
 	p := tea.NewProgram(m) // убираем tea.WithAltScreen() для inline режима

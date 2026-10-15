@@ -23,11 +23,16 @@ func Select(commands []domain.Command) (*domain.Command, error) {
 	}
 
 	delegate := commandDelegate{}
-	l := list.New(items, delegate, 80, len(items)*2+3) // width=80, компактная высота
-	l.Title = "Select a command to run"
+	l := list.New(items, delegate, 80, len(items)) // width=80, только items без padding
+	l.Title = "Select a command to run:"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
-	l.SetShowHelp(false) // убираем help для компактности
+	l.SetShowHelp(false)
+
+	// Убираем все стили title (без цвета, без отступов)
+	l.Styles.Title = lipgloss.NewStyle()
+	// Убираем padding после title (сразу начинаем список)
+	l.Styles.TitleBar = lipgloss.NewStyle()
 
 	m := model{list: l}
 	p := tea.NewProgram(m) // убираем tea.WithAltScreen() для inline режима
