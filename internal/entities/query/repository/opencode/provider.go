@@ -1,6 +1,7 @@
 package opencode
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/ra1phdd/zev-go/internal/core/domain"
 	"github.com/ra1phdd/zev-go/internal/entities/query/repository"
@@ -48,16 +50,25 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 type openCodeRequest struct {
 	Model               string                 `json:"model"`
 	Messages            []openCodeMessage      `json:"messages"`
-	Tools               []any                  `json:"tools"`
+	Tools               []openCodeTool         `json:"tools"`
 	Stream              bool                   `json:"stream"`
 	StreamOptions       openCodeStreamOptions  `json:"stream_options"`
 	MaxCompletionTokens int                    `json:"max_completion_tokens"`
-	ResponseFormat      openCodeResponseFormat `json:"response_format"`
+	ResponseFormat      *openCodeResponseFormat `json:"response_format,omitempty"`
 }
 
 type openCodeMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+}
+
+type openCodeTool struct {
+	Type     string               `json:"type"`
+	Function openCodeToolFunction `json:"function"`
+}
+
+type openCodeToolFunction struct {
+	Name string `json:"name"`
 }
 
 type openCodeStreamOptions struct {
@@ -68,12 +79,13 @@ type openCodeResponseFormat struct {
 	Type string `json:"type"`
 }
 
-// openCodeResponse представляет ответ от OpenCode API.
-type openCodeResponse struct {
+// openCodeResponse представляет ответ от OpenCode API (streaming).
+type openCodeStreamChunk struct {
 	Choices []struct {
-		Message struct {
+		Delta struct {
 			Content string `json:"content"`
-		} `json:"message"`
+		} `json:"delta"`
+		FinishReason *string `json:"finish_reason"`
 	} `json:"choices"`
 }
 
@@ -86,11 +98,17 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 		Messages: []openCodeMessage{
 			{Role: "user", Content: assembledPrompt},
 		},
-		Tools:               []any{},
-		Stream:              false, // Для синхронного режима
+		Tools: []openCodeTool{
+			{
+				Type: "function",
+				Function: openCodeToolFunction{
+					Name: "read",
+				},
+			},
+		},
+		Stream:              true,
 		StreamOptions:       openCodeStreamOptions{IncludeUsage: true},
 		MaxCompletionTokens: 32000,
-		ResponseFormat:      openCodeResponseFormat{Type: "json_object"},
 	}
 
 	body, err := json.Marshal(reqBody)
@@ -118,22 +136,44 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 		return nil, fmt.Errorf("OpenCode API returned status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+	// Читаем streaming-ответ (SSE)
+	var fullContent strings.Builder
+	scanner := bufio.NewScanner(resp.Body)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// SSE формат: "data: {...}" или "data: [DONE]"
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "[DONE]" {
+			break
+		}
+
+		var chunk openCodeStreamChunk
+		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+			// Игнорируем невалидные чанки
+			continue
+		}
+
+		if len(chunk.Choices) > 0 {
+			fullContent.WriteString(chunk.Choices[0].Delta.Content)
+		}
 	}
 
-	var apiResp openCodeResponse
-	if err := json.Unmarshal(bodyBytes, &apiResp); err != nil {
-		return nil, fmt.Errorf("failed to parse OpenCode response: %w", err)
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read streaming response: %w", err)
 	}
 
-	if len(apiResp.Choices) == 0 {
+	if fullContent.Len() == 0 {
 		return nil, domain.ErrNoResponse
 	}
 
 	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(apiResp.Choices[0].Message.Content), &result); err != nil {
+	if err := json.Unmarshal([]byte(fullContent.String()), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse command options: %w", err)
 	}
 
