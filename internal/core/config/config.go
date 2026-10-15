@@ -61,6 +61,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse env: %w", err)
 	}
 
+	// Вручную парсим HTTP_HEADERS для сохранения регистра ключей
+	if headersEnv := os.Getenv("HTTP_HEADERS"); headersEnv != "" {
+		cfg.HTTPHeaders = parseHTTPHeaders(headersEnv)
+	}
+
 	return cfg, nil
 }
 
@@ -125,4 +130,28 @@ func Save(cfg *Config) error {
 var getConfigPath = func() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".zevrc")
+}
+
+// parseHTTPHeaders парсит строку HTTP_HEADERS с сохранением регистра ключей.
+// Формат: "Header1:Value1,Header2:Value2".
+func parseHTTPHeaders(input string) map[string]string {
+	if input == "" {
+		return nil
+	}
+
+	headers := make(map[string]string)
+	pairs := strings.SplitSeq(input, ",")
+
+	for pair := range pairs {
+		parts := strings.SplitN(pair, ":", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			if key != "" {
+				headers[key] = value
+			}
+		}
+	}
+
+	return headers
 }
