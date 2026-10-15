@@ -62,7 +62,7 @@ func (s *Service) setupOpenAI(cfg *config.Config) error {
 	}
 	cfg.OpenAIAPIKey = apiKey
 
-	model, err := prompt.Input("Enter the model to use (default: gpt-4-turbo):")
+	model, err := prompt.Input("Model (default: gpt-4-turbo):")
 	if err != nil {
 		return err
 	}
@@ -70,13 +70,14 @@ func (s *Service) setupOpenAI(cfg *config.Config) error {
 		cfg.OpenAIModel = model
 	}
 
-	baseURL, err := prompt.Input("Enter custom base URL (press Enter for default):")
+	baseURL, err := prompt.Input("Base URL (default: https://api.openai.com/v1):")
 	if err != nil {
 		return err
 	}
 	if baseURL != "" {
 		cfg.OpenAIBaseURL = baseURL
 	}
+	// Если не указан, используется дефолт из DefaultConfig
 
 	return nil
 }
@@ -88,7 +89,7 @@ func (s *Service) setupGemini(cfg *config.Config) error {
 	}
 	cfg.GeminiAPIKey = apiKey
 
-	model, err := prompt.Input("Enter the model to use (default: gemini-3-flash-preview):")
+	model, err := prompt.Input("Model (default: gemini-3-flash-preview):")
 	if err != nil {
 		return err
 	}
@@ -100,7 +101,7 @@ func (s *Service) setupGemini(cfg *config.Config) error {
 }
 
 func (s *Service) setupOllama(cfg *config.Config) error {
-	baseURL, err := prompt.Input("Enter Ollama base URL (default: http://localhost:11434):")
+	baseURL, err := prompt.Input("Base URL (default: http://localhost:11434):")
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,7 @@ func (s *Service) setupOllama(cfg *config.Config) error {
 	}
 	cfg.OllamaBaseURL = baseURL
 
-	model, err := prompt.Input("Enter the model to use (e.g., llama2):")
+	model, err := prompt.Input("Model (e.g., llama2, mistral):")
 	if err != nil {
 		return err
 	}
