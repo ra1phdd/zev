@@ -23,7 +23,11 @@ func Select(commands []domain.Command) (*domain.Command, error) {
 	}
 
 	delegate := commandDelegate{}
-	l := list.New(items, delegate, 80, len(items)) // width=80, только items без padding
+
+	// Высота = title (1 строка) + все items (len(items) строк)
+	height := 1 + len(items)
+
+	l := list.New(items, delegate, 80, height)
 	l.Title = "Select a command to run:"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
