@@ -15,13 +15,17 @@ func Select(promptText string, options []string) (string, error) {
 	}
 
 	delegate := list.NewDefaultDelegate()
-	l := list.New(items, delegate, 0, 0)
+	delegate.ShowDescription = false
+
+	// Компактный размер: width=60, height=items+title+help
+	l := list.New(items, delegate, 60, len(items)+4)
 	l.Title = promptText
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
+	l.SetShowHelp(true)
 
 	m := selectModel{list: l}
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m) // убираем tea.WithAltScreen() для inline режима
 
 	result, err := p.Run()
 	if err != nil {
@@ -53,9 +57,8 @@ func (m selectModel) Init() tea.Cmd {
 }
 
 func (m selectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
 		case "enter":
 			i, ok := m.list.SelectedItem().(item)
 			if ok {
@@ -66,9 +69,6 @@ func (m selectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cancelled = true
 			return m, tea.Quit
 		}
-	case tea.WindowSizeMsg:
-		h, v := msg.Width, msg.Height
-		m.list.SetSize(h, v)
 	}
 
 	var cmd tea.Cmd

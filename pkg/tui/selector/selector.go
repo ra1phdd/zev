@@ -23,13 +23,14 @@ func Select(commands []domain.Command) (*domain.Command, error) {
 	}
 
 	delegate := commandDelegate{}
-	l := list.New(items, delegate, 0, 0)
+	l := list.New(items, delegate, 80, len(items)*3+4) // width=80, height=items*delegate_height+title+help
 	l.Title = "Select a command to run"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
+	l.SetShowHelp(true)
 
 	m := model{list: l}
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m) // убираем tea.WithAltScreen() для inline режима
 
 	result, err := p.Run()
 	if err != nil {
@@ -95,9 +96,8 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
 		case "enter":
 			i, ok := m.list.SelectedItem().(commandItem)
 			if ok {
@@ -108,9 +108,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cancelled = true
 			return m, tea.Quit
 		}
-	case tea.WindowSizeMsg:
-		h, v := msg.Width, msg.Height
-		m.list.SetSize(h, v)
 	}
 
 	var cmd tea.Cmd
