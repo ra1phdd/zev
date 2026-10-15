@@ -23,11 +23,11 @@ func Select(commands []domain.Command) (*domain.Command, error) {
 	}
 
 	delegate := commandDelegate{}
-	l := list.New(items, delegate, 80, len(items)*3+4) // width=80, height=items*delegate_height+title+help
+	l := list.New(items, delegate, 80, len(items)*2+3) // width=80, компактная высота
 	l.Title = "Select a command to run"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
-	l.SetShowHelp(true)
+	l.SetShowHelp(false) // убираем help для компактности
 
 	m := model{list: l}
 	p := tea.NewProgram(m) // убираем tea.WithAltScreen() для inline режима
@@ -67,8 +67,8 @@ func (i commandItem) FilterValue() string { return i.cmd.Command }
 
 type commandDelegate struct{}
 
-func (d commandDelegate) Height() int                             { return 2 }
-func (d commandDelegate) Spacing() int                            { return 1 }
+func (d commandDelegate) Height() int                             { return 1 } // одна строка вместо двух
+func (d commandDelegate) Spacing() int                            { return 0 } // без отступов между items
 func (d commandDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d commandDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	i, ok := item.(commandItem)
@@ -87,8 +87,8 @@ func (d commandDelegate) Render(w io.Writer, m list.Model, index int, item list.
 }
 
 var (
-	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
+	itemStyle         = lipgloss.NewStyle().PaddingLeft(1)
+	selectedItemStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("170")).Bold(true)
 )
 
 func (m model) Init() tea.Cmd {
