@@ -129,7 +129,7 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("OpenCode API call failed: %w", err)
+		return nil, repository.WrapNetworkError("OpenCode", err)
 	}
 	defer resp.Body.Close()
 

@@ -62,7 +62,7 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("OpenAI API call failed: %w", err)
+		return nil, repository.WrapNetworkError(p.Name(), err)
 	}
 
 	if len(resp.Choices) == 0 {
