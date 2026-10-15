@@ -87,8 +87,13 @@ func Save(cfg *Config) error {
 
 		value := v.Field(i)
 
-		// Специальная обработка для HTTPHeaders
-		if field.Name == "HTTPHeaders" && value.Kind() == reflect.Map {
+		// Пропускаем пустые значения
+		if value.IsZero() {
+			continue
+		}
+
+		// Специальная обработка для map[string]string полей
+		if value.Kind() == reflect.Map && value.Type().Key().Kind() == reflect.String && value.Type().Elem().Kind() == reflect.String {
 			var headerPairs []string
 			iter := value.MapRange()
 			for iter.Next() {
