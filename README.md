@@ -140,6 +140,9 @@ zev-go/
 
 ```bash
 go build -o zev ./cmd/zev
+
+# С версией
+go build -ldflags "-X main.version=1.0.0" -o zev ./cmd/zev
 ```
 
 **Запуск линтера:**
