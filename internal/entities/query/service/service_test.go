@@ -23,6 +23,13 @@ func (m *mockProvider) GetOptions(_ context.Context, prompt, _ string) (*domain.
 	return m.response, nil
 }
 
+func (m *mockProvider) GetOptionsWithHistory(_ context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.response, nil
+}
+
 func (m *mockProvider) Name() string {
 	return m.name
 }
@@ -86,7 +93,7 @@ func TestGetEnvContext(t *testing.T) {
 	}
 
 	srv := New(mock)
-	ctx := srv.getEnvContext()
+	ctx := srv.GetEnvContext()
 
 	if ctx == "" {
 		t.Error("expected non-empty env context")

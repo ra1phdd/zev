@@ -1,0 +1,13 @@
+Here is some context about the user's environment:
+
+==============
+
+%s
+
+==============
+
+Here is the users prompt:
+
+==============
+
+%s

@@ -25,12 +25,12 @@ func (s *Service) GetOptions(ctx context.Context, prompt string) (*domain.Option
 		return nil, domain.ErrInvalidPrompt
 	}
 
-	envContext := s.getEnvContext()
+	envContext := s.GetEnvContext()
 	return s.provider.GetOptions(ctx, prompt, envContext)
 }
 
-// getEnvContext собирает информацию об окружении пользователя.
-func (s *Service) getEnvContext() string {
+// GetEnvContext собирает информацию об окружении пользователя.
+func (s *Service) GetEnvContext() string {
 	osName := runtime.GOOS + " " + runtime.GOARCH
 	shell := os.Getenv("SHELL")
 	if shell == "" {

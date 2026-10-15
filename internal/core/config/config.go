@@ -49,7 +49,7 @@ func DefaultConfig() *Config {
 		GeminiModel:      "gemini-3.1-flash-lite",
 		GeminiBaseURL:    "https://generativelanguage.googleapis.com",
 		AnthropicModel:   "claude-haiku-5.5",
-		AnthropicBaseURL: "https://api.anthropic.com",
+		AnthropicBaseURL: "https://api.anthropic.com/v1",
 	}
 }
 

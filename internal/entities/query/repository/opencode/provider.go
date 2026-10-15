@@ -91,12 +91,13 @@ type openCodeStreamChunk struct {
 
 // GetOptions получает варианты команд от OpenCode.
 func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
-	assembledPrompt := fmt.Sprintf(repository.PromptTemplate, envContext, prompt)
+	userMessage := fmt.Sprintf(repository.UserPromptTemplate, envContext, prompt)
 
 	reqBody := openCodeRequest{
 		Model: p.model,
 		Messages: []openCodeMessage{
-			{Role: "user", Content: assembledPrompt},
+			{Role: "system", Content: repository.SystemPrompt},
+			{Role: "user", Content: userMessage},
 		},
 		Tools: []openCodeTool{
 			{
@@ -111,6 +112,46 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 		MaxCompletionTokens: 32000,
 	}
 
+	return p.sendRequest(ctx, reqBody)
+}
+
+// GetOptionsWithHistory получает варианты команд с учётом истории диалога.
+func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
+	messages := make([]openCodeMessage, 0, 1+len(history.Messages))
+	messages = append(messages, openCodeMessage{
+		Role:    "system",
+		Content: history.SystemPrompt,
+	})
+
+	// Добавляем историю сообщений
+	for _, msg := range history.Messages {
+		messages = append(messages, openCodeMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
+	reqBody := openCodeRequest{
+		Model:    p.model,
+		Messages: messages,
+		Tools: []openCodeTool{
+			{
+				Type: "function",
+				Function: openCodeToolFunction{
+					Name: "read",
+				},
+			},
+		},
+		Stream:              true,
+		StreamOptions:       openCodeStreamOptions{IncludeUsage: true},
+		MaxCompletionTokens: 32000,
+	}
+
+	return p.sendRequest(ctx, reqBody)
+}
+
+// sendRequest отправляет запрос к OpenCode API и обрабатывает streaming-ответ.
+func (p *Provider) sendRequest(ctx context.Context, reqBody openCodeRequest) (*domain.OptionsResponse, error) {
 	body, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
