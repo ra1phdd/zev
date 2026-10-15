@@ -1,10 +1,12 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/ra1phdd/config"
+	"github.com/caarlos0/env/v11"
+	"github.com/joho/godotenv"
 )
 
 // Config представляет конфигурацию zev.
@@ -38,32 +40,64 @@ func DefaultConfig() *Config {
 
 // Load загружает конфигурацию из .env файла.
 func Load() (*Config, error) {
-	cfg, err := config.LoadGeneric(
-		DefaultConfig,
-		config.WithConfigPath(getConfigPath()),
-		config.WithSecurityPath(getSecurityPath()),
-		config.WithEnvironment(true),
-		config.WithMissingConfigAllowed(true),
-		config.WithEmptyConfigAllowed(true),
-	)
-	return cfg, err
+	cfg := DefaultConfig()
+
+	// Загружаем .env файл если он существует
+	configPath := getConfigPath()
+	if _, err := os.Stat(configPath); err == nil {
+		if err := godotenv.Load(configPath); err != nil {
+			return nil, fmt.Errorf("failed to load .env: %w", err)
+		}
+	}
+
+	// Парсим переменные окружения в структуру
+	if err := env.Parse(cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse env: %w", err)
+	}
+
+	return cfg, nil
 }
 
 // Save сохраняет конфигурацию в .env файл.
 func Save(cfg *Config) error {
-	return config.SaveGeneric(
-		cfg,
-		config.WithConfigPath(getConfigPath()),
-		config.WithSecurityPath(getSecurityPath()),
+	configPath := getConfigPath()
+
+	// Создаём директорию если её нет
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		return fmt.Errorf("failed to create config dir: %w", err)
+	}
+
+	// Формируем содержимое .env
+	content := fmt.Sprintf(`LLM_PROVIDER=%s
+OPENAI_API_KEY=%s
+OPENAI_MODEL=%s
+OPENAI_BASE_URL=%s
+GEMINI_API_KEY=%s
+GEMINI_MODEL=%s
+OLLAMA_BASE_URL=%s
+OLLAMA_MODEL=%s
+`,
+		cfg.LLMProvider,
+		cfg.OpenAIAPIKey,
+		cfg.OpenAIModel,
+		cfg.OpenAIBaseURL,
+		cfg.GeminiAPIKey,
+		cfg.GeminiModel,
+		cfg.OllamaBaseURL,
+		cfg.OllamaModel,
 	)
+
+	// Записываем файл с правами 0600 (только владелец может читать/писать)
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	return nil
 }
 
-func getConfigPath() string {
+// getConfigPath возвращает путь к конфигурационному файлу.
+// Переменная для возможности подмены в тестах.
+var getConfigPath = func() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".zevrc")
-}
-
-func getSecurityPath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".zevrc.security")
 }

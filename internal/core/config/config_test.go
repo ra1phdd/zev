@@ -24,17 +24,18 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // меняет глобальную getConfigPath
 func TestLoadConfigWithMissing(t *testing.T) {
 	// Создаём временный каталог
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "test.yaml")
-	securityPath := filepath.Join(tmpDir, "test.security.yaml")
+	configPath := filepath.Join(tmpDir, ".zevrc")
 
-	// Устанавливаем env для переопределения путей
-	t.Setenv("APP_CONFIG", configPath)
-	t.Setenv("APP_SECURITY", securityPath)
+	// Подменяем getConfigPath для теста
+	originalGetConfigPath := getConfigPath
+	getConfigPath = func() string { return configPath }
+	t.Cleanup(func() { getConfigPath = originalGetConfigPath })
 
-	// Загрузка должна пройти успешно с defaults
+	// Загрузка должна пройти успешно с defaults (файла нет)
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -45,13 +46,15 @@ func TestLoadConfigWithMissing(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // меняет глобальную getConfigPath
 func TestSaveConfig(t *testing.T) {
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "config.yaml")
-	securityPath := filepath.Join(tmpDir, "config.security.yaml")
+	configPath := filepath.Join(tmpDir, ".zevrc")
 
-	t.Setenv("APP_CONFIG", configPath)
-	t.Setenv("APP_SECURITY", securityPath)
+	// Временно заменяем getConfigPath для теста
+	originalGetConfigPath := getConfigPath
+	getConfigPath = func() string { return configPath }
+	t.Cleanup(func() { getConfigPath = originalGetConfigPath })
 
 	cfg := &Config{
 		LLMProvider:   "gemini",
