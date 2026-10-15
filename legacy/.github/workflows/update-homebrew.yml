@@ -1,0 +1,65 @@
+name: Update Homebrew Tap
+
+on:
+  workflow_run:
+    workflows: ["Publish to PyPI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'PyPI version to package (e.g. 0.10.2)'
+        required: true
+
+jobs:
+  update-tap:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(python -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); print(d['project']['version'])")
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install poet and zev
+        run: |
+          pip install setuptools homebrew-pypi-poet
+          for i in $(seq 1 10); do
+            pip install "zev==${{ steps.version.outputs.version }}" && break
+            echo "Attempt $i failed, retrying in 30s..."
+            sleep 30
+          done
+
+      - name: Generate formula
+        run: |
+          python scripts/generate_formula.py "${{ steps.version.outputs.version }}" > Formula/zev.rb
+          cat Formula/zev.rb
+
+      - name: Push to homebrew-zev tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/dtnewman/homebrew-zev.git" tap
+          mkdir -p tap/Formula
+          cp Formula/zev.rb tap/Formula/zev.rb
+          cd tap
+          git add Formula/zev.rb
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "Update zev to ${{ steps.version.outputs.version }}"
+          git push
