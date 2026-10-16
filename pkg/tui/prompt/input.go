@@ -39,16 +39,55 @@ type inputModel struct {
 	prompt    string
 	value     string
 	cancelled bool
+	width     int // ширина терминала
 }
 
 func (m inputModel) Init() tea.Cmd {
 	return textinput.Blink
 }
 
+// wrapText переносит текст на несколько строк с учётом максимальной ширины.
+func wrapText(text string, maxWidth int) string {
+	if len(text) <= maxWidth {
+		return text
+	}
+
+	var lines []string
+	remaining := text
+
+	for len(remaining) > 0 {
+		if len(remaining) <= maxWidth {
+			lines = append(lines, remaining)
+			break
+		}
+
+		// Разрыв по последнему пробелу
+		breakPoint := strings.LastIndex(remaining[:maxWidth], " ")
+		if breakPoint == -1 {
+			// Нет пробелов — режем по ширине
+			breakPoint = maxWidth
+			lines = append(lines, remaining[:breakPoint])
+			remaining = remaining[breakPoint:]
+		} else {
+			// Есть пробел — режем по нему
+			lines = append(lines, remaining[:breakPoint])
+			remaining = strings.TrimSpace(remaining[breakPoint:])
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 func (m inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
-	if msg, ok := msg.(tea.KeyMsg); ok {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.textInput.Width = msg.Width - 4 // учитываем промежуток
+		return m, nil
+
+	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
 			m.value = m.textInput.Value()
@@ -64,8 +103,15 @@ func (m inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m inputModel) View() string {
+	maxWidth := m.width
+	if maxWidth == 0 {
+		maxWidth = 80
+	}
+
+	wrappedPrompt := wrapText(m.prompt, maxWidth)
+
 	return fmt.Sprintf("%s\n\n%s\n\n(Press Enter to confirm, Esc to cancel)",
-		m.prompt,
+		wrappedPrompt,
 		m.textInput.View(),
 	)
 }
