@@ -117,7 +117,13 @@ func Save(cfg *Config) error {
 
 var getConfigPath = func() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".zevrc")
+	return filepath.Join(home, ".zev", "config")
+}
+
+// GetZevDir возвращает путь к директории ~/.zev.
+var GetZevDir = func() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".zev")
 }
 
 func parseHTTPHeaders(input string) map[string]string {

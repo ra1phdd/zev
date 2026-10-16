@@ -15,8 +15,60 @@ func New() *Service {
 	return &Service{}
 }
 
+// maskAPIKey маскирует API ключ, показывая первые 3 и последние 3 символа.
+func maskAPIKey(key string) string {
+	if key == "" {
+		return ""
+	}
+	if len(key) < 6 {
+		return "***"
+	}
+	return key[:3] + "***..." + key[len(key)-3:]
+}
+
+// promptWithDefault показывает промпт с текущим значением и дефолтом.
+// Если пользователь жмёт Enter — возвращает current.
+// Если пользователь пишет "default" — возвращает defaultVal.
+// Иначе возвращает то, что пользователь ввёл.
+func promptWithDefault(promptText, current, defaultVal string) (string, error) {
+	var fullPrompt string
+	switch {
+	case current != "" && defaultVal != "" && current != defaultVal:
+		fullPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep or type 'default' for %s):", promptText, current, defaultVal)
+	case current != "":
+		fullPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep):", promptText, current)
+	case defaultVal != "":
+		fullPrompt = fmt.Sprintf("%s (default: %s):", promptText, defaultVal)
+	default:
+		fullPrompt = promptText + ":"
+	}
+
+	input, err := prompt.Input(fullPrompt)
+	if err != nil {
+		return "", err
+	}
+
+	if input == "" {
+		if current != "" {
+			return current, nil
+		}
+		return defaultVal, nil
+	}
+
+	if input == "default" && defaultVal != "" {
+		return defaultVal, nil
+	}
+
+	return input, nil
+}
+
 func (s *Service) Run() error {
-	cfg := config.DefaultConfig()
+	// Загружаем текущий конфиг (или дефолтный, если файла нет)
+	cfg, err := config.Load()
+	if err != nil {
+		// Если файл не существует, используем дефолт
+		cfg = config.DefaultConfig()
+	}
 
 	providers := []string{"openai", "gemini", "anthropic", "ollama", "opencode"}
 	items := make([]list.Item, len(providers))
@@ -67,94 +119,134 @@ func (s *Service) Run() error {
 }
 
 func (s *Service) setupOpenAI(cfg *config.Config) error {
-	apiKey, err := prompt.Input("Enter your OpenAI API key:")
-	if err != nil {
-		return err
-	}
-	cfg.OpenAIAPIKey = apiKey
+	defaults := config.DefaultConfig()
 
-	model, err := prompt.Input("Enter the model to use (default: gpt-5.6-luna):")
+	// API Key с маскировкой
+	currentMasked := ""
+	if cfg.OpenAIAPIKey != "" {
+		currentMasked = maskAPIKey(cfg.OpenAIAPIKey)
+	}
+	apiKeyPrompt := "Enter your OpenAI API key"
+	if currentMasked != "" {
+		apiKeyPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep)", apiKeyPrompt, currentMasked)
+	}
+	apiKey, err := prompt.Input(apiKeyPrompt + ":")
 	if err != nil {
 		return err
 	}
-	if model != "" {
-		cfg.OpenAIModel = model
+	if apiKey == "" && cfg.OpenAIAPIKey != "" {
+		// Оставляем текущий ключ
+	} else if apiKey != "" {
+		cfg.OpenAIAPIKey = apiKey
 	}
 
-	baseURL, err := prompt.Input("Enter custom base URL (press Enter for default):")
+	// Model
+	model, err := promptWithDefault("Enter the model to use", cfg.OpenAIModel, defaults.OpenAIModel)
 	if err != nil {
 		return err
 	}
-	if baseURL != "" {
-		cfg.OpenAIBaseURL = baseURL
+	cfg.OpenAIModel = model
+
+	// Base URL
+	baseURL, err := promptWithDefault("Enter custom base URL", cfg.OpenAIBaseURL, defaults.OpenAIBaseURL)
+	if err != nil {
+		return err
 	}
+	cfg.OpenAIBaseURL = baseURL
 
 	return nil
 }
 
 func (s *Service) setupGemini(cfg *config.Config) error {
-	apiKey, err := prompt.Input("Enter your Gemini API key:")
-	if err != nil {
-		return err
-	}
-	cfg.GeminiAPIKey = apiKey
+	defaults := config.DefaultConfig()
 
-	model, err := prompt.Input("Enter the model to use (default: gemini-3.1-flash-lite):")
+	// API Key с маскировкой
+	currentMasked := ""
+	if cfg.GeminiAPIKey != "" {
+		currentMasked = maskAPIKey(cfg.GeminiAPIKey)
+	}
+	apiKeyPrompt := "Enter your Gemini API key"
+	if currentMasked != "" {
+		apiKeyPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep)", apiKeyPrompt, currentMasked)
+	}
+	apiKey, err := prompt.Input(apiKeyPrompt + ":")
 	if err != nil {
 		return err
 	}
-	if model != "" {
-		cfg.GeminiModel = model
+	if apiKey == "" && cfg.GeminiAPIKey != "" {
+		// Оставляем текущий ключ
+	} else if apiKey != "" {
+		cfg.GeminiAPIKey = apiKey
 	}
 
-	baseURL, err := prompt.Input("Enter custom base URL (default: https://generativelanguage.googleapis.com):")
+	// Model
+	model, err := promptWithDefault("Enter the model to use", cfg.GeminiModel, defaults.GeminiModel)
 	if err != nil {
 		return err
 	}
-	if baseURL != "" {
-		cfg.GeminiBaseURL = baseURL
+	cfg.GeminiModel = model
+
+	// Base URL
+	baseURL, err := promptWithDefault("Enter custom base URL", cfg.GeminiBaseURL, defaults.GeminiBaseURL)
+	if err != nil {
+		return err
 	}
+	cfg.GeminiBaseURL = baseURL
 
 	return nil
 }
 
 func (s *Service) setupAnthropic(cfg *config.Config) error {
-	apiKey, err := prompt.Input("Enter your Anthropic API key:")
-	if err != nil {
-		return err
-	}
-	cfg.AnthropicAPIKey = apiKey
+	defaults := config.DefaultConfig()
 
-	model, err := prompt.Input("Enter the model to use (default: claude-haiku-5.5):")
+	// API Key с маскировкой
+	currentMasked := ""
+	if cfg.AnthropicAPIKey != "" {
+		currentMasked = maskAPIKey(cfg.AnthropicAPIKey)
+	}
+	apiKeyPrompt := "Enter your Anthropic API key"
+	if currentMasked != "" {
+		apiKeyPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep)", apiKeyPrompt, currentMasked)
+	}
+	apiKey, err := prompt.Input(apiKeyPrompt + ":")
 	if err != nil {
 		return err
 	}
-	if model != "" {
-		cfg.AnthropicModel = model
+	if apiKey == "" && cfg.AnthropicAPIKey != "" {
+		// Оставляем текущий ключ
+	} else if apiKey != "" {
+		cfg.AnthropicAPIKey = apiKey
 	}
 
-	baseURL, err := prompt.Input("Enter custom base URL (default: https://api.anthropic.com/v1):")
+	// Model
+	model, err := promptWithDefault("Enter the model to use", cfg.AnthropicModel, defaults.AnthropicModel)
 	if err != nil {
 		return err
 	}
-	if baseURL != "" {
-		cfg.AnthropicBaseURL = baseURL
+	cfg.AnthropicModel = model
+
+	// Base URL
+	baseURL, err := promptWithDefault("Enter custom base URL", cfg.AnthropicBaseURL, defaults.AnthropicBaseURL)
+	if err != nil {
+		return err
 	}
+	cfg.AnthropicBaseURL = baseURL
 
 	return nil
 }
 
 func (s *Service) setupOllama(cfg *config.Config) error {
-	baseURL, err := prompt.Input("Enter Ollama base URL (default: http://localhost:11434):")
+	defaults := config.DefaultConfig()
+
+	// Base URL
+	baseURL, err := promptWithDefault("Enter Ollama base URL", cfg.OllamaBaseURL, defaults.OllamaBaseURL)
 	if err != nil {
 		return err
 	}
-	if baseURL == "" {
-		baseURL = "http://localhost:11434"
-	}
 	cfg.OllamaBaseURL = baseURL
 
-	model, err := prompt.Input("Enter the model to use (e.g., llama2):")
+	// Model
+	model, err := promptWithDefault("Enter the model to use", cfg.OllamaModel, "")
 	if err != nil {
 		return err
 	}
@@ -164,23 +256,40 @@ func (s *Service) setupOllama(cfg *config.Config) error {
 }
 
 func (s *Service) setupOpenCode(cfg *config.Config) error {
-	apiKey, err := prompt.Input("Enter your OpenCode API key:")
+	// API Key с маскировкой
+	currentMasked := ""
+	if cfg.OpenAIAPIKey != "" {
+		currentMasked = maskAPIKey(cfg.OpenAIAPIKey)
+	}
+	apiKeyPrompt := "Enter your OpenCode API key"
+	if currentMasked != "" {
+		apiKeyPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep)", apiKeyPrompt, currentMasked)
+	}
+	apiKey, err := prompt.Input(apiKeyPrompt + ":")
 	if err != nil {
 		return err
 	}
-	cfg.OpenAIAPIKey = apiKey
+	if apiKey == "" && cfg.OpenAIAPIKey != "" {
+		// Оставляем текущий ключ
+	} else if apiKey != "" {
+		cfg.OpenAIAPIKey = apiKey
+	}
 
-	model, err := prompt.Input("Enter the model to use (default: big-pickle):")
+	// Model
+	currentModel := cfg.OpenAIModel
+	if currentModel == "" {
+		currentModel = "big-pickle"
+	}
+	model, err := promptWithDefault("Enter the model to use", currentModel, "big-pickle")
 	if err != nil {
 		return err
-	}
-	if model == "" {
-		model = "big-pickle"
 	}
 	cfg.OpenAIModel = model
 
+	// Base URL фиксированный для OpenCode
 	cfg.OpenAIBaseURL = "https://opencode.ai/inference/openai/v1"
 
+	// HTTP Headers фиксированные для OpenCode
 	cfg.HTTPHeaders = map[string]string{
 		"User-Agent":         "opencode/latest/2.0.29/cli",
 		"x-opencode-session": "ses_ebeea89daffe69kTavLoPHLIzF",

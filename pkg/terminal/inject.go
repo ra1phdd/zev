@@ -1,9 +1,11 @@
 package terminal
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"syscall"
 	"unsafe"
 
@@ -46,4 +48,21 @@ func Inject(text string) error {
 	}
 
 	return nil
+}
+
+// Execute выполняет команду через shell напрямую.
+// Подключает stdin/stdout/stderr к текущему процессу.
+// Возвращает ошибку, если команда завершилась с ненулевым кодом.
+func Execute(ctx context.Context, command string) error {
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "sh"
+	}
+
+	cmd := exec.CommandContext(ctx, shell, "-c", command)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
 }

@@ -12,10 +12,14 @@ import (
 	"github.com/ra1phdd/zev-go/internal/core/config"
 	"github.com/ra1phdd/zev-go/internal/core/domain"
 	"github.com/ra1phdd/zev-go/internal/core/httpclient"
+	aliasrepo "github.com/ra1phdd/zev-go/internal/entities/alias/repository"
+	aliasservice "github.com/ra1phdd/zev-go/internal/entities/alias/service"
 	"github.com/ra1phdd/zev-go/internal/entities/history/service"
 	"github.com/ra1phdd/zev-go/internal/entities/query/repository"
 	"github.com/ra1phdd/zev-go/internal/entities/query/repository/factory"
 	queryservice "github.com/ra1phdd/zev-go/internal/entities/query/service"
+	scriptrepo "github.com/ra1phdd/zev-go/internal/entities/script/repository"
+	scriptservice "github.com/ra1phdd/zev-go/internal/entities/script/service"
 	"github.com/ra1phdd/zev-go/pkg/terminal"
 	"github.com/ra1phdd/zev-go/pkg/tui/list"
 	"github.com/ra1phdd/zev-go/pkg/tui/prompt"
@@ -87,6 +91,38 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	if strings.TrimSpace(userPrompt) == "" {
 		return errors.New("prompt cannot be empty")
 	}
+
+	// Проверяем алиасы
+	parts := strings.Fields(userPrompt)
+	if len(parts) > 0 {
+		aliasName := parts[0]
+		aliasArgs := parts[1:]
+
+		aliasRepo := aliasrepo.New()
+		aliasSvc := aliasservice.New(aliasRepo)
+
+		resolvedCmd, err := aliasSvc.Resolve(aliasName, aliasArgs)
+		if err == nil {
+			// Алиас найден — выполняем команду
+			logger.Debug("Alias resolved", "name", aliasName, "command", resolvedCmd)
+			return terminal.Execute(cmd.Context(), resolvedCmd)
+		}
+		logger.Debug("Alias not found, checking scripts", "name", aliasName, "error", err)
+
+		// Проверяем скрипты
+		scriptRepo := scriptrepo.New()
+		scriptSvc := scriptservice.New(scriptRepo)
+
+		err = scriptSvc.Execute(aliasName, aliasArgs)
+		if !errors.Is(err, scriptservice.ErrScriptNotFound) {
+			// Скрипт найден — возвращаем его результат (в т.ч. ненулевой exit code)
+			logger.Debug("Script executed", "name", aliasName, "error", err)
+			return err
+		}
+		logger.Debug("Script not found, falling back to LLM query", "name", aliasName)
+	}
+
+	// Fallback на LLM запрос
 
 	httpClient := httpclient.New(cfg.HTTPHeaders)
 	provider, err := factory.NewProvider(cfg, httpClient)
