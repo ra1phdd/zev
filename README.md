@@ -1,200 +1,169 @@
-# Zev — Natural Language to Shell Commands
+<div align="center">
+<h1>Zev</h1>
+<p>Terminal command suggestions from natural language — describe what you want, get the command</p>
 
-Zev — это CLI-инструмент, который превращает естественное описание задачи в готовые команды терминала с использованием LLM.
+<p>
+    <img src="https://img.shields.io/badge/Go-1.27+-00ADD8?style=flat&logo=go&logoColor=white" alt="Go">
+    <img src="https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat" alt="Platforms">
+    <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+</p>
 
-## Установка
+**English** | [Русский](README.ru.md)
+</div>
 
-### Из исходников
+## Features
+
+- Natural language in, terminal commands out — up to three options with a short
+  explanation for each.
+- Dangerous operations (`rm -rf`, `DROP TABLE`, `kubectl delete`) are flagged with a
+  warning explaining exactly what the command will do.
+- Five LLM providers: OpenAI, Gemini, Anthropic, Ollama and OpenCode.
+- Custom base URLs — works with any OpenAI-compatible router.
+- Interactive TUI selector: pick a suggestion with arrow keys, get it injected into your
+  terminal or executed immediately.
+- Command aliases with positional argument substitution — `zev dps my-service` runs your
+  saved long command.
+- Bash scripts with metadata, created straight in `$EDITOR` from the CLI.
+- Query history (last 100 requests) available offline in `~/.zevhistory`.
+- Verbosity control with `-v`, `-vv`, `-vvv`.
+
+## Quick start
 
 ```bash
-go install github.com/ra1phdd/zev-go/cmd/zev@latest
+# Clone and build
+git clone https://github.com/ra1phdd/zev-go.git
+cd zev-go
+make build
+
+# Configure your LLM provider (interactive)
+./bin/zev setup
+
+# Ask for a command
+./bin/zev "find all files modified in the last 24 hours"
 ```
 
-### Локальная сборка
+Without the `query` subcommand, `zev` starts its interactive prompt.
+
+## Usage
+
+### Query
+
+```bash
+zev "kill the process listening on port 8080"
+zev query "list all docker containers by size"
+```
+
+### Choose what happens to the suggestion
+
+```bash
+zev --inject "compress the logs"   # put it in the terminal for review (default)
+zev --execute "restart nginx"      # run it right away
+```
+
+The default comes from `COMMAND_EXECUTION_MODE` and can be changed with `zev setup mode`.
+
+### History
+
+```bash
+zev history          # browse previous queries
+```
+
+### Aliases
+
+Store a long command once and call it by name. Extra arguments are appended
+automatically, or substituted into the template:
+
+```bash
+zev alias add dps "docker service ps {{.arg1}} --no-trunc"
+zev dps my-service
+
+zev alias list
+zev alias remove dps
+```
+
+Template variables: `{{.arg1}}`, `{{.arg2}}`, … for positional arguments and `{{.args}}`
+for all arguments joined with spaces.
+
+### Scripts
+
+```bash
+zev script create deploy "Deploy the application to production"
+zev script list
+zev script remove deploy
+```
+
+Metadata is stored in `~/.zev/scripts`, the script bodies — in `~/.zev/script_files`.
+`zev script create` opens the file in `$SCRIPT_EDITOR`, `$EDITOR`, or the first available
+of `nano`, `vim`, `vi`.
+
+### Other
+
+```bash
+zev version
+zev -vv "tail the logs in real time"   # debug logs
+```
+
+## Installation
+
+### Precompiled binaries
+
+Precompiled binaries will be published on the [releases page](https://github.com/ra1phdd/zev-go/releases)
+once the release pipeline is in place. Until then, build from source.
+
+### Building from source
+
+Requirements: Go 1.27.2 or newer.
 
 ```bash
 git clone https://github.com/ra1phdd/zev-go.git
 cd zev-go
-go build -o zev ./cmd/zev
-sudo mv zev /usr/local/bin/
-```
 
-## Быстрый старт
+# Local binary
+make build            # -> bin/zev
 
-### Первичная настройка
-
-```bash
-zev setup
-```
-
-Интерактивный мастер предложит выбрать LLM-провайдера и ввести необходимые параметры:
-
-- **OpenAI**: требуется API key, можно указать custom base URL для совместимых API
-- **Gemini**: требуется Google API key
-- **Ollama**: требуется локальный URL (например, `http://localhost:11434/v1`)
-
-Конфигурация сохраняется в `~/.zevrc` (основной файл) и `~/.zevrc.security.yaml` (секреты).
-
-### Использование
-
-**Интерактивный режим:**
-
-```bash
-zev
-```
-
-Введите описание задачи, получите до 3 вариантов команд с пояснениями.
-
-**Прямой запрос:**
-
-```bash
-zev "list all docker containers"
-zev "find large files older than 30 days"
-```
-
-**История запросов:**
-
-```bash
-zev --recent
-```
-
-Откроет интерактивный селектор с последними 100 запросами.
-
-### Дополнительные команды
-
-**Настройка HTTP заголовков:**
-
-```bash
-zev setup headers
-```
-
-Позволяет задать произвольные HTTP заголовки для всех запросов к LLM-провайдерам. Полезно для:
-- Custom User-Agent
-- Дополнительных заголовков авторизации
-- API version headers
-- Tracking headers
-
-Формат: `Header-Name:Header-Value` (по одному на строку, пустая строка завершает ввод).
-
-Заголовки сохраняются в основной конфиг `~/.zevrc`.
-
-## Провайдеры
-
-### OpenAI
-
-Поддерживаются как оригинальный OpenAI API, так и OpenAI-compatible роутеры (Azure OpenAI, LiteLLM, vLLM и др.).
-
-**Переменные окружения:**
-
-```bash
-export OPENAI_API_KEY="sk-..."
-export OPENAI_MODEL="gpt-4-turbo"
-export OPENAI_BASE_URL="https://api.openai.com/v1"  # по умолчанию
-```
-
-**Пример для Azure OpenAI:**
-
-```bash
-export OPENAI_API_KEY="your-azure-key"
-export OPENAI_MODEL="gpt-4"
-export OPENAI_BASE_URL="https://your-resource.openai.azure.com/openai/deployments/your-deployment/chat/completions?api-version=2024-02-15-preview"
-```
-
-### Gemini
-
-```bash
-export GEMINI_API_KEY="your-key"
-export GEMINI_MODEL="gemini-3-flash-preview"
-```
-
-### Ollama
-
-Локальная модель без API ключа:
-
-```bash
-export OLLAMA_BASE_URL="http://localhost:11434/v1"
-export OLLAMA_MODEL="llama3"
-```
-
-## Структура проекта
-
-Проект следует архитектуре **vertical slices + ports and adapters**:
-
-```
-zev-go/
-├── cmd/zev/              # Точка входа CLI
-├── internal/
-│   ├── core/
-│   │   ├── config/       # Управление конфигурацией
-│   │   └── domain/       # Доменные типы
-│   └── entities/
-│       ├── history/      # История запросов
-│       │   └── service/
-│       ├── query/        # Запросы к LLM
-│       │   ├── service/
-│       │   └── repository/
-│       │       ├── factory/
-│       │       ├── openai/
-│       │       ├── gemini/
-│       │       └── ollama/
-│       └── setup/        # Первичная настройка
-│           └── service/
-└── pkg/
-    └── tui/              # Terminal UI компоненты
-        ├── prompt/       # Интерактивные промпты
-        └── selector/     # Command selector
-```
-
-## Разработка
-
-### Требования
-
-- Go 1.23+
-- golangci-lint
-
-### Команды
-
-**С использованием Make (рекомендуется):**
-
-```bash
-# Показать все доступные команды
-make help
-
-# Собрать
-make build
-
-# Собрать с версией
-make build VERSION=1.0.0
-
-# Запустить тесты
-make test
-
-# Запустить линтер
-make lint
-
-# Собрать и установить
+# Or install into $GOPATH/bin
 make install
-
-# Собрать для всех платформ
-make build-all
 ```
 
-**Напрямую через Go:**
+## Providers
+
+| Provider | `LLM_PROVIDER` | Required variables |
+|---|---|---|
+| OpenAI | `openai` | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` |
+| Gemini | `gemini` | `GEMINI_API_KEY`, `GEMINI_MODEL` |
+| Anthropic | `anthropic` | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` |
+| Ollama | `ollama` | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` |
+| OpenCode | `opencode` | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` |
+
+Ollama runs fully locally:
 
 ```bash
-# Сборка
-go build -o zev ./cmd/zev
-
-# С версией
-go build -ldflags "-X main.version=1.0.0" -o zev ./cmd/zev
-
-# Линтер
-golangci-lint run --fix
-
-# Тесты
-go test ./...
+export LLM_PROVIDER=ollama
+export OLLAMA_BASE_URL=http://localhost:11434/v1
+export OLLAMA_MODEL=qwen2.5-coder
 ```
 
-## Лицензия
+## Documentation
 
-MIT
+- [Configuration](docs/en/CONFIGURATION.md) — `~/.zevrc`, environment variables, execution
+  modes, files on disk
+- [Architecture](docs/en/ARCHITECTURE.md) — package map, query flow, provider contracts
+- [Development](docs/en/DEVELOPMENT.md) — make targets, TDD workflow, conventions
+- [Contributing](docs/en/CONTRIBUTING.md) — how to propose and land a change
+
+## Technology stack
+
+- Go 1.27+, Cobra for the CLI
+- Bubble Tea + Lipgloss for the terminal UI
+- [go-openai](https://github.com/sashabaranov/go-openai) for OpenAI-compatible providers,
+  raw HTTP for Gemini, Anthropic and OpenCode (SSE streaming)
+- `godotenv` + `caarlos0/env` for configuration
+- `golangci-lint` and `go test` in CI
+
+## Contributing
+
+Contributions are welcome — read the [Contributing Guide](docs/en/CONTRIBUTING.md).
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file.

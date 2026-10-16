@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -91,23 +92,53 @@ func resolveExecutionMode(cfg *config.Config, executeFlag, injectFlag bool) stri
 	return "inject"
 }
 
-func runQuery(cmd *cobra.Command, args []string) error {
-	// Обработка флагов вручную (т.к. DisableFlagParsing=true для поддержки алиасов)
+// parseArgsFlags разбирает флаги zev вручную, т.к. на корневом комманде
+// установлен DisableFlagParsing ради поддержки алиасов вида `zev dps -a`.
+// Поддерживаются: -h/--help, -v/-vv/-vvv/... (счётчик), --verbose=N,
+// -e/--execute, --inject. Всё остальное считается аргументами пользователя.
+func parseArgsFlags(args []string) ([]string, bool) {
 	filteredArgs := []string{}
-	for i := range args {
-		arg := args[i]
-		switch arg {
-		case "-h", "--help":
-			return cmd.Help()
-		case "-v":
-			verbosityLevel = 1
-		case "-vv":
-			verbosityLevel = 2
-		case "-e", "--execute":
+	helpRequested := false
+
+	for _, arg := range args {
+		switch {
+		case arg == "-h", arg == "--help":
+			helpRequested = true
+
+		case arg == "-v":
+			verbosityLevel++
+
+		case arg == "--verbose":
+			verbosityLevel++
+
+		case strings.HasPrefix(arg, "--verbose="):
+			if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--verbose=")); err == nil && n > 0 {
+				verbosityLevel = n
+			}
+
+		case len(arg) > 2 && strings.HasPrefix(arg, "-vv"):
+			// -vv, -vvv, -vvvv... — количество v задаёт уровень verbosity
+			verbosityLevel = len(arg) - 1
+
+		case arg == "-e", arg == "--execute":
 			executeFlag = true
+
+		case arg == "--inject":
+			injectFlag = true
+
 		default:
 			filteredArgs = append(filteredArgs, arg)
 		}
+	}
+
+	return filteredArgs, helpRequested
+}
+
+func runQuery(cmd *cobra.Command, args []string) error {
+	// Обработка флагов вручную (т.к. DisableFlagParsing=true для поддержки алиасов с флагами)
+	filteredArgs, helpRequested := parseArgsFlags(args)
+	if helpRequested {
+		return cmd.Help()
 	}
 	args = filteredArgs
 
