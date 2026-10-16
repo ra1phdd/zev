@@ -13,7 +13,6 @@ import (
 
 const maxHistoryEntries = 100
 
-// HistoryEntry представляет одну запись в истории.
 type HistoryEntry struct {
 	Timestamp        time.Time               `json:"timestamp"`
 	Prompt           string                  `json:"prompt"`
@@ -24,12 +23,10 @@ type HistoryEntry struct {
 	SelectedIndex    int                     `json:"selected_index,omitempty"`    // индекс выбранной команды (для highlight)
 }
 
-// Service управляет историей запросов.
 type Service struct {
 	historyPath string
 }
 
-// New создаёт новый history service.
 func New() *Service {
 	home, _ := os.UserHomeDir()
 	return &Service{
@@ -54,7 +51,6 @@ func (s *Service) Save(entry HistoryEntry) error {
 	return s.saveAll(entries)
 }
 
-// LoadAll загружает все записи из истории.
 func (s *Service) LoadAll() ([]HistoryEntry, error) {
 	file, err := os.Open(s.historyPath)
 	if err != nil {
@@ -67,7 +63,6 @@ func (s *Service) LoadAll() ([]HistoryEntry, error) {
 	for scanner.Scan() {
 		var entry HistoryEntry
 		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
-			// Пропускаем невалидные строки
 			continue
 		}
 		entries = append(entries, entry)

@@ -1,6 +1,10 @@
 package list
 
-import "github.com/ra1phdd/zev-go/internal/core/domain"
+import (
+	"strings"
+
+	"github.com/ra1phdd/zev-go/internal/core/domain"
+)
 
 // CommandItem адаптер для domain.Command.
 type CommandItem struct {
@@ -8,10 +12,16 @@ type CommandItem struct {
 }
 
 func (i CommandItem) Title() string {
+	if strings.HasPrefix(i.Cmd.Command, "::") {
+		return i.Cmd.ShortExplanation
+	}
 	return i.Cmd.Command
 }
 
 func (i CommandItem) Description() string {
+	if strings.HasPrefix(i.Cmd.Command, "::") {
+		return ""
+	}
 	return i.Cmd.ShortExplanation
 }
 

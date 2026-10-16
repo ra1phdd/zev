@@ -17,17 +17,16 @@ type OptionsResponse struct {
 	ExplanationIfNotValid string    `json:"explanation_if_not_valid,omitempty"`
 }
 
-// CompactJSON возвращает минималистичное JSON-представление для экономии токенов.
 func (r *OptionsResponse) CompactJSON() string {
 	if !r.IsValid {
 		return `{"is_valid":false}`
 	}
-	// Сокращаем до списка команд без пояснений
+
 	var commands []string
 	for _, cmd := range r.Commands {
 		commands = append(commands, cmd.Command)
 	}
-	// Простая сериализация без encoding/json для экономии байтов
+
 	result := `{"commands":[`
 	var resultSb30 strings.Builder
 	for i, cmd := range commands {

@@ -3,9 +3,8 @@ package list
 import (
 	"errors"
 	"fmt"
-	"io"
+	"strings"
 
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -33,7 +32,6 @@ type SimpleItem struct {
 func (i SimpleItem) Title() string       { return i.title }
 func (i SimpleItem) Description() string { return i.description }
 func (i SimpleItem) IsWarning() bool     { return false }
-func (i SimpleItem) FilterValue() string { return i.title }
 
 // NewSimpleItem создаёт простой элемент списка.
 func NewSimpleItem(title, description string) SimpleItem {
@@ -46,29 +44,7 @@ func Select(opts SelectOptions) (Item, error) {
 		return nil, errors.New("no items to select from")
 	}
 
-	listItems := make([]list.Item, len(opts.Items))
-	for i, item := range opts.Items {
-		listItems[i] = wrappedItem{Item: item}
-	}
-
-	delegate := itemDelegate{showWarning: opts.ShowWarning}
-	height := len(listItems) * 2
-
-	l := list.New(listItems, delegate, 80, height)
-	l.Title = opts.Title
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.SetShowHelp(false)
-	l.SetShowTitle(true)
-	l.SetShowPagination(false)
-	l.SetShowFilter(false)
-
-	l.Styles.Title = lipgloss.NewStyle().Margin(0).Padding(0)
-	l.Styles.TitleBar = lipgloss.NewStyle().Margin(0).Padding(0)
-	l.Styles.PaginationStyle = lipgloss.NewStyle().Margin(0).Padding(0)
-	l.Styles.HelpStyle = lipgloss.NewStyle().Margin(0).Padding(0)
-
-	m := model{list: l}
+	m := newModel(opts)
 	p := tea.NewProgram(m)
 
 	result, err := p.Run()
@@ -85,48 +61,26 @@ func Select(opts SelectOptions) (Item, error) {
 }
 
 type model struct {
-	list      list.Model
-	selected  Item
-	cancelled bool
-}
-
-type wrappedItem struct {
-	Item
-}
-
-func (i wrappedItem) FilterValue() string { return i.Title() }
-
-type itemDelegate struct {
+	title       string
+	items       []Item
 	showWarning bool
+	cursor      int
+	selected    Item
+	cancelled   bool
 }
 
-func (d itemDelegate) Height() int                             { return 1 }
-func (d itemDelegate) Spacing() int                            { return 0 }
-func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d itemDelegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
-	i, ok := li.(wrappedItem)
-	if !ok {
-		return
+func newModel(opts SelectOptions) model {
+	return model{
+		title:       opts.Title,
+		items:       opts.Items,
+		showWarning: opts.ShowWarning,
+		cursor:      0,
 	}
-
-	str := fmt.Sprintf("%d. %s", index+1, i.Title())
-
-	fn := itemStyle.Render
-	if index == m.Index() {
-		fn = selectedItemStyle.Render
-	}
-
-	// Добавляем предупреждение для опасных элементов
-	if d.showWarning && i.IsWarning() {
-		str = "⚠️  " + str
-	}
-
-	fmt.Fprint(w, fn(str))
 }
 
 var (
-	itemStyle         = lipgloss.NewStyle().PaddingLeft(1)
-	selectedItemStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("170")).Bold(true)
+	cursorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("170")).Bold(true)
+	regularStyle = lipgloss.NewStyle()
 )
 
 func (m model) Init() tea.Cmd {
@@ -134,25 +88,78 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.String() {
-		case "enter":
-			i, ok := m.list.SelectedItem().(wrappedItem)
-			if ok {
-				m.selected = i.Item
-			}
-			return m, tea.Quit
-		case "ctrl+c", "q", "esc":
-			m.cancelled = true
-			return m, tea.Quit
-		}
+	keyMsg, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return m, nil
 	}
 
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	switch keyMsg.Type {
+	case tea.KeyUp:
+		m.cursor--
+		if m.cursor < 0 {
+			m.cursor = len(m.items) - 1
+		}
+
+	case tea.KeyDown:
+		m.cursor++
+		if m.cursor >= len(m.items) {
+			m.cursor = 0
+		}
+
+	case tea.KeyEnter:
+		m.selected = m.items[m.cursor]
+		return m, tea.Quit
+
+	case tea.KeyCtrlC, tea.KeyEsc:
+		m.cancelled = true
+		return m, tea.Quit
+	}
+
+	// Handle 'q' key separately (it comes as KeyRunes)
+	if keyMsg.Type == tea.KeyRunes && len(keyMsg.Runes) == 1 && keyMsg.Runes[0] == 'q' {
+		m.cancelled = true
+		return m, tea.Quit
+	}
+
+	return m, nil
 }
 
 func (m model) View() string {
-	return m.list.View()
+	var b strings.Builder
+
+	if m.title != "" {
+		b.WriteString(m.title)
+		b.WriteString("\n\n")
+	}
+
+	for i, item := range m.items {
+		cursor := "  "
+		if i == m.cursor {
+			cursor = "> "
+		}
+
+		prefix := ""
+		if m.showWarning && item.IsWarning() {
+			prefix = "⚠️  "
+		}
+
+		line := fmt.Sprintf("%s%s%d. %s", cursor, prefix, i+1, item.Title())
+
+		if i == m.cursor {
+			line = cursorStyle.Render(line)
+		} else {
+			line = regularStyle.Render(line)
+		}
+
+		b.WriteString(line)
+		b.WriteString("\n")
+
+		if item.Description() != "" {
+			desc := "   " + item.Description()
+			b.WriteString(desc)
+			b.WriteString("\n")
+		}
+	}
+
+	return b.String()
 }

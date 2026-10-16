@@ -12,14 +12,12 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// Provider реализует domain.InferenceProvider для OpenAI API.
 type Provider struct {
 	client  *openai.Client
 	model   string
 	baseURL string
 }
 
-// New создаёт новый OpenAI провайдер.
 func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, error) {
 	if apiKey == "" {
 		return nil, errors.New("OPENAI_API_KEY is required. Run `zev setup` to configure")
@@ -47,14 +45,14 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 }
 
 
-// GetOptions получает варианты команд от OpenAI.
 func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
-	userMessage := fmt.Sprintf(repository.UserPromptTemplate, envContext, prompt)
+	systemPrompt := fmt.Sprintf(repository.SystemPrompt, envContext)
+	userMessage := fmt.Sprintf(repository.UserPromptTemplate, prompt)
 
 	resp, err := p.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model: p.model,
 		Messages: []openai.ChatCompletionMessage{
-			{Role: openai.ChatMessageRoleSystem, Content: repository.SystemPrompt},
+			{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
 			{Role: openai.ChatMessageRoleUser, Content: userMessage},
 		},
 		ResponseFormat: &openai.ChatCompletionResponseFormat{
@@ -78,7 +76,6 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	return &result, nil
 }
 
-// GetOptionsWithHistory получает варианты команд с учётом истории диалога.
 func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
 	messages := make([]openai.ChatCompletionMessage, 0, 1+len(history.Messages))
 	messages = append(messages, openai.ChatCompletionMessage{
@@ -86,7 +83,6 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 		Content: history.SystemPrompt,
 	})
 
-	// Добавляем историю сообщений
 	for _, msg := range history.Messages {
 		messages = append(messages, openai.ChatCompletionMessage{
 			Role:    msg.Role,
@@ -118,7 +114,6 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	return &result, nil
 }
 
-// Name возвращает имя провайдера.
 func (p *Provider) Name() string {
 	if p.baseURL != "https://api.openai.com/v1" {
 		return "openai-compatible"
@@ -126,7 +121,6 @@ func (p *Provider) Name() string {
 	return "openai"
 }
 
-// Model возвращает используемую модель.
 func (p *Provider) Model() string {
 	return p.model
 }

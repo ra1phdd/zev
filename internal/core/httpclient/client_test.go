@@ -33,7 +33,6 @@ func TestNewWithNilHeaders(t *testing.T) {
 		t.Fatal("expected non-nil client")
 	}
 
-	// Проверяем, что дефолтный User-Agent установлен
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ua := r.Header.Get("User-Agent")
 		if ua != "zev/1.0" {
@@ -91,7 +90,7 @@ func TestHeaderOverride(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ua := r.Header.Get("User-Agent")
-		// Транспорт всегда устанавливает базовый User-Agent
+
 		if ua != "base-agent/1.0" {
 			t.Errorf("expected base User-Agent 'base-agent/1.0', got '%s'", ua)
 		}
@@ -102,7 +101,7 @@ func TestHeaderOverride(t *testing.T) {
 	client := New(headers)
 	ctx := context.Background()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, server.URL, nil)
-	// Попытка переопределить User-Agent в отдельном запросе
+
 	req.Header.Set("User-Agent", "override-agent/1.0")
 	resp, err := client.Do(req)
 	if err != nil {

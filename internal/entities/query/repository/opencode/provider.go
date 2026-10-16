@@ -15,7 +15,6 @@ import (
 	"github.com/ra1phdd/zev-go/internal/entities/query/repository"
 )
 
-// Provider реализует domain.InferenceProvider для OpenCode API.
 type Provider struct {
 	client  *http.Client
 	apiKey  string
@@ -23,7 +22,6 @@ type Provider struct {
 	baseURL string
 }
 
-// New создаёт новый OpenCode провайдер.
 func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, error) {
 	if apiKey == "" {
 		return nil, errors.New("OPENAI_API_KEY is required. Run `zev setup` to configure")
@@ -89,14 +87,14 @@ type openCodeStreamChunk struct {
 	} `json:"choices"`
 }
 
-// GetOptions получает варианты команд от OpenCode.
 func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
-	userMessage := fmt.Sprintf(repository.UserPromptTemplate, envContext, prompt)
+	systemPrompt := fmt.Sprintf(repository.SystemPrompt, envContext)
+	userMessage := fmt.Sprintf(repository.UserPromptTemplate, prompt)
 
 	reqBody := openCodeRequest{
 		Model: p.model,
 		Messages: []openCodeMessage{
-			{Role: "system", Content: repository.SystemPrompt},
+			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userMessage},
 		},
 		Tools: []openCodeTool{
@@ -115,7 +113,6 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	return p.sendRequest(ctx, reqBody)
 }
 
-// GetOptionsWithHistory получает варианты команд с учётом истории диалога.
 func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
 	messages := make([]openCodeMessage, 0, 1+len(history.Messages))
 	messages = append(messages, openCodeMessage{
@@ -123,7 +120,6 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 		Content: history.SystemPrompt,
 	})
 
-	// Добавляем историю сообщений
 	for _, msg := range history.Messages {
 		messages = append(messages, openCodeMessage{
 			Role:    msg.Role,
@@ -223,12 +219,10 @@ func (p *Provider) sendRequest(ctx context.Context, reqBody openCodeRequest) (*d
 	return &result, nil
 }
 
-// Name возвращает имя провайдера.
 func (p *Provider) Name() string {
 	return "opencode"
 }
 
-// Model возвращает используемую модель.
 func (p *Provider) Model() string {
 	return p.model
 }

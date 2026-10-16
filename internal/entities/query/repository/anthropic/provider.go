@@ -13,14 +13,12 @@ import (
 	"github.com/ra1phdd/zev-go/internal/entities/query/repository"
 )
 
-// Provider реализует domain.InferenceProvider для Anthropic API.
 type Provider struct {
 	client  *anthropic.Client
 	model   string
 	baseURL string
 }
 
-// New создаёт новый Anthropic провайдер.
 func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, error) {
 	if apiKey == "" {
 		return nil, errors.New("ANTHROPIC_API_KEY is required. Run `zev setup` to configure")
@@ -48,13 +46,13 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 	}, nil
 }
 
-// GetOptions получает варианты команд от Anthropic.
 func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
-	userMessage := fmt.Sprintf(repository.UserPromptTemplate, envContext, prompt)
+	systemPrompt := fmt.Sprintf(repository.SystemPrompt, envContext)
+	userMessage := fmt.Sprintf(repository.UserPromptTemplate, prompt)
 
 	resp, err := p.client.CreateMessages(ctx, anthropic.MessagesRequest{
 		Model:  anthropic.Model(p.model),
-		System: repository.SystemPrompt,
+		System: systemPrompt,
 		Messages: []anthropic.Message{
 			anthropic.NewUserTextMessage(userMessage),
 		},
@@ -81,11 +79,9 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	return &result, nil
 }
 
-// GetOptionsWithHistory получает варианты команд с учётом истории диалога.
 func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
 	messages := []anthropic.Message{}
 
-	// Добавляем историю сообщений
 	for _, msg := range history.Messages {
 		switch msg.Role {
 		case "user":
@@ -122,12 +118,10 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	return &result, nil
 }
 
-// Name возвращает имя провайдера.
 func (p *Provider) Name() string {
 	return "anthropic"
 }
 
-// Model возвращает используемую модель.
 func (p *Provider) Model() string {
 	return p.model
 }

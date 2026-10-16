@@ -34,7 +34,6 @@ func runSetupHeaders(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Показываем текущие заголовки
 	fmt.Fprintln(os.Stdout, "\n📋 Current HTTP headers:")
 	if len(cfg.HTTPHeaders) == 0 {
 		fmt.Fprintln(os.Stdout, "  (none set)")
@@ -52,7 +51,6 @@ func runSetupHeaders(_ *cobra.Command, _ []string) error {
 	fmt.Fprintln(os.Stdout, "     Authorization:Bearer token123")
 	fmt.Fprintln(os.Stdout, "")
 
-	// Собираем новые заголовки
 	newHeaders := make(map[string]string)
 	for {
 		line, err := prompt.Input("Header (empty to finish):")
@@ -65,7 +63,6 @@ func runSetupHeaders(_ *cobra.Command, _ []string) error {
 			break
 		}
 
-		// Парсим заголовок
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
 			fmt.Fprintln(os.Stdout, "⚠️  Invalid format. Use 'Header-Name:Header-Value'")
@@ -84,13 +81,10 @@ func runSetupHeaders(_ *cobra.Command, _ []string) error {
 		fmt.Fprintf(os.Stdout, "✅ Added: %s: %s\n", key, value)
 	}
 
-	// Если ничего не введено, оставляем старые заголовки
 	if len(newHeaders) == 0 {
 		fmt.Fprintln(os.Stdout, "\n⚠️  No headers entered. Configuration unchanged.")
 		return nil
 	}
-
-	// Сохраняем новые заголовки
 	cfg.HTTPHeaders = newHeaders
 
 	if err := config.Save(cfg); err != nil {
