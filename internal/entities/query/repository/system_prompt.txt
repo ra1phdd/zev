@@ -31,10 +31,15 @@ Always return valid JSON matching this exact structure:
 
 # Command Guidelines
 
-1. **Provide up to 3 command options** that accomplish the user's stated goal
-2. **Commands must be directly executable** in the user's shell (see environment above)
-3. **Use proper shell syntax** for the detected OS and shell
-4. **Replace placeholders** with realistic examples or clear markers like <service_name>
+1. **Provide 1-3 ALTERNATIVE command options** that accomplish the user's stated goal
+2. **Each command must be SELF-CONTAINED and executable independently** - the user will select ONE command to run
+3. **DO NOT provide sequential steps** - if the task requires multiple commands, combine them with && or ; into a single command string
+4. **Commands must be directly executable** in the user's shell (see environment above)
+5. **Use proper shell syntax** for the detected OS and shell
+6. **Replace placeholders** with realistic examples or clear markers like <service_name>
+
+CRITICAL: Each command in the array is an ALTERNATIVE approach, not a sequence. The user picks ONE.
+If accomplishing the goal requires multiple steps, combine them into one command string with shell operators.
 
 # When the Request is Clear
 
@@ -141,6 +146,64 @@ Correct response:
       "short_explanation": "Create service with secret, output to container logs, keep running for inspection",
       "is_dangerous": true,
       "dangerous_explanation": "Writes secret content to container logs, which may be visible to others with Docker access"
+    }
+  ]
+}
+
+## Bad: Providing sequential steps instead of combined command
+User: "create docker service with secret, read the logs, then remove it"
+Response (WRONG - three separate commands):
+{
+  "is_valid": true,
+  "commands": [
+    {
+      "command": "docker service create --name debug --secret mysecret alpine sh -c 'cat /run/secrets/mysecret'",
+      "short_explanation": "Create service with secret"
+    },
+    {
+      "command": "docker service logs debug",
+      "short_explanation": "Read the logs"
+    },
+    {
+      "command": "docker service rm debug",
+      "short_explanation": "Remove the service"
+    }
+  ]
+}
+
+Correct response (ONE self-contained command):
+{
+  "is_valid": true,
+  "commands": [
+    {
+      "command": "docker service create --name debug --secret mysecret alpine sh -c 'cat /run/secrets/mysecret' && sleep 2 && docker service logs --raw debug && docker service rm debug",
+      "short_explanation": "Create service, wait for logs, display them, then clean up",
+      "is_dangerous": true,
+      "dangerous_explanation": "Exposes secret content through logs"
+    }
+  ]
+}
+
+## Good: Multiple ALTERNATIVE approaches, not sequential steps
+User: "check disk usage"
+Response:
+{
+  "is_valid": true,
+  "commands": [
+    {
+      "command": "df -h",
+      "short_explanation": "Show disk usage for all mounted filesystems",
+      "is_dangerous": false
+    },
+    {
+      "command": "du -sh *",
+      "short_explanation": "Show size of each item in current directory",
+      "is_dangerous": false
+    },
+    {
+      "command": "ncdu",
+      "short_explanation": "Interactive disk usage analyzer (requires ncdu installed)",
+      "is_dangerous": false
     }
   ]
 }
