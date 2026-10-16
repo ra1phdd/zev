@@ -24,6 +24,10 @@ dist/
 *.vite/
 node_modules/
 
+# GoReleaser
+.goreleaser.yaml.dist
+.goreleaser.yml.dist
+
 .superpowers/
 .claude/
 

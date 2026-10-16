@@ -1,0 +1,75 @@
+version: 2
+
+project_name: zev
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: zev
+    main: ./cmd/zev
+    binary: zev
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+    ignore:
+      - goos: darwin
+        goarch: arm
+      - goos: windows
+        goarch: arm
+
+archives:
+  - id: zev
+    ids:
+      - zev
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - README.md
+      - README.ru.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  prerelease: auto
+  footer: |
+    ## Installation
+
+    ```bash
+    # macOS (Apple Silicon)
+    curl -fsSL -o zev.tar.gz https://github.com/ra1phdd/zev-go/releases/download/{{ .TagName }}/{{ .ProjectName }}_{{ .Version }}_darwin_arm64.tar.gz
+    tar -xzf zev.tar.gz
+    sudo mv zev /usr/local/bin/
+    ```
+
+    See the [README](https://github.com/ra1phdd/zev-go#installation) for Linux and Windows.

@@ -50,6 +50,19 @@ build-windows: ## Собрать для Windows
 
 build-all: build-linux build-darwin build-windows ## Собрать для всех платформ
 
+# Релизы
+release-snapshot: ## Локальная проверка релизной сборки GoReleaser (без публикации)
+	goreleaser release --snapshot --clean --skip=publish
+
+release-check: ## Проверить .goreleaser.yaml без сборки
+	goreleaser check
+
+release: ## Опубликовать релиз в GitHub (использует версию из файла VERSION)
+	@test -f VERSION || (echo "VERSION not found" && exit 1)
+	@echo "Releasing version $$(tr -d '[:space:]' < VERSION)..."
+	@git tag -f "v$$(tr -d '[:space:]' < VERSION)" -m "Release v$$(tr -d '[:space:]' < VERSION)"
+	goreleaser release --clean
+
 # Разработка
 dev: ## Запустить в режиме разработки (debug логи)
 	@LOG_LEVEL=debug go run $(LDFLAGS) ./cmd/zev
