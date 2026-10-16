@@ -43,7 +43,7 @@ func TestServiceCreate(t *testing.T) {
 	}
 
 	// Проверяем, что файл создан
-	scriptPath := filepath.Join(tmpDir, "scripts", "test.sh")
+	scriptPath := filepath.Join(tmpDir, "script_files", "test.sh")
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
 		t.Error("Script file was not created")
 	}
@@ -82,7 +82,7 @@ func TestServiceRemove(t *testing.T) {
 	}
 
 	// Проверяем, что файл удалён
-	scriptPath := filepath.Join(tmpDir, "scripts", "test.sh")
+	scriptPath := filepath.Join(tmpDir, "script_files", "test.sh")
 	if _, err := os.Stat(scriptPath); !os.IsNotExist(err) {
 		t.Error("Script file was not removed")
 	}
