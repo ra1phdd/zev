@@ -28,6 +28,9 @@ type Config struct {
 
 	OllamaBaseURL string `env:"OLLAMA_BASE_URL"`
 	OllamaModel   string `env:"OLLAMA_MODEL"`
+
+	CommandExecutionMode string `env:"COMMAND_EXECUTION_MODE"`
+	ScriptEditor         string `env:"SCRIPT_EDITOR"`
 }
 
 func DefaultConfig() *Config {
@@ -36,12 +39,14 @@ func DefaultConfig() *Config {
 		HTTPHeaders: map[string]string{
 			"User-Agent": "zev/1.0",
 		},
-		OpenAIModel:      "gpt-5.6-luna",
-		OpenAIBaseURL:    "https://api.openai.com/v1",
-		GeminiModel:      "gemini-3.1-flash-lite",
-		GeminiBaseURL:    "https://generativelanguage.googleapis.com",
-		AnthropicModel:   "claude-haiku-5.5",
-		AnthropicBaseURL: "https://api.anthropic.com/v1",
+		OpenAIModel:          "gpt-5.6-luna",
+		OpenAIBaseURL:        "https://api.openai.com/v1",
+		GeminiModel:          "gemini-3.1-flash-lite",
+		GeminiBaseURL:        "https://generativelanguage.googleapis.com",
+		AnthropicModel:       "claude-haiku-5.5",
+		AnthropicBaseURL:     "https://api.anthropic.com/v1",
+		CommandExecutionMode: "inject",
+		ScriptEditor:         "nano",
 	}
 }
 
@@ -118,6 +123,15 @@ func Save(cfg *Config) error {
 var getConfigPath = func() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".zev", "config")
+}
+
+// SetConfigPathForTests заменяет getConfigPath для тестов и возвращает старое значение.
+func SetConfigPathForTests(newPath string) string {
+	old := getConfigPath()
+	getConfigPath = func() string {
+		return newPath
+	}
+	return old
 }
 
 // GetZevDir возвращает путь к директории ~/.zev.

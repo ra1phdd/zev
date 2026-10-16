@@ -2,6 +2,7 @@ package terminal
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	"testing"
 )
@@ -48,7 +49,7 @@ func TestExecute(t *testing.T) {
 			// Для команд с ненулевым кодом проверяем тип ошибки
 			if tt.wantErr && err != nil {
 				exitError := &exec.ExitError{}
-				if errors.As(err, &exitError) {
+				if !errors.As(err, &exitError) {
 					t.Errorf("Execute() error type = %T, want *exec.ExitError", err)
 				}
 			}

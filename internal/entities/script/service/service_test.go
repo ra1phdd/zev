@@ -124,3 +124,63 @@ func TestServiceList(t *testing.T) {
 		t.Errorf("Expected 2 scripts, got %d", len(scripts))
 	}
 }
+
+func TestServiceChooseEditor(t *testing.T) {
+	tests := []struct {
+		name           string
+		scriptEditor   string
+		editor         string
+		expectNonEmpty bool
+	}{
+		{
+			name:           "SCRIPT_EDITOR set",
+			scriptEditor:   "nano",
+			editor:         "",
+			expectNonEmpty: true,
+		},
+		{
+			name:           "EDITOR set",
+			scriptEditor:   "",
+			editor:         "vim",
+			expectNonEmpty: true,
+		},
+		{
+			name:           "fallback to available editor",
+			scriptEditor:   "",
+			editor:         "",
+			expectNonEmpty: true, // nano/vim/vi должны быть доступны
+		},
+		{
+			name:           "nonexistent editor in SCRIPT_EDITOR",
+			scriptEditor:   "nonexistent-editor-12345",
+			editor:         "",
+			expectNonEmpty: true, // fallback на nano/vim/vi
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.scriptEditor != "" {
+				t.Setenv("SCRIPT_EDITOR", tt.scriptEditor)
+			}
+			if tt.editor != "" {
+				t.Setenv("EDITOR", tt.editor)
+			}
+
+			_, cleanup := setupTestEnv(t)
+			t.Cleanup(cleanup)
+
+			repo := repository.New()
+			svc := service.New(repo)
+
+			// Используем рефлексию для доступа к приватному методу
+			// (в продакшене это не нужно, но для тестирования полезно)
+			result := svc.ChooseEditorForTest()
+
+			if tt.expectNonEmpty && result == "" {
+				t.Error("Expected non-empty editor, got empty string")
+			}
+		})
+	}
+}
+

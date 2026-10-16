@@ -128,3 +128,74 @@ func TestServiceList(t *testing.T) {
 		t.Errorf("Expected 2 aliases, got %d", len(aliases))
 	}
 }
+
+func TestServiceResolveAutoAppendArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		template string
+		args     []string
+		expected string
+	}{
+		{
+			name:     "no template variables - args appended",
+			template: "docker ps",
+			args:     []string{"-a", "--format", "json"},
+			expected: "docker ps -a --format json",
+		},
+		{
+			name:     "no template variables - no args",
+			template: "docker ps",
+			args:     []string{},
+			expected: "docker ps",
+		},
+		{
+			name:     "has {{.args}} - no auto-append",
+			template: "docker ps {{.args}}",
+			args:     []string{"-a", "--format", "json"},
+			expected: "docker ps -a --format json",
+		},
+		{
+			name:     "has {{.arg1}} - no auto-append",
+			template: "docker logs {{.arg1}}",
+			args:     []string{"container123"},
+			expected: "docker logs container123",
+		},
+		{
+			name:     "has multiple {{.argN}} - no auto-append",
+			template: "scp {{.arg1}} {{.arg2}}",
+			args:     []string{"local.txt", "remote:/path"},
+			expected: "scp local.txt remote:/path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cleanup := setupTestEnv(t)
+			t.Cleanup(cleanup)
+
+			repo := repository.New()
+			svc := service.New(repo)
+
+			// Добавляем алиас
+			aliasName := "test_" + tt.name
+			err := svc.Add(aliasName, tt.template)
+			if err != nil {
+				t.Fatalf("Failed to add alias: %v", err)
+			}
+
+			// Разрешаем алиас
+			resolved, err := svc.Resolve(aliasName, tt.args)
+			if err != nil {
+				t.Fatalf("Failed to resolve alias: %v", err)
+			}
+
+			if resolved != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, resolved)
+			}
+		})
+	}
+}
