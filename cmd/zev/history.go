@@ -35,13 +35,11 @@ func runHistory(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Сортируем от новых к старым
 	reversedEntries := make([]service.HistoryEntry, len(entries))
 	for i := range entries {
 		reversedEntries[i] = entries[len(entries)-1-i]
 	}
 
-	// Формируем список опций для отображения
 	items := make([]list.Item, len(reversedEntries))
 	for i, entry := range reversedEntries {
 		var title string
@@ -70,7 +68,6 @@ func runHistory(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Находим индекс выбранного элемента
 	var selectedIdx int
 	for i := range items {
 		if items[i] == selectedItem {
@@ -79,7 +76,6 @@ func runHistory(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Показываем детальный вид выбранного запроса
 	selectedEntry := reversedEntries[selectedIdx]
 	return showHistoryDetails(&selectedEntry)
 }
@@ -90,7 +86,6 @@ func showHistoryDetails(entry *service.HistoryEntry) error {
 		return nil
 	}
 
-	// Формируем опции для выбора команды
 	items := make([]list.Item, len(entry.Response.Commands))
 	for i, cmd := range entry.Response.Commands {
 		isSelected := cmd.Command == entry.SelectedCommand
@@ -128,7 +123,6 @@ func showHistoryDetails(entry *service.HistoryEntry) error {
 		return err
 	}
 
-	// Находим индекс выбранного элемента
 	var selectedIdx int
 	for i := range items {
 		if items[i] == selectedItem {
@@ -136,12 +130,9 @@ func showHistoryDetails(entry *service.HistoryEntry) error {
 			break
 		}
 	}
-
 	selectedCommand := entry.Response.Commands[selectedIdx].Command
 
-	// Пытаемся вставить команду в терминал
 	if err := terminal.Inject(selectedCommand); err != nil {
-		// Если не удалось вставить, просто выводим
 		fmt.Fprintf(os.Stdout, "\n✓ Selected command:\n\n  %s\n\n", selectedCommand)
 	}
 

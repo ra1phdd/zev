@@ -9,19 +9,15 @@ import (
 	"github.com/ra1phdd/zev-go/pkg/tui/prompt"
 )
 
-// Service управляет интерактивной настройкой конфигурации.
 type Service struct{}
 
-// New создаёт новый setup service.
 func New() *Service {
 	return &Service{}
 }
 
-// Run запускает интерактивный процесс настройки.
 func (s *Service) Run() error {
 	cfg := config.DefaultConfig()
 
-	// Выбор провайдера
 	providers := []string{"openai", "gemini", "anthropic", "ollama", "opencode"}
 	items := make([]list.Item, len(providers))
 	for i, p := range providers {
@@ -39,7 +35,6 @@ func (s *Service) Run() error {
 	provider := selected.(list.SimpleItem).Title()
 	cfg.LLMProvider = provider
 
-	// Настройка выбранного провайдера
 	switch provider {
 	case "openai":
 		if err := s.setupOpenAI(cfg); err != nil {
@@ -63,7 +58,6 @@ func (s *Service) Run() error {
 		}
 	}
 
-	// Сохранение конфигурации
 	if err := config.Save(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
@@ -185,10 +179,8 @@ func (s *Service) setupOpenCode(cfg *config.Config) error {
 	}
 	cfg.OpenAIModel = model
 
-	// Устанавливаем base URL для OpenCode
 	cfg.OpenAIBaseURL = "https://opencode.ai/inference/openai/v1"
 
-	// Формируем заголовки OpenCode
 	cfg.HTTPHeaders = map[string]string{
 		"User-Agent":         "opencode/latest/2.0.29/cli",
 		"x-opencode-session": "ses_ebeea89daffe69kTavLoPHLIzF",

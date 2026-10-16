@@ -26,16 +26,13 @@ func TestDefaultConfig(t *testing.T) {
 
 //nolint:paralleltest // меняет глобальную getConfigPath
 func TestLoadConfigWithMissing(t *testing.T) {
-	// Создаём временный каталог
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".zevrc")
 
-	// Подменяем getConfigPath для теста
 	originalGetConfigPath := getConfigPath
 	getConfigPath = func() string { return configPath }
 	t.Cleanup(func() { getConfigPath = originalGetConfigPath })
 
-	// Загрузка должна пройти успешно с defaults (файла нет)
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -51,7 +48,6 @@ func TestSaveConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".zevrc")
 
-	// Временно заменяем getConfigPath для теста
 	originalGetConfigPath := getConfigPath
 	getConfigPath = func() string { return configPath }
 	t.Cleanup(func() { getConfigPath = originalGetConfigPath })
@@ -68,12 +64,10 @@ func TestSaveConfig(t *testing.T) {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	// Проверяем, что файл создался
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		t.Errorf("config file not created")
 	}
 
-	// Проверяем, что можем загрузить сохранённый конфиг обратно
 	loadedCfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load after save failed: %v", err)

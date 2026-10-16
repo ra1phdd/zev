@@ -13,7 +13,6 @@ import (
 	"github.com/ra1phdd/zev-go/internal/entities/query/repository"
 )
 
-// Provider реализует domain.InferenceProvider для Gemini API.
 type Provider struct {
 	apiKey  string
 	model   string
@@ -22,7 +21,6 @@ type Provider struct {
 	client  *http.Client
 }
 
-// New создаёт новый Gemini провайдер.
 func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, error) {
 	if apiKey == "" {
 		return nil, errors.New("GEMINI_API_KEY is required. Run `zev setup` to configure")
@@ -48,14 +46,14 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 	}, nil
 }
 
-// GetOptions получает варианты команд от Gemini.
 func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
-	userMessage := fmt.Sprintf(repository.UserPromptTemplate, envContext, prompt)
+	systemPrompt := fmt.Sprintf(repository.SystemPrompt, envContext)
+	userMessage := fmt.Sprintf(repository.UserPromptTemplate, prompt)
 
 	requestBody := map[string]any{
 		"system_instruction": map[string]any{
 			"parts": []map[string]string{
-				{"text": repository.SystemPrompt},
+				{"text": systemPrompt},
 			},
 		},
 		"contents": []map[string]any{
@@ -119,11 +117,9 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	return &result, nil
 }
 
-// GetOptionsWithHistory получает варианты команд с учётом истории диалога.
 func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
 	contents := make([]map[string]any, 0, len(history.Messages))
 
-	// Преобразуем историю в формат Gemini
 	for _, msg := range history.Messages {
 		role := "user"
 		if msg.Role == "assistant" {
@@ -197,12 +193,10 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	return &result, nil
 }
 
-// Name возвращает имя провайдера.
 func (p *Provider) Name() string {
 	return "gemini"
 }
 
-// Model возвращает используемую модель.
 func (p *Provider) Model() string {
 	return p.model
 }
