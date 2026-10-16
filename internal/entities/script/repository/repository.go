@@ -23,24 +23,24 @@ type Repository struct {
 func New() *Repository {
 	zevDir := config.GetZevDir()
 	return &Repository{
-		scriptsYAMLPath: filepath.Join(zevDir, "scripts.yaml"),
+		scriptsYAMLPath: filepath.Join(zevDir, "scripts"),
 		scriptsDir:      filepath.Join(zevDir, "scripts"),
 	}
 }
 
-// LoadAll загружает все метаданные скриптов из ~/.zev/scripts.yaml.
+// LoadAll загружает все метаданные скриптов из ~/.zev/scripts.
 func (r *Repository) LoadAll() (map[string]domain.Script, error) {
 	data, err := os.ReadFile(r.scriptsYAMLPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return make(map[string]domain.Script), nil
 		}
-		return nil, fmt.Errorf("failed to read scripts.yaml: %w", err)
+		return nil, fmt.Errorf("failed to read scripts: %w", err)
 	}
 
 	var raw map[string]scriptYAML
 	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("failed to parse scripts.yaml: %w", err)
+		return nil, fmt.Errorf("failed to parse scripts: %w", err)
 	}
 
 	scripts := make(map[string]domain.Script, len(raw))
@@ -55,7 +55,7 @@ func (r *Repository) LoadAll() (map[string]domain.Script, error) {
 	return scripts, nil
 }
 
-// SaveAll сохраняет все метаданные скриптов в ~/.zev/scripts.yaml.
+// SaveAll сохраняет все метаданные скриптов в ~/.zev/scripts.
 func (r *Repository) SaveAll(scripts map[string]domain.Script) error {
 	if err := os.MkdirAll(filepath.Dir(r.scriptsYAMLPath), 0700); err != nil {
 		return fmt.Errorf("failed to create scripts dir: %w", err)
@@ -71,11 +71,11 @@ func (r *Repository) SaveAll(scripts map[string]domain.Script) error {
 
 	data, err := yaml.Marshal(raw)
 	if err != nil {
-		return fmt.Errorf("failed to marshal scripts.yaml: %w", err)
+		return fmt.Errorf("failed to marshal scripts: %w", err)
 	}
 
 	if err := os.WriteFile(r.scriptsYAMLPath, data, 0600); err != nil {
-		return fmt.Errorf("failed to write scripts.yaml: %w", err)
+		return fmt.Errorf("failed to write scripts: %w", err)
 	}
 
 	return nil
