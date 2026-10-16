@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"strings"
 	"syscall"
 )
@@ -51,4 +52,31 @@ func WrapNetworkError(providerName string, originalErr error) error {
 
 	// Fallback: wrap original
 	return fmt.Errorf("%s API error: %w", providerName, originalErr)
+}
+
+// ExtractJSON извлекает чистый JSON из markdown-блоков (```json...```) или escape-тегов (<escape>...</escape>).
+// Если ни того, ни другого нет — возвращает текст как есть.
+func ExtractJSON(text string) string {
+	text = strings.TrimSpace(text)
+
+	// 1. Убираем <escape>...</escape> (dotall mode через (?s))
+	escapePattern := regexp.MustCompile(`(?s)<escape>(.*?)</escape>`)
+	if match := escapePattern.FindStringSubmatch(text); len(match) > 1 {
+		text = strings.TrimSpace(match[1])
+	}
+
+	// 2. Убираем markdown ```json...```
+	const jsonPrefix = "```json"
+	const jsonSuffix = "```"
+
+	startIdx := strings.Index(text, jsonPrefix)
+	if startIdx != -1 {
+		startIdx += len(jsonPrefix)
+		endIdx := strings.Index(text[startIdx:], jsonSuffix)
+		if endIdx != -1 {
+			text = strings.TrimSpace(text[startIdx : startIdx+endIdx])
+		}
+	}
+
+	return text
 }

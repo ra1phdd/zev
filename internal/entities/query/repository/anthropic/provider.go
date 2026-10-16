@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/liushuangls/go-anthropic/v2"
 	"github.com/ra1phdd/zev-go/internal/core/domain"
@@ -69,7 +68,7 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	}
 
 	// Извлекаем JSON из markdown блока, если он там есть
-	jsonContent := extractJSON(textContent)
+	jsonContent := repository.ExtractJSON(textContent)
 
 	var result domain.OptionsResponse
 	if err := json.Unmarshal([]byte(jsonContent), &result); err != nil {
@@ -108,7 +107,7 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	}
 
 	// Извлекаем JSON из markdown блока, если он там есть
-	jsonContent := extractJSON(textContent)
+	jsonContent := repository.ExtractJSON(textContent)
 
 	var result domain.OptionsResponse
 	if err := json.Unmarshal([]byte(jsonContent), &result); err != nil {
@@ -126,24 +125,3 @@ func (p *Provider) Model() string {
 	return p.model
 }
 
-// extractJSON извлекает JSON из markdown блока или возвращает текст как есть.
-func extractJSON(text string) string {
-	// Попробуем найти JSON блок в markdown (```json ... ```)
-	const jsonPrefix = "```json"
-	const jsonSuffix = "```"
-
-	startIdx := strings.Index(text, jsonPrefix)
-	if startIdx == -1 {
-		// Нет markdown блока, возвращаем текст как есть
-		return text
-	}
-
-	startIdx += len(jsonPrefix)
-	endIdx := strings.Index(text[startIdx:], jsonSuffix)
-	if endIdx == -1 {
-		// Не нашли закрывающий блок, возвращаем текст как есть
-		return text
-	}
-
-	return strings.TrimSpace(text[startIdx : startIdx+endIdx])
-}

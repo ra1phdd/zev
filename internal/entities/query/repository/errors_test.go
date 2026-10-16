@@ -108,3 +108,62 @@ func indexOf(s, substr string) int {
 	}
 	return -1
 }
+
+func TestExtractJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "plain JSON",
+			input:    `{"is_valid": true}`,
+			expected: `{"is_valid": true}`,
+		},
+		{
+			name: "markdown json block",
+			input: "```json\n" +
+				`{"is_valid": true}` + "\n" +
+				"```",
+			expected: `{"is_valid": true}`,
+		},
+		{
+			name:     "escape tags",
+			input:    `<escape>{"is_valid": true}</escape>`,
+			expected: `{"is_valid": true}`,
+		},
+		{
+			name: "escape tags with newlines",
+			input: "<escape>{\n" +
+				`  "is_valid": true` + "\n" +
+				"}</escape>",
+			expected: "{\n  \"is_valid\": true\n}",
+		},
+		{
+			name: "markdown json block with escape inside",
+			input: "```json\n" +
+				"<escape>{\n" +
+				`  "is_valid": true` + "\n" +
+				"}</escape>\n" +
+				"```",
+			expected: "{\n  \"is_valid\": true\n}",
+		},
+		{
+			name:     "no markers",
+			input:    `plain text no json`,
+			expected: `plain text no json`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := repository.ExtractJSON(tt.input)
+			if got != tt.expected {
+				t.Errorf("ExtractJSON() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}

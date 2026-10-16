@@ -69,9 +69,10 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	}
 
 	rawContent := resp.Choices[0].Message.Content
+	cleanJSON := repository.ExtractJSON(rawContent)
 
 	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(rawContent), &result); err != nil {
+	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w (raw content: %s)", err, rawContent)
 	}
 
@@ -109,9 +110,10 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	}
 
 	rawContent := resp.Choices[0].Message.Content
+	cleanJSON := repository.ExtractJSON(rawContent)
 
 	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(rawContent), &result); err != nil {
+	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w (raw content: %s)", err, rawContent)
 	}
 
