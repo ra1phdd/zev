@@ -67,6 +67,7 @@ type model struct {
 	cursor      int
 	selected    Item
 	cancelled   bool
+	width       int // ширина терминала
 }
 
 func newModel(opts SelectOptions) model {
@@ -75,6 +76,7 @@ func newModel(opts SelectOptions) model {
 		items:       opts.Items,
 		showWarning: opts.ShowWarning,
 		cursor:      0,
+		width:       80, // дефолтная ширина
 	}
 }
 
@@ -83,42 +85,97 @@ var (
 	regularStyle = lipgloss.NewStyle()
 )
 
+// wrapText переносит текст на несколько строк с учётом максимальной ширины.
+// indent — отступ для всех строк кроме первой.
+func wrapText(text string, maxWidth, indent int) string {
+	if len(text) <= maxWidth {
+		return text
+	}
+
+	var lines []string
+	remaining := text
+	firstLine := true
+
+	for len(remaining) > 0 {
+		lineWidth := maxWidth
+		if !firstLine {
+			lineWidth = maxWidth - indent
+		}
+
+		if len(remaining) <= lineWidth {
+			if firstLine {
+				lines = append(lines, remaining)
+			} else {
+				lines = append(lines, strings.Repeat(" ", indent)+remaining)
+			}
+			break
+		}
+
+		// Разрыв по последнему пробелу
+		breakPoint := strings.LastIndex(remaining[:lineWidth], " ")
+		if breakPoint == -1 {
+			// Нет пробелов — режем по ширине
+			breakPoint = lineWidth
+			if firstLine {
+				lines = append(lines, remaining[:breakPoint])
+				firstLine = false
+			} else {
+				lines = append(lines, strings.Repeat(" ", indent)+remaining[:breakPoint])
+			}
+			remaining = remaining[breakPoint:]
+		} else {
+			// Есть пробел — режем по нему
+			if firstLine {
+				lines = append(lines, remaining[:breakPoint])
+				firstLine = false
+			} else {
+				lines = append(lines, strings.Repeat(" ", indent)+remaining[:breakPoint])
+			}
+			remaining = strings.TrimSpace(remaining[breakPoint:])
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 func (m model) Init() tea.Cmd {
 	return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	keyMsg, ok := msg.(tea.KeyMsg)
-	if !ok {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
 		return m, nil
-	}
 
-	switch keyMsg.Type {
-	case tea.KeyUp:
-		m.cursor--
-		if m.cursor < 0 {
-			m.cursor = len(m.items) - 1
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyUp:
+			m.cursor--
+			if m.cursor < 0 {
+				m.cursor = len(m.items) - 1
+			}
+
+		case tea.KeyDown:
+			m.cursor++
+			if m.cursor >= len(m.items) {
+				m.cursor = 0
+			}
+
+		case tea.KeyEnter:
+			m.selected = m.items[m.cursor]
+			return m, tea.Quit
+
+		case tea.KeyCtrlC, tea.KeyEsc:
+			m.cancelled = true
+			return m, tea.Quit
 		}
 
-	case tea.KeyDown:
-		m.cursor++
-		if m.cursor >= len(m.items) {
-			m.cursor = 0
+		// Handle 'q' key separately (it comes as KeyRunes)
+		if msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && msg.Runes[0] == 'q' {
+			m.cancelled = true
+			return m, tea.Quit
 		}
-
-	case tea.KeyEnter:
-		m.selected = m.items[m.cursor]
-		return m, tea.Quit
-
-	case tea.KeyCtrlC, tea.KeyEsc:
-		m.cancelled = true
-		return m, tea.Quit
-	}
-
-	// Handle 'q' key separately (it comes as KeyRunes)
-	if keyMsg.Type == tea.KeyRunes && len(keyMsg.Runes) == 1 && keyMsg.Runes[0] == 'q' {
-		m.cancelled = true
-		return m, tea.Quit
 	}
 
 	return m, nil
@@ -143,7 +200,14 @@ func (m model) View() string {
 			prefix = "⚠️  "
 		}
 
-		line := fmt.Sprintf("%s%s%d. %s", cursor, prefix, i+1, item.Title())
+		// Вычисляем длину префиксов для правильного переноса
+		// cursor (2) + prefix (0 или 4) + "N. " (примерно 3)
+		prefixLen := len(cursor) + len(prefix) + len(fmt.Sprintf("%d. ", i+1))
+
+		// Оборачиваем Title с учётом префиксов
+		titleText := wrapText(item.Title(), m.width-prefixLen, prefixLen)
+
+		line := fmt.Sprintf("%s%s%d. %s", cursor, prefix, i+1, titleText)
 
 		if i == m.cursor {
 			line = cursorStyle.Render(line)
@@ -155,7 +219,9 @@ func (m model) View() string {
 		b.WriteString("\n")
 
 		if item.Description() != "" {
-			desc := "   " + item.Description()
+			// Оборачиваем Description с отступом 3
+			descText := wrapText(item.Description(), m.width-3, 3)
+			desc := "   " + descText
 			b.WriteString(desc)
 			b.WriteString("\n")
 		}
