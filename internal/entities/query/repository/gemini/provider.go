@@ -108,9 +108,10 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	}
 
 	textOutput := geminiResp.Candidates[0].Content.Parts[0].Text
+	cleanJSON := repository.ExtractJSON(textOutput)
 
 	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(textOutput), &result); err != nil {
+	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
@@ -184,9 +185,10 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	}
 
 	textOutput := geminiResp.Candidates[0].Content.Parts[0].Text
+	cleanJSON := repository.ExtractJSON(textOutput)
 
 	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(textOutput), &result); err != nil {
+	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 

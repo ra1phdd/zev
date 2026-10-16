@@ -211,9 +211,12 @@ func (p *Provider) sendRequest(ctx context.Context, reqBody openCodeRequest) (*d
 		return nil, domain.ErrNoResponse
 	}
 
+	// Извлекаем JSON из markdown/escape-тегов
+	cleanJSON := repository.ExtractJSON(fullContent.String())
+
 	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(fullContent.String()), &result); err != nil {
-		return nil, fmt.Errorf("failed to parse command options: %w", err)
+	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w (raw content: %s)", err, fullContent.String())
 	}
 
 	return &result, nil
