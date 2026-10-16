@@ -4,7 +4,7 @@
 *.dll
 *.so
 *.dylib
-zev
+/zev
 /cmd/zev/zev
 bin/
 

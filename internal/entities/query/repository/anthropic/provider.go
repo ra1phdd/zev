@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/liushuangls/go-anthropic/v2"
 	"github.com/ra1phdd/zev-go/internal/core/domain"
@@ -69,8 +70,11 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 		return nil, domain.ErrNoResponse
 	}
 
+	// Извлекаем JSON из markdown блока, если он там есть
+	jsonContent := extractJSON(textContent)
+
 	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(textContent), &result); err != nil {
+	if err := json.Unmarshal([]byte(jsonContent), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
@@ -107,8 +111,11 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 		return nil, domain.ErrNoResponse
 	}
 
+	// Извлекаем JSON из markdown блока, если он там есть
+	jsonContent := extractJSON(textContent)
+
 	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(textContent), &result); err != nil {
+	if err := json.Unmarshal([]byte(jsonContent), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
@@ -123,4 +130,26 @@ func (p *Provider) Name() string {
 // Model возвращает используемую модель.
 func (p *Provider) Model() string {
 	return p.model
+}
+
+// extractJSON извлекает JSON из markdown блока или возвращает текст как есть.
+func extractJSON(text string) string {
+	// Попробуем найти JSON блок в markdown (```json ... ```)
+	const jsonPrefix = "```json"
+	const jsonSuffix = "```"
+
+	startIdx := strings.Index(text, jsonPrefix)
+	if startIdx == -1 {
+		// Нет markdown блока, возвращаем текст как есть
+		return text
+	}
+
+	startIdx += len(jsonPrefix)
+	endIdx := strings.Index(text[startIdx:], jsonSuffix)
+	if endIdx == -1 {
+		// Не нашли закрывающий блок, возвращаем текст как есть
+		return text
+	}
+
+	return strings.TrimSpace(text[startIdx : startIdx+endIdx])
 }
