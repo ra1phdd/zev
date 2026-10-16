@@ -29,17 +29,47 @@
 
 ## Quick start
 
+### Linux and macOS
+
+Install the latest release with one command — the script picks the archive for your OS
+and architecture, verifies its SHA-256 checksum and installs it:
+
 ```bash
-# Clone and build
-git clone https://github.com/ra1phdd/zev-go.git
-cd zev-go
-make build
+# curl
+curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/install.sh | bash
 
-# Configure your LLM provider (interactive)
-./bin/zev setup
+# or wget
+wget -qO- https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/install.sh | bash
+```
 
-# Ask for a command
-./bin/zev "find all files modified in the last 24 hours"
+Both install into `/usr/local/bin` with `sudo` when you have it, or fall back to
+`$HOME/.local/bin` without root. To choose the directory yourself, set `PREFIX`:
+
+```bash
+PREFIX=$HOME/.local/bin curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/install.sh | bash
+```
+
+The script uses `curl` when available and falls back to `wget`. To install a specific
+version, pass `-v`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/install.sh | bash -s -- -v 1.0.0
+```
+
+### Windows
+
+```powershell
+irm https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/install.ps1 | iex
+```
+
+Or download [`install.ps1`](deploy/install.ps1) and run `.\install.ps1`. It installs into
+`%LOCALAPPDATA%\Programs\zev` and needs no administrator rights.
+
+### Then configure a provider
+
+```bash
+zev setup                          # interactive LLM provider setup
+zev "find all files modified in the last 24 hours"
 ```
 
 Without the `query` subcommand, `zev` starts its interactive prompt.
@@ -103,28 +133,6 @@ zev version
 zev -vv "tail the logs in real time"   # debug logs
 ```
 
-## Installation
-
-### Precompiled binaries
-
-Precompiled binaries will be published on the [releases page](https://github.com/ra1phdd/zev-go/releases)
-once the release pipeline is in place. Until then, build from source.
-
-### Building from source
-
-Requirements: Go 1.27.2 or newer.
-
-```bash
-git clone https://github.com/ra1phdd/zev-go.git
-cd zev-go
-
-# Local binary
-make build            # -> bin/zev
-
-# Or install into $GOPATH/bin
-make install
-```
-
 ## Providers
 
 | Provider | `LLM_PROVIDER` | Required variables |
@@ -159,6 +167,32 @@ export OLLAMA_MODEL=qwen2.5-coder
   raw HTTP for Gemini, Anthropic and OpenCode (SSE streaming)
 - `godotenv` + `caarlos0/env` for configuration
 - `golangci-lint` and `go test` in CI
+
+## Uninstallation
+
+To remove zev, use the uninstaller scripts:
+
+```bash
+# Linux and macOS
+curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.sh | bash
+```
+
+```powershell
+# Windows
+irm https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.ps1 | iex
+```
+
+Or manually remove the binary:
+
+```bash
+rm /usr/local/bin/zev      # system-wide (Linux/macOS)
+rm $HOME/.local/bin/zev    # user-local (Linux/macOS)
+```
+
+```cmd
+REM Windows
+del %LOCALAPPDATA%\Programs\zev\zev.exe
+```
 
 ## Contributing
 
