@@ -30,7 +30,7 @@ type Service struct {
 func New() *Service {
 	home, _ := os.UserHomeDir()
 	return &Service{
-		historyPath: filepath.Join(home, ".zevhistory"),
+		historyPath: filepath.Join(home, ".zev", "history"),
 	}
 }
 

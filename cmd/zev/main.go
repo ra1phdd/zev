@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 )
@@ -27,9 +29,15 @@ func main() {
 	rootCmd.AddCommand(newQueryCmd())
 	rootCmd.AddCommand(newHistoryCmd())
 	rootCmd.AddCommand(newSetupCmd())
+	rootCmd.AddCommand(newAliasCmd())
+	rootCmd.AddCommand(newScriptCmd())
 	rootCmd.AddCommand(newVersionCmd())
 
 	if err := rootCmd.Execute(); err != nil {
+		// Команда алиаса завершилась с ненулевым кодом — пробрасываем его без лишнего шума
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+			os.Exit(exitErr.ExitCode())
+		}
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
