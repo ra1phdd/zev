@@ -8,6 +8,8 @@
     <img src="https://img.shields.io/badge/license-MIT-green" alt="Лицензия">
 </p>
 
+![Zev в действии](assets/zev.gif)
+
 **English** | [Русский](README.ru.md)
 </div>
 
