@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/ra1phdd/zev-go/internal/core/domain"
-	"github.com/ra1phdd/zev-go/internal/entities/script/repository"
+	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/entities/script/repository"
 )
 
 // ErrScriptNotFound возвращается, когда скрипт не зарегистрирован в scripts.yaml.

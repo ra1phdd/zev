@@ -3,8 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/ra1phdd/zev-go/internal/core/config"
-	"github.com/spf13/cobra"
+	"github.com/ra1phdd/zev/internal/core/config"
 )
 
 func TestParseArgsFlags(t *testing.T) {
@@ -94,40 +93,30 @@ func TestParseArgsFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			cmd := &cobra.Command{Use: "query", RunE: func(cmd *cobra.Command, args []string) error {
-				return nil
-			}}
-			cmd.Flags().BoolVar(&executeFlag, "execute", false, "")
-			cmd.Flags().BoolVar(&injectFlag, "inject", false, "")
+			got := parseArgsFlags(tt.args)
 
-			verbosityLevel = 0
-			executeFlag = false
-			injectFlag = false
-
-			gotArgs, gotHelp := parseArgsFlags(tt.args)
-
-			if tt.wantHelp != gotHelp {
-				t.Errorf("parseArgsFlags() help = %v, want %v", gotHelp, tt.wantHelp)
+			if tt.wantHelp != got.Help {
+				t.Errorf("parseArgsFlags() help = %v, want %v", got.Help, tt.wantHelp)
 			}
 
-			if tt.wantVerbosity != verbosityLevel {
-				t.Errorf("verbosityLevel = %d, want %d", verbosityLevel, tt.wantVerbosity)
+			if tt.wantVerbosity != got.Verbosity {
+				t.Errorf("parseArgsFlags() verbosity = %d, want %d", got.Verbosity, tt.wantVerbosity)
 			}
 
-			if tt.wantExecute != executeFlag {
-				t.Errorf("executeFlag = %v, want %v", executeFlag, tt.wantExecute)
+			if tt.wantExecute != got.Execute {
+				t.Errorf("parseArgsFlags() execute = %v, want %v", got.Execute, tt.wantExecute)
 			}
 
-			if tt.wantInject != injectFlag {
-				t.Errorf("injectFlag = %v, want %v", injectFlag, tt.wantInject)
+			if tt.wantInject != got.Inject {
+				t.Errorf("parseArgsFlags() inject = %v, want %v", got.Inject, tt.wantInject)
 			}
 
-			if len(gotArgs) != len(tt.wantArgs) {
-				t.Fatalf("parseArgsFlags() args = %v, want %v", gotArgs, tt.wantArgs)
+			if len(got.Args) != len(tt.wantArgs) {
+				t.Fatalf("parseArgsFlags() args = %v, want %v", got.Args, tt.wantArgs)
 			}
-			for i := range gotArgs {
-				if gotArgs[i] != tt.wantArgs[i] {
-					t.Errorf("parseArgsFlags() args = %v, want %v", gotArgs, tt.wantArgs)
+			for i := range got.Args {
+				if got.Args[i] != tt.wantArgs[i] {
+					t.Errorf("parseArgsFlags() args = %v, want %v", got.Args, tt.wantArgs)
 				}
 			}
 		})
@@ -137,17 +126,16 @@ func TestParseArgsFlags(t *testing.T) {
 func TestParseArgsFlagsLeavesVerbosityUnchanged(t *testing.T) {
 	t.Parallel()
 
-	verbosityLevel = 0
-	executeFlag = false
-	injectFlag = false
+	got := parseArgsFlags([]string{"-e"})
 
-	args, _ := parseArgsFlags([]string{"-e"})
-
-	if len(args) != 0 {
-		t.Errorf("parseArgsFlags() args = %v, want empty", args)
+	if len(got.Args) != 0 {
+		t.Errorf("parseArgsFlags() args = %v, want empty", got.Args)
 	}
-	if verbosityLevel != 0 {
-		t.Errorf("verbosityLevel = %d, want 0", verbosityLevel)
+	if got.Verbosity != 0 {
+		t.Errorf("parseArgsFlags() verbosity = %d, want 0", got.Verbosity)
+	}
+	if !got.Execute {
+		t.Error("parseArgsFlags() execute = false, want true")
 	}
 }
 

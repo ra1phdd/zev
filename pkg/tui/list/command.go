@@ -3,7 +3,7 @@ package list
 import (
 	"strings"
 
-	"github.com/ra1phdd/zev-go/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
 // CommandItem адаптер для domain.Command.

@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/ra1phdd/zev-go/internal/entities/query/repository"
+	"github.com/ra1phdd/zev/internal/entities/query/repository"
 )
 
 func TestWrapNetworkError(t *testing.T) {

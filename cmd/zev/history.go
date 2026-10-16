@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ra1phdd/zev-go/internal/entities/history/service"
-	"github.com/ra1phdd/zev-go/pkg/terminal"
-	"github.com/ra1phdd/zev-go/pkg/tui/list"
+	"github.com/ra1phdd/zev/internal/entities/history/service"
+	"github.com/ra1phdd/zev/pkg/terminal"
+	"github.com/ra1phdd/zev/pkg/tui/list"
 	"github.com/spf13/cobra"
 )
 

@@ -8,19 +8,19 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ra1phdd/zev-go/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
 const maxHistoryEntries = 100
 
 type HistoryEntry struct {
-	Timestamp        time.Time               `json:"timestamp"`
-	Prompt           string                  `json:"prompt"`
-	Response         *domain.OptionsResponse `json:"response"`
-	Provider         string                  `json:"provider"`
-	Model            string                  `json:"model"`
-	SelectedCommand  string                  `json:"selected_command,omitempty"`  // команда, которую выбрал пользователь
-	SelectedIndex    int                     `json:"selected_index,omitempty"`    // индекс выбранной команды (для highlight)
+	Timestamp       time.Time               `json:"timestamp"`
+	Prompt          string                  `json:"prompt"`
+	Response        *domain.OptionsResponse `json:"response"`
+	Provider        string                  `json:"provider"`
+	Model           string                  `json:"model"`
+	SelectedCommand string                  `json:"selected_command,omitempty"` // команда, которую выбрал пользователь
+	SelectedIndex   int                     `json:"selected_index,omitempty"`   // индекс выбранной команды (для highlight)
 }
 
 type Service struct {

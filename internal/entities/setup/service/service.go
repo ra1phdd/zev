@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ra1phdd/zev-go/internal/core/config"
-	"github.com/ra1phdd/zev-go/pkg/tui/list"
-	"github.com/ra1phdd/zev-go/pkg/tui/prompt"
+	"github.com/ra1phdd/zev/internal/core/config"
+	"github.com/ra1phdd/zev/pkg/tui/list"
+	"github.com/ra1phdd/zev/pkg/tui/prompt"
 )
 
 type Service struct{}

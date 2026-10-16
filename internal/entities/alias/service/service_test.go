@@ -3,35 +3,23 @@ package service_test
 import (
 	"testing"
 
-	"github.com/ra1phdd/zev-go/internal/core/config"
-	"github.com/ra1phdd/zev-go/internal/entities/alias/repository"
-	"github.com/ra1phdd/zev-go/internal/entities/alias/service"
+	"github.com/ra1phdd/zev/internal/entities/alias/repository"
+	"github.com/ra1phdd/zev/internal/entities/alias/service"
 )
 
-func setupTestEnv(t *testing.T) func() {
+// newTestService создаёт сервис алиасов с репозиторием во временной директории.
+// t.TempDir() уникален для каждого теста, поэтому тесты изолированы и не
+// разделяют глобальное состояние.
+func newTestService(t *testing.T) *service.Service {
 	t.Helper()
 
-	tmpDir := t.TempDir()
-	oldGetZevDir := config.GetZevDir
-	config.GetZevDir = func() string {
-		return tmpDir
-	}
-
-	cleanup := func() {
-		config.GetZevDir = oldGetZevDir
-	}
-
-	return cleanup
+	return service.New(repository.New(t.TempDir()))
 }
 
 func TestServiceAddAndResolve(t *testing.T) {
 	t.Parallel()
 
-	cleanup := setupTestEnv(t)
-	defer cleanup()
-
-	repo := repository.New()
-	svc := service.New(repo)
+	svc := newTestService(t)
 
 	// Добавляем алиас
 	err := svc.Add("dps", "docker service ps {{.arg1}} --no-trunc")
@@ -54,11 +42,7 @@ func TestServiceAddAndResolve(t *testing.T) {
 func TestServiceResolveMultipleArgs(t *testing.T) {
 	t.Parallel()
 
-	cleanup := setupTestEnv(t)
-	defer cleanup()
-
-	repo := repository.New()
-	svc := service.New(repo)
+	svc := newTestService(t)
 
 	// Алиас с {{.args}}
 	err := svc.Add("dcup", "docker-compose up -d {{.args}}")
@@ -80,11 +64,7 @@ func TestServiceResolveMultipleArgs(t *testing.T) {
 func TestServiceRemove(t *testing.T) {
 	t.Parallel()
 
-	cleanup := setupTestEnv(t)
-	defer cleanup()
-
-	repo := repository.New()
-	svc := service.New(repo)
+	svc := newTestService(t)
 
 	// Добавляем и удаляем алиас
 	if err := svc.Add("test", "echo test"); err != nil {
@@ -105,11 +85,7 @@ func TestServiceRemove(t *testing.T) {
 func TestServiceList(t *testing.T) {
 	t.Parallel()
 
-	cleanup := setupTestEnv(t)
-	defer cleanup()
-
-	repo := repository.New()
-	svc := service.New(repo)
+	svc := newTestService(t)
 
 	// Добавляем несколько алиасов
 	if err := svc.Add("alias1", "cmd1"); err != nil {
@@ -174,11 +150,7 @@ func TestServiceResolveAutoAppendArgs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			cleanup := setupTestEnv(t)
-			t.Cleanup(cleanup)
-
-			repo := repository.New()
-			svc := service.New(repo)
+			svc := newTestService(t)
 
 			// Добавляем алиас
 			aliasName := "test_" + tt.name

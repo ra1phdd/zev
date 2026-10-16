@@ -5,8 +5,9 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/ra1phdd/zev-go/internal/entities/alias/repository"
-	"github.com/ra1phdd/zev-go/internal/entities/alias/service"
+	"github.com/ra1phdd/zev/internal/core/config"
+	"github.com/ra1phdd/zev/internal/entities/alias/repository"
+	"github.com/ra1phdd/zev/internal/entities/alias/service"
 	"github.com/spf13/cobra"
 )
 
@@ -60,7 +61,7 @@ func newAliasRemoveCmd() *cobra.Command {
 }
 
 func runAliasAdd(cmd *cobra.Command, args []string) error {
-	repo := repository.New()
+	repo := repository.New(config.GetZevDir())
 	svc := service.New(repo)
 
 	name := args[0]
@@ -75,7 +76,7 @@ func runAliasAdd(cmd *cobra.Command, args []string) error {
 }
 
 func runAliasList(cmd *cobra.Command, args []string) error {
-	repo := repository.New()
+	repo := repository.New(config.GetZevDir())
 	svc := service.New(repo)
 
 	aliases, err := svc.List()
@@ -99,7 +100,7 @@ func runAliasList(cmd *cobra.Command, args []string) error {
 }
 
 func runAliasRemove(cmd *cobra.Command, args []string) error {
-	repo := repository.New()
+	repo := repository.New(config.GetZevDir())
 	svc := service.New(repo)
 
 	name := args[0]

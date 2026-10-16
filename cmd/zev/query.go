@@ -10,20 +10,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ra1phdd/zev-go/internal/core/config"
-	"github.com/ra1phdd/zev-go/internal/core/domain"
-	"github.com/ra1phdd/zev-go/internal/core/httpclient"
-	aliasrepo "github.com/ra1phdd/zev-go/internal/entities/alias/repository"
-	aliasservice "github.com/ra1phdd/zev-go/internal/entities/alias/service"
-	"github.com/ra1phdd/zev-go/internal/entities/history/service"
-	"github.com/ra1phdd/zev-go/internal/entities/query/repository"
-	"github.com/ra1phdd/zev-go/internal/entities/query/repository/factory"
-	queryservice "github.com/ra1phdd/zev-go/internal/entities/query/service"
-	scriptrepo "github.com/ra1phdd/zev-go/internal/entities/script/repository"
-	scriptservice "github.com/ra1phdd/zev-go/internal/entities/script/service"
-	"github.com/ra1phdd/zev-go/pkg/terminal"
-	"github.com/ra1phdd/zev-go/pkg/tui/list"
-	"github.com/ra1phdd/zev-go/pkg/tui/prompt"
+	"github.com/ra1phdd/zev/internal/core/config"
+	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/httpclient"
+	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
+	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
+	"github.com/ra1phdd/zev/internal/entities/history/service"
+	"github.com/ra1phdd/zev/internal/entities/query/repository"
+	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
+	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
+	scriptrepo "github.com/ra1phdd/zev/internal/entities/script/repository"
+	scriptservice "github.com/ra1phdd/zev/internal/entities/script/service"
+	"github.com/ra1phdd/zev/pkg/terminal"
+	"github.com/ra1phdd/zev/pkg/tui/list"
+	"github.com/ra1phdd/zev/pkg/tui/prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -31,6 +31,15 @@ var (
 	executeFlag bool
 	injectFlag  bool
 )
+
+// parsedFlags — результат ручного разбора аргументов командной строки.
+type parsedFlags struct {
+	Args      []string
+	Help      bool
+	Verbosity int
+	Execute   bool
+	Inject    bool
+}
 
 // setupLogger настраивает логгер в зависимости от уровня verbosity.
 // 0 = FATAL (по умолчанию)
@@ -96,51 +105,55 @@ func resolveExecutionMode(cfg *config.Config, executeFlag, injectFlag bool) stri
 // установлен DisableFlagParsing ради поддержки алиасов вида `zev dps -a`.
 // Поддерживаются: -h/--help, -v/-vv/-vvv/... (счётчик), --verbose=N,
 // -e/--execute, --inject. Всё остальное считается аргументами пользователя.
-func parseArgsFlags(args []string) ([]string, bool) {
-	filteredArgs := []string{}
-	helpRequested := false
+// Функция чистая: она не трогает состояние пакета, поэтому её можно
+// вызывать из параллельных тестов.
+func parseArgsFlags(args []string) parsedFlags {
+	result := parsedFlags{Args: []string{}}
 
 	for _, arg := range args {
 		switch {
 		case arg == "-h", arg == "--help":
-			helpRequested = true
+			result.Help = true
 
-		case arg == "-v":
-			verbosityLevel++
-
-		case arg == "--verbose":
-			verbosityLevel++
+		case arg == "-v", arg == "--verbose":
+			result.Verbosity++
 
 		case strings.HasPrefix(arg, "--verbose="):
 			if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--verbose=")); err == nil && n > 0 {
-				verbosityLevel = n
+				result.Verbosity = n
 			}
 
 		case len(arg) > 2 && strings.HasPrefix(arg, "-vv"):
 			// -vv, -vvv, -vvvv... — количество v задаёт уровень verbosity
-			verbosityLevel = len(arg) - 1
+			result.Verbosity = len(arg) - 1
 
 		case arg == "-e", arg == "--execute":
-			executeFlag = true
+			result.Execute = true
 
 		case arg == "--inject":
-			injectFlag = true
+			result.Inject = true
 
 		default:
-			filteredArgs = append(filteredArgs, arg)
+			result.Args = append(result.Args, arg)
 		}
 	}
 
-	return filteredArgs, helpRequested
+	return result
 }
 
 func runQuery(cmd *cobra.Command, args []string) error {
 	// Обработка флагов вручную (т.к. DisableFlagParsing=true для поддержки алиасов с флагами)
-	filteredArgs, helpRequested := parseArgsFlags(args)
-	if helpRequested {
+	parsed := parseArgsFlags(args)
+	if parsed.Help {
 		return cmd.Help()
 	}
-	args = filteredArgs
+	args = parsed.Args
+
+	// Переносим разобранные значения в состояние команды: -v приходит сюда
+	// вручную, потому что DisableFlagParsing отключает парсинг cobra.
+	verbosityLevel = parsed.Verbosity
+	executeFlag = parsed.Execute
+	injectFlag = parsed.Inject
 
 	logger := setupLogger(verbosityLevel)
 	logger.Debug("Starting query command", "args", args, "os.Args", os.Args, "verbosity", verbosityLevel)
@@ -174,7 +187,7 @@ func runQuery(cmd *cobra.Command, args []string) error {
 		aliasName := parts[0]
 		aliasArgs := parts[1:]
 
-		aliasRepo := aliasrepo.New()
+		aliasRepo := aliasrepo.New(config.GetZevDir())
 		aliasSvc := aliasservice.New(aliasRepo)
 
 		resolvedCmd, err := aliasSvc.Resolve(aliasName, aliasArgs)
@@ -186,7 +199,7 @@ func runQuery(cmd *cobra.Command, args []string) error {
 		logger.Debug("Alias not found, checking scripts", "name", aliasName, "error", err)
 
 		// Проверяем скрипты
-		scriptRepo := scriptrepo.New()
+		scriptRepo := scriptrepo.New(config.GetZevDir())
 		scriptSvc := scriptservice.New(scriptRepo)
 
 		err = scriptSvc.Execute(aliasName, aliasArgs)
@@ -320,7 +333,7 @@ func runQuery(cmd *cobra.Command, args []string) error {
 			selectedCmd = cmdItem.Cmd
 
 			if selectedCmd.Command == refineMarker {
-					refinedPrompt, err := prompt.Input("Specify your request:")
+				refinedPrompt, err := prompt.Input("Specify your request:")
 				if err != nil {
 					if err.Error() == "cancelled" {
 						return nil

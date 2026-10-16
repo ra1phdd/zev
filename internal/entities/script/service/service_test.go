@@ -5,36 +5,26 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ra1phdd/zev-go/internal/core/config"
-	"github.com/ra1phdd/zev-go/internal/entities/script/repository"
-	"github.com/ra1phdd/zev-go/internal/entities/script/service"
+	"github.com/ra1phdd/zev/internal/entities/script/repository"
+	"github.com/ra1phdd/zev/internal/entities/script/service"
 )
 
-func setupTestEnv(t *testing.T) (string, func()) {
+// newTestService создаёт сервис скриптов с репозиторием во временной директории.
+// t.TempDir() уникален для каждого теста, поэтому тесты изолированы и не
+// разделяют глобальное состояние.
+func newTestService(t *testing.T) (*service.Service, string) {
 	t.Helper()
 
 	tmpDir := t.TempDir()
-	oldGetZevDir := config.GetZevDir
-	config.GetZevDir = func() string {
-		return tmpDir
-	}
 
-	cleanup := func() {
-		config.GetZevDir = oldGetZevDir
-	}
-
-	return tmpDir, cleanup
+	return service.New(repository.New(tmpDir)), tmpDir
 }
 
 func TestServiceCreate(t *testing.T) {
-	tmpDir, cleanup := setupTestEnv(t)
-	defer cleanup()
+	svc, tmpDir := newTestService(t)
 
 	// Пропускаем открытие редактора в тестах
 	t.Setenv("SKIP_EDITOR", "1")
-
-	repo := repository.New()
-	svc := service.New(repo)
 
 	// Создаём скрипт
 	err := svc.Create("test", "Test script")
@@ -64,13 +54,9 @@ func TestServiceCreate(t *testing.T) {
 }
 
 func TestServiceRemove(t *testing.T) {
-	tmpDir, cleanup := setupTestEnv(t)
-	defer cleanup()
+	svc, tmpDir := newTestService(t)
 
 	t.Setenv("SKIP_EDITOR", "1")
-
-	repo := repository.New()
-	svc := service.New(repo)
 
 	// Создаём и удаляем скрипт
 	if err := svc.Create("test", "Test script"); err != nil {
@@ -99,13 +85,9 @@ func TestServiceRemove(t *testing.T) {
 }
 
 func TestServiceList(t *testing.T) {
-	_, cleanup := setupTestEnv(t)
-	defer cleanup()
+	svc, _ := newTestService(t)
 
 	t.Setenv("SKIP_EDITOR", "1")
-
-	repo := repository.New()
-	svc := service.New(repo)
 
 	// Создаём несколько скриптов
 	if err := svc.Create("script1", "First script"); err != nil {
@@ -167,11 +149,7 @@ func TestServiceChooseEditor(t *testing.T) {
 				t.Setenv("EDITOR", tt.editor)
 			}
 
-			_, cleanup := setupTestEnv(t)
-			t.Cleanup(cleanup)
-
-			repo := repository.New()
-			svc := service.New(repo)
+			svc, _ := newTestService(t)
 
 			// Используем рефлексию для доступа к приватному методу
 			// (в продакшене это не нужно, но для тестирования полезно)
@@ -183,4 +161,3 @@ func TestServiceChooseEditor(t *testing.T) {
 		})
 	}
 }
-

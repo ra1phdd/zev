@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/ra1phdd/zev-go/internal/core/config"
-	"github.com/ra1phdd/zev-go/internal/core/domain"
-	"github.com/ra1phdd/zev-go/internal/entities/query/repository/anthropic"
-	"github.com/ra1phdd/zev-go/internal/entities/query/repository/gemini"
-	"github.com/ra1phdd/zev-go/internal/entities/query/repository/ollama"
-	"github.com/ra1phdd/zev-go/internal/entities/query/repository/openai"
-	"github.com/ra1phdd/zev-go/internal/entities/query/repository/opencode"
+	"github.com/ra1phdd/zev/internal/core/config"
+	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/entities/query/repository/anthropic"
+	"github.com/ra1phdd/zev/internal/entities/query/repository/gemini"
+	"github.com/ra1phdd/zev/internal/entities/query/repository/ollama"
+	"github.com/ra1phdd/zev/internal/entities/query/repository/openai"
+	"github.com/ra1phdd/zev/internal/entities/query/repository/opencode"
 )
 
 // NewProvider создаёт провайдер на основе конфигурации.

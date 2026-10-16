@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ra1phdd/zev-go/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
 func TestHistorySaveAndLoad(t *testing.T) {

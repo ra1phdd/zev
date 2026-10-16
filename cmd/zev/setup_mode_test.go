@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ra1phdd/zev-go/internal/core/config"
+	"github.com/ra1phdd/zev/internal/core/config"
 )
 
 //nolint:paralleltest // меняет глобальную config.getConfigPath

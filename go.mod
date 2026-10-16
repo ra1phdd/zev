@@ -1,4 +1,4 @@
-module github.com/ra1phdd/zev-go
+module github.com/ra1phdd/zev
 
 go 1.27.2
 

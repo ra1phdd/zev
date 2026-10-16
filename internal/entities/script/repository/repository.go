@@ -5,8 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ra1phdd/zev-go/internal/core/config"
-	"github.com/ra1phdd/zev-go/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/domain"
 	"gopkg.in/yaml.v3"
 )
 
@@ -20,11 +19,12 @@ type Repository struct {
 	scriptsDir      string
 }
 
-// New создаёт репозиторий скриптов. Метаданные хранятся в файле ~/.zev/scripts,
-// сами скрипты — в каталоге ~/.zev/script_files (пути не должны совпадать,
-// иначе файл и каталог не могут сосуществовать).
-func New() *Repository {
-	zevDir := config.GetZevDir()
+// New создаёт репозиторий скриптов. Метаданные хранятся в файле <zevDir>/scripts,
+// сами скрипты — в каталоге <zevDir>/script_files (пути не должны совпадать,
+// иначе файл и каталог не могут сосуществовать). Директория передаётся
+// вызывающим кодом (composition root), чтобы репозиторий не зависел от
+// глобального состояния.
+func New(zevDir string) *Repository {
 	return &Repository{
 		scriptsYAMLPath: filepath.Join(zevDir, "scripts"),
 		scriptsDir:      filepath.Join(zevDir, "script_files"),

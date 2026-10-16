@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ra1phdd/zev-go/internal/core/config"
-	"github.com/ra1phdd/zev-go/pkg/tui/prompt"
+	"github.com/ra1phdd/zev/internal/core/config"
+	"github.com/ra1phdd/zev/pkg/tui/prompt"
 	"github.com/spf13/cobra"
 )
 

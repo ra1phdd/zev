@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/ra1phdd/zev-go/internal/entities/query/repository/openai"
+	"github.com/ra1phdd/zev/internal/entities/query/repository/openai"
 )
 
 // New создаёт новый Ollama провайдер (использует OpenAI-compatible API).

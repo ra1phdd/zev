@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ra1phdd/zev-go/internal/core/config"
+	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/spf13/cobra"
 )
 

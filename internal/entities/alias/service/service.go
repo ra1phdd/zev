@@ -6,8 +6,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/ra1phdd/zev-go/internal/core/domain"
-	"github.com/ra1phdd/zev-go/internal/entities/alias/repository"
+	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/entities/alias/repository"
 )
 
 type Service struct {
