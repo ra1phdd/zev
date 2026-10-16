@@ -115,7 +115,37 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	response, err := provider.GetOptionsWithHistory(ctx, history)
 	if err != nil {
 		logger.Error("Failed to get response from provider", "error", err)
-		return err
+		if errors.Is(err, domain.ErrNoResponse) {
+			fmt.Fprintf(os.Stderr, "\n⚠️  The AI did not provide a response. This might happen if your request is unclear.\n\n")
+			refinedPrompt, promptErr := prompt.Input("Please clarify your request:")
+			if promptErr != nil {
+				if promptErr.Error() == "cancelled" {
+					return nil
+				}
+				return fmt.Errorf("failed to get refined input: %w", promptErr)
+			}
+
+			if strings.TrimSpace(refinedPrompt) == "" {
+				return errors.New("the request cannot be empty")
+			}
+
+			userPrompt = refinedPrompt
+			logger.Debug("User clarified query after no response", "refined_prompt", refinedPrompt)
+
+			history.Messages = append(history.Messages, domain.Message{
+				Role:    "user",
+				Content: refinedPrompt,
+			})
+
+			fmt.Fprintln(os.Stdout, "Fetching suggestions...")
+			response, err = provider.GetOptionsWithHistory(ctx, history)
+			if err != nil {
+				logger.Error("Failed to get response after clarification", "error", err)
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 	logger.Info("Received response", "commands_count", len(response.Commands), "is_valid", response.IsValid)
 
@@ -193,6 +223,10 @@ func runQuery(cmd *cobra.Command, args []string) error {
 			response, err = provider.GetOptionsWithHistory(ctx, history)
 			if err != nil {
 				logger.Error("Failed to get refined response", "error", err)
+				if errors.Is(err, domain.ErrNoResponse) {
+					fmt.Fprintf(os.Stderr, "\n⚠️  The AI did not provide a response. Please try rephrasing your request.\n")
+					continue
+				}
 				return err
 			}
 			logger.Info("Received refined response", "commands_count", len(response.Commands))
