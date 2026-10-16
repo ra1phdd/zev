@@ -1,46 +1,31 @@
-# Binaries
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-/zev
-/cmd/zev/zev
 bin/
-
-# Test binary
-*.test
-
-# Output of the go coverage tool
-*.out
-
-# Go workspace file
-go.work
-go.work.sum
-
-# Dependency directories
-vendor/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
+build/
 logs/
-*.log
 
-# Config and secrets (local only)
-.zevrc
-.zevrc.security.yaml
-.zevhistory
+.gocache/
+.tmp/
+.session/
+.cache/
 
-# Temp files
-tmp/
+.env
+config.json
+config.yaml
+config.yml
+.security.json
+.security.yaml
+.security.yml
+
+.DS_Store
+
+.vscode/
+.idea/
+
 dist/
+*.vite/
+node_modules/
+
+.superpowers/
+.claude/
+
+AGENTS.md
+CLAUDE.md
