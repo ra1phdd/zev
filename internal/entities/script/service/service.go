@@ -23,7 +23,7 @@ func New(repo *repository.Repository) *Service {
 	return &Service{repo: repo}
 }
 
-// Create создаёт новый скрипт и открывает его в $EDITOR.
+// Create создаёт новый скрипт и открывает его в редакторе.
 func (s *Service) Create(name, description string) error {
 	scripts, err := s.repo.LoadAll()
 	if err != nil {
@@ -59,24 +59,67 @@ func (s *Service) Create(name, description string) error {
 		return err
 	}
 
-	// Открываем скрипт в $EDITOR (пропускаем в тестах)
+	// Открываем скрипт в редакторе (пропускаем в тестах)
 	if os.Getenv("SKIP_EDITOR") != "1" {
-		editor := os.Getenv("EDITOR")
-		if editor == "" {
-			editor = "vi"
-		}
-
-		cmd := exec.CommandContext(context.Background(), editor, scriptPath)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to open editor: %w", err)
+		if err := s.openInEditor(scriptPath); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+// openInEditor открывает файл в редакторе.
+func (s *Service) openInEditor(path string) error {
+	editor := s.chooseEditor()
+
+	// Если редактор не найден, выводим инструкцию
+	if editor == "" {
+		return fmt.Errorf("no editor found (nano, vim, vi, or $EDITOR/$SCRIPT_EDITOR not set).\nPlease create a bash script manually:\n  %s", path)
+	}
+
+	cmd := exec.CommandContext(context.Background(), editor, path)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to open editor: %w", err)
+	}
+
+	return nil
+}
+
+// chooseEditor выбирает редактор по приоритету.
+func (s *Service) chooseEditor() string {
+	// 1. Проверяем $SCRIPT_EDITOR из конфига
+	if editor := os.Getenv("SCRIPT_EDITOR"); editor != "" {
+		if _, err := exec.LookPath(editor); err == nil {
+			return editor
+		}
+	}
+
+	// 2. Проверяем $EDITOR
+	if editor := os.Getenv("EDITOR"); editor != "" {
+		if _, err := exec.LookPath(editor); err == nil {
+			return editor
+		}
+	}
+
+	// 3. Fallback на nano, vim, vi по порядку
+	fallbacks := []string{"nano", "vim", "vi"}
+	for _, editor := range fallbacks {
+		if _, err := exec.LookPath(editor); err == nil {
+			return editor
+		}
+	}
+
+	return ""
+}
+
+// ChooseEditorForTest экспортирует chooseEditor для тестирования.
+func (s *Service) ChooseEditorForTest() string {
+	return s.chooseEditor()
 }
 
 // Remove удаляет скрипт.

@@ -15,14 +15,16 @@ var verbosityLevel int
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:           "zev [query]",
-		Short:         "Natural language terminal command suggestions",
-		Long:          "Zev helps you remember terminal commands by describing what you want to do in natural language.",
-		Args:          cobra.ArbitraryArgs,
-		RunE:          runQuery,
-		SilenceUsage:  true,
-		SilenceErrors: true,
+		Use:                "zev [query]",
+		Short:              "Natural language terminal command suggestions",
+		Long:               "Zev helps you remember terminal commands by describing what you want to do in natural language.",
+		Args:               cobra.ArbitraryArgs,
+		RunE:               runQuery,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableFlagParsing: true, // Отключаем парсинг флагов для поддержки алиасов с флагами
 	}
+	rootCmd.TraverseChildren = true
 
 	rootCmd.PersistentFlags().CountVarP(&verbosityLevel, "verbose", "v", "Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)")
 

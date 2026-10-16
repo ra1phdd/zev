@@ -13,6 +13,7 @@ func newSetupCmd() *cobra.Command {
 	}
 
 	setupCmd.AddCommand(newSetupHeadersCmd())
+	setupCmd.AddCommand(newSetupModeCmd())
 
 	return setupCmd
 }

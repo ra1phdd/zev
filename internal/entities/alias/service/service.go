@@ -80,6 +80,10 @@ func (s *Service) Resolve(name string, args []string) (string, error) {
 		return "", fmt.Errorf("alias %q not found", name)
 	}
 
+	// Проверяем, использует ли шаблон переменные для аргументов
+	hasArgVars := strings.Contains(alias.Template, "{{.args}}") ||
+		strings.Contains(alias.Template, "{{.arg")
+
 	tmpl, err := template.New(name).Parse(alias.Template)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template: %w", err)
@@ -92,7 +96,14 @@ func (s *Service) Resolve(name string, args []string) (string, error) {
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	return buf.String(), nil
+	result := buf.String()
+
+	// Если шаблон не использует переменные и есть аргументы — добавляем их в конец
+	if !hasArgVars && len(args) > 0 {
+		result = result + " " + strings.Join(args, " ")
+	}
+
+	return result, nil
 }
 
 // buildTemplateData строит данные для шаблона.
