@@ -62,18 +62,3 @@ changelog:
 
 release:
   prerelease: auto
-  footer: |
-    ## Installation
-
-    Download the archive for your platform from the assets below, verify it against
-    `checksums.txt`, then extract the `zev` binary:
-
-    ```bash
-    tar -xzf zev_<version>_linux_amd64.tar.gz
-    sudo mv zev /usr/local/bin/
-    ```
-
-    Windows users get a `.zip` archive instead. On Windows, command injection into the
-    terminal is not supported — use `--execute` or copy the command manually.
-
-    See the [README](https://github.com/ra1phdd/zev#installation) for details.
