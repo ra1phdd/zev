@@ -19,8 +19,8 @@ Thanks for taking the time to contribute.
 ## Workflow
 
 ```bash
-git clone https://github.com/ra1phdd/zev-go.git
-cd zev-go
+git clone https://github.com/ra1phdd/zev.git
+cd zev
 make check
 ```
 

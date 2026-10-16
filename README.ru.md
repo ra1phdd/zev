@@ -29,17 +29,47 @@
 
 ## Быстрый старт
 
+### Linux и macOS
+
+Установите последний релиз одной командой — скрипт сам подберёт архив под вашу ОС и
+архитектуру, проверит SHA-256 и установит бинарник:
+
 ```bash
-# Клонируем и собираем
-git clone https://github.com/ra1phdd/zev-go.git
-cd zev-go
-make build
+# curl
+curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/install.sh | bash
 
-# Настраиваем LLM-провайдера (интерактивно)
-./bin/zev setup
+# или wget
+wget -qO- https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/install.sh | bash
+```
 
-# Спрашиваем команду
-./bin/zev "найти все файлы, изменённые за последние 24 часа"
+Оба варианта ставят в `/usr/local/bin` через `sudo`, если он есть, а без прав root — в
+`$HOME/.local/bin`. Чтобы выбрать каталог самостоятельно, укажите `PREFIX`:
+
+```bash
+PREFIX=$HOME/.local/bin curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/install.sh | bash
+```
+
+Скрипт использует `curl`, если он есть, иначе `wget`. Чтобы поставить конкретную версию,
+передайте `-v`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/install.sh | bash -s -- -v 1.0.0
+```
+
+### Windows
+
+```powershell
+irm https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/install.ps1 | iex
+```
+
+Или скачайте [`install.ps1`](deploy/install.ps1) и запустите `.\install.ps1`. Ставит в
+`%LOCALAPPDATA%\Programs\zev`, права администратора не нужны.
+
+### Затем настройте провайдера
+
+```bash
+zev setup                          # интерактивная настройка LLM-провайдера
+zev "найти все файлы, изменённые за последние 24 часа"
 ```
 
 Без подкоманды `query` запускается интерактивный режим.
@@ -104,28 +134,6 @@ zev version
 zev -vv "смотреть логи в реальном времени"   # debug-логи
 ```
 
-## Установка
-
-### Готовые бинарники
-
-Готовые бинарники будут опубликованы на [странице релизов](https://github.com/ra1phdd/zev-go/releases),
-когда будет готов релизный пайплайн. До этого — собирайте из исходников.
-
-### Сборка из исходников
-
-Требования: Go 1.27.2 или новее.
-
-```bash
-git clone https://github.com/ra1phdd/zev-go.git
-cd zev-go
-
-# Локальный бинарник
-make build            # -> bin/zev
-
-# Или установка в $GOPATH/bin
-make install
-```
-
 ## Провайдеры
 
 | Провайдер | `LLM_PROVIDER` | Обязательные переменные |
@@ -161,6 +169,32 @@ export OLLAMA_MODEL=qwen2.5-coder
   провайдеров, raw HTTP для Gemini, Anthropic и OpenCode (SSE streaming)
 - `godotenv` + `caarlos0/env` для конфигурации
 - `golangci-lint` и `go test` в CI
+
+## Удаление
+
+Чтобы удалить zev, воспользуйтесь скриптами:
+
+```bash
+# Linux и macOS
+curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.sh | bash
+```
+
+```powershell
+# Windows
+irm https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.ps1 | iex
+```
+
+Или удалите бинарник вручную:
+
+```bash
+rm /usr/local/bin/zev      # системная установка (Linux/macOS)
+rm $HOME/.local/bin/zev    # пользовательская (Linux/macOS)
+```
+
+```cmd
+REM Windows
+del %LOCALAPPDATA%\Programs\zev\zev.exe
+```
 
 ## Contributing
 
