@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/ra1phdd/zev-go/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
 // mockProvider для тестов.

@@ -5,8 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ra1phdd/zev-go/internal/core/config"
-	"github.com/ra1phdd/zev-go/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/domain"
 	"gopkg.in/yaml.v3"
 )
 
@@ -14,9 +13,11 @@ type Repository struct {
 	aliasesPath string
 }
 
-func New() *Repository {
+// New создаёт репозиторий алиасов. Директория передаётся вызывающим кодом
+// (composition root), чтобы репозиторий не зависел от глобального состояния.
+func New(zevDir string) *Repository {
 	return &Repository{
-		aliasesPath: filepath.Join(config.GetZevDir(), "aliases"),
+		aliasesPath: filepath.Join(zevDir, "aliases"),
 	}
 }
 

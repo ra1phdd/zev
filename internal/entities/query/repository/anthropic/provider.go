@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"github.com/liushuangls/go-anthropic/v2"
-	"github.com/ra1phdd/zev-go/internal/core/domain"
-	"github.com/ra1phdd/zev-go/internal/entities/query/repository"
+	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/entities/query/repository"
 )
 
 type Provider struct {
@@ -124,4 +124,3 @@ func (p *Provider) Name() string {
 func (p *Provider) Model() string {
 	return p.model
 }
-

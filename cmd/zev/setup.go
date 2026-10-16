@@ -1,7 +1,7 @@
 package main
 
 import (
-	setupservice "github.com/ra1phdd/zev-go/internal/entities/setup/service"
+	setupservice "github.com/ra1phdd/zev/internal/entities/setup/service"
 	"github.com/spf13/cobra"
 )
 

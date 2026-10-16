@@ -135,7 +135,7 @@ func SetConfigPathForTests(newPath string) string {
 }
 
 // GetZevDir возвращает путь к директории ~/.zev.
-var GetZevDir = func() string {
+func GetZevDir() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".zev")
 }

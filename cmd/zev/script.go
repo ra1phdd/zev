@@ -5,8 +5,9 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/ra1phdd/zev-go/internal/entities/script/repository"
-	"github.com/ra1phdd/zev-go/internal/entities/script/service"
+	"github.com/ra1phdd/zev/internal/core/config"
+	"github.com/ra1phdd/zev/internal/entities/script/repository"
+	"github.com/ra1phdd/zev/internal/entities/script/service"
 	"github.com/spf13/cobra"
 )
 
@@ -56,7 +57,7 @@ func newScriptRemoveCmd() *cobra.Command {
 }
 
 func runScriptCreate(cmd *cobra.Command, args []string) error {
-	repo := repository.New()
+	repo := repository.New(config.GetZevDir())
 	svc := service.New(repo)
 
 	name := args[0]
@@ -74,7 +75,7 @@ func runScriptCreate(cmd *cobra.Command, args []string) error {
 }
 
 func runScriptList(cmd *cobra.Command, args []string) error {
-	repo := repository.New()
+	repo := repository.New(config.GetZevDir())
 	svc := service.New(repo)
 
 	scripts, err := svc.List()
@@ -98,7 +99,7 @@ func runScriptList(cmd *cobra.Command, args []string) error {
 }
 
 func runScriptRemove(cmd *cobra.Command, args []string) error {
-	repo := repository.New()
+	repo := repository.New(config.GetZevDir())
 	svc := service.New(repo)
 
 	name := args[0]

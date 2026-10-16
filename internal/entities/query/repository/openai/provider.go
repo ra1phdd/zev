@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/ra1phdd/zev-go/internal/core/domain"
-	"github.com/ra1phdd/zev-go/internal/entities/query/repository"
+	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/entities/query/repository"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -43,7 +43,6 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 		baseURL: baseURL,
 	}, nil
 }
-
 
 func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
 	systemPrompt := fmt.Sprintf(repository.SystemPrompt, envContext)
