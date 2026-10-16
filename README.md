@@ -8,7 +8,7 @@
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 
-![Zev in action](assets/zev.gif)
+<img src="assets/zev.gif" width="346" alt="Zev in action">
 
 **English** | [Русский](README.ru.md)
 </div>
