@@ -26,7 +26,7 @@
 - Command aliases with positional argument substitution — `zev dps my-service` runs your
   saved long command.
 - Bash scripts with metadata, created straight in `$EDITOR` from the CLI.
-- Query history (last 100 requests) available offline in `~/.zevhistory`.
+- Query history (last 100 requests) available offline in `~/.zev/history`.
 - Verbosity control with `-v`, `-vv`, `-vvv`.
 
 ## Quick start
