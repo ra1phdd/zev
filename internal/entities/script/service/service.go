@@ -191,9 +191,16 @@ type contextReader struct {
 
 func (r contextReader) Read(p []byte) (int, error) {
 	if err := r.ctx.Err(); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("check context: %w", err)
 	}
-	return r.reader.Read(p)
+	read, err := r.reader.Read(p)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return read, io.EOF
+		}
+		return read, fmt.Errorf("read context-bound output: %w", err)
+	}
+	return read, nil
 }
 
 // Execute runs the pinned script with literal arguments and the caller's stdin.

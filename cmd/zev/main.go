@@ -42,7 +42,14 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	err := rootCmd.ExecuteContext(ctx)
 	stop()
+	//nolint:nestif // Exit handling must preserve machine and child-process status codes.
 	if err != nil {
+		if machineErr, ok := errors.AsType[*machineExitError](err); ok {
+			if _, writeErr := fmt.Fprintf(os.Stderr, "Error: %v\n", err); writeErr != nil {
+				slog.Error("Failed to write command error", "error", writeErr)
+			}
+			os.Exit(machineErr.code)
+		}
 		// Preserve child exit codes without adding another diagnostic.
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			os.Exit(exitErr.ExitCode())

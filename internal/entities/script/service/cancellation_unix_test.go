@@ -35,7 +35,7 @@ func TestCancellationStopsDescendants(t *testing.T) {
 				}
 				t.Setenv("SCRIPT_EDITOR", editor)
 			}
-			if err := svc.repo.Create(t.Context(), domain.Script{Name: "safe", ScriptFile: safeScriptFile}, content); err != nil {
+			if err := svc.repo.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, content); err != nil {
 				t.Fatal(err)
 			}
 			ctx, cancel := context.WithCancel(t.Context())
@@ -43,9 +43,9 @@ func TestCancellationStopsDescendants(t *testing.T) {
 			result := make(chan error, 1)
 			go func() {
 				if operation == editorOperation {
-					result <- svc.OpenEditor(ctx, "safe")
+					result <- svc.OpenEditor(ctx, safeScriptName)
 				} else {
-					result <- svc.Execute(ctx, "safe", nil)
+					result <- svc.Execute(ctx, safeScriptName, nil)
 				}
 			}()
 			pid := waitForDescendant(t, ready, result)

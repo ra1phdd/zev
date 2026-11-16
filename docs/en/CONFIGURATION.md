@@ -163,6 +163,26 @@ writing any terminal input. A multiline suggestion can still be displayed as a
 fallback or executed in `execute` mode. Validation is not shell sanitization, a
 sandbox or a guarantee that a suggested command is safe.
 
+## Machine-readable output
+
+For scripts and CI, machine mode never opens the selector, injects terminal input, starts a
+shell, or executes a returned command:
+
+```bash
+zev --print "find large files"
+zev --print --option 2 "find large files"
+zev --json "find large files"
+```
+
+`--print` writes only the selected command to stdout. `--json` writes schema version 1:
+`{"schema_version":1,"status":"ok","selected_option":1,"commands":[...]}`.
+Warnings, progress and errors go to stderr. Option numbering is one-based and defaults to 1;
+an unavailable option leaves stdout empty and returns an error. Stable machine-mode exit codes
+are 0 for success, 2 for arguments/selection errors, 3 for provider/configuration errors,
+4 for invalid provider responses, and 5 for local context-read errors. `--print` expands
+aliases without execution. Saved scripts are not printed automatically; use `zev script show
+<name>` to inspect their body.
+
 ## Command execution mode
 
 `zev setup mode` controls how suggestions are handled:

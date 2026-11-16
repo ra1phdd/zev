@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add history inspection/export/deletion commands, request-bound `--cursor` pagination,
   index status and explicit lexical/vector rebuilds; vector transmission displays
   provider/model/eligible count and requires `--yes` consent.
+- Add machine-readable `--print`, `--json` and `--option N` query output with stable
+  exit codes and no selector, terminal injection, shell execution or command execution.
 - Add `zev alias last <alias-name>` to save the latest successfully selected history
   command into the existing YAML alias store without invoking an LLM or network.
 - Add bilingual user documentation for history storage, search, migration, privacy

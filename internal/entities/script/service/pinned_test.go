@@ -14,7 +14,7 @@ import (
 func TestEditorUsesIsolatedCopy(t *testing.T) {
 	t.Setenv("SKIP_EDITOR", "1")
 	svc, dir := newTestService(t)
-	if err := svc.Create("safe", "original"); err != nil {
+	if err := svc.Create(safeScriptName, "original"); err != nil {
 		t.Fatal(err)
 	}
 	outside := filepath.Join(t.TempDir(), "sentinel")
@@ -28,7 +28,7 @@ func TestEditorUsesIsolatedCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("SCRIPT_EDITOR", editor)
-	if err := svc.OpenEditor(t.Context(), "safe"); err == nil {
+	if err := svc.OpenEditor(t.Context(), safeScriptName); err == nil {
 		t.Fatal("accepted replaced destination")
 	}
 	if data, err := os.ReadFile(filepath.Clean(outside)); err != nil || string(data) != "untouched" {
@@ -39,7 +39,7 @@ func TestEditorUsesIsolatedCopy(t *testing.T) {
 func TestEditorCommitsAtomicSave(t *testing.T) {
 	t.Setenv("SKIP_EDITOR", "1")
 	svc, dir := newTestService(t)
-	if err := svc.Create("safe", "original"); err != nil {
+	if err := svc.Create(safeScriptName, "original"); err != nil {
 		t.Fatal(err)
 	}
 	editor := filepath.Join(t.TempDir(), "editor")
@@ -48,7 +48,7 @@ func TestEditorCommitsAtomicSave(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("SCRIPT_EDITOR", editor)
-	if err := svc.OpenEditor(t.Context(), "safe"); err != nil {
+	if err := svc.OpenEditor(t.Context(), safeScriptName); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Clean(filepath.Join(dir, "script_files", safeScriptFile)))
@@ -60,12 +60,12 @@ func TestEditorCommitsAtomicSave(t *testing.T) {
 func TestEditorCancelledContext(t *testing.T) {
 	t.Setenv("SKIP_EDITOR", "1")
 	svc, _ := newTestService(t)
-	if err := svc.Create("safe", "original"); err != nil {
+	if err := svc.Create(safeScriptName, "original"); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := svc.OpenEditor(ctx, "safe"); !errors.Is(err, context.Canceled) {
+	if err := svc.OpenEditor(ctx, safeScriptName); !errors.Is(err, context.Canceled) {
 		t.Fatalf("OpenEditor: %v", err)
 	}
 }
@@ -75,7 +75,7 @@ func TestExecutePreservesArgumentsAndStdin(t *testing.T) {
 	svc, _ := newTestService(t)
 	out := filepath.Join(t.TempDir(), "result")
 	source := []byte("#!/bin/bash\nread -r line\nprintf '%s|%s|%s' \"$1\" \"$2\" \"$line\" > \"$3\"\n")
-	if err := svc.repo.Create(t.Context(), domain.Script{Name: "safe", ScriptFile: safeScriptFile}, source); err != nil {
+	if err := svc.repo.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, source); err != nil {
 		t.Fatal(err)
 	}
 	input, err := os.CreateTemp(t.TempDir(), "stdin")
@@ -96,7 +96,7 @@ func TestExecutePreservesArgumentsAndStdin(t *testing.T) {
 	old := os.Stdin
 	os.Stdin = input
 	t.Cleanup(func() { os.Stdin = old })
-	if err := svc.Execute(t.Context(), "safe", []string{"arg space", ";literal", out}); err != nil {
+	if err := svc.Execute(t.Context(), safeScriptName, []string{"arg space", ";literal", out}); err != nil {
 		t.Fatal(err)
 	}
 	if data, err := os.ReadFile(filepath.Clean(out)); err != nil || string(data) != "arg space|;literal|stdin value" {

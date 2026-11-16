@@ -9,6 +9,8 @@ import (
 	"testing"
 )
 
+const scriptShowFixture = "safe"
+
 func TestScriptShowPrintsExactBodyWithoutExecutingIt(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -20,7 +22,7 @@ func TestScriptShowPrintsExactBodyWithoutExecutingIt(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte("safe:\n  script: safe.sh\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "script_files", "safe.sh"), []byte(body), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "script_files", scriptShowFixture+".sh"), []byte(body), 0o700); err != nil { //nolint:gosec // Test fixture uses an isolated temporary directory.
 		t.Fatal(err)
 	}
 
@@ -28,7 +30,7 @@ func TestScriptShowPrintsExactBodyWithoutExecutingIt(t *testing.T) {
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(io.Discard)
-	cmd.SetArgs([]string{"safe"})
+	cmd.SetArgs([]string{scriptShowFixture})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -53,6 +55,7 @@ func TestScriptShowMissingReturnsError(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // The command tests mutate process-wide HOME and use isolated serial fixtures.
 func TestScriptShowRequiresExactlyOneArgument(t *testing.T) {
 	for _, args := range [][]string{nil, {"one", "two"}} {
 		t.Run(filepath.Join(args...), func(t *testing.T) {
@@ -81,14 +84,14 @@ func TestScriptShowReturnsOutputError(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte("safe:\n  script: safe.sh\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "script_files", "safe.sh"), []byte("body"), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "script_files", scriptShowFixture+".sh"), []byte("body"), 0o700); err != nil { //nolint:gosec // Test fixture uses an isolated temporary directory.
 		t.Fatal(err)
 	}
 	outputErr := errors.New("output unavailable")
 	cmd := newScriptShowCmd()
 	cmd.SetOut(showFailingOutput{err: outputErr})
 	cmd.SetErr(io.Discard)
-	cmd.SetArgs([]string{"safe"})
+	cmd.SetArgs([]string{scriptShowFixture})
 
 	if err := cmd.Execute(); !errors.Is(err, outputErr) {
 		t.Fatalf("show error = %v, want output error", err)

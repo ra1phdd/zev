@@ -75,8 +75,8 @@ func TestParseArgsFlags(t *testing.T) {
 		},
 		{
 			name:          "alias with flags passed through",
-			args:          []string{aliasArgument, "-a", "--format", "json"},
-			wantArgs:      []string{aliasArgument, "-a", "--format", "json"},
+			args:          []string{aliasArgument, "-a", "--format", historyExportJSON},
+			wantArgs:      []string{aliasArgument, "-a", "--format", historyExportJSON},
 			wantVerbosity: 0,
 		},
 		{

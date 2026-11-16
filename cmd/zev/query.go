@@ -49,13 +49,18 @@ var (
 
 // parsedFlags contains manually parsed CLI flags without changing package state.
 type parsedFlags struct {
-	Args      []string
-	Help      bool
-	Verbosity int
-	Execute   bool
-	Inject    bool
-	NoHistory bool
-	NoContext bool
+	Args       []string
+	Help       bool
+	Verbosity  int
+	Execute    bool
+	Inject     bool
+	NoHistory  bool
+	NoContext  bool
+	Print      bool
+	JSON       bool
+	Option     int
+	OptionSet  bool
+	ParseError string
 }
 
 // setupLogger enables warnings by default, info at -v and debug at -vv.
@@ -89,6 +94,10 @@ func newQueryCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&injectFlag, "inject", false, "Inject selected command into terminal (default)")
 	cmd.Flags().BoolVar(&noHistoryFlag, "no-history", false, "Do not persist this query in history")
 	cmd.Flags().BoolVar(&noContextFlag, "no-context", false, "Do not send local environment context")
+	cmd.DisableFlagParsing = true
+	cmd.Flags().Bool("print", false, "Print the chosen command without executing it")
+	cmd.Flags().Bool("json", false, "Output command options as schema version 1 JSON")
+	cmd.Flags().Int("option", 1, "Choose a 1-based command option in machine mode")
 	cmd.MarkFlagsMutuallyExclusive("execute", "inject")
 	return cmd
 }
@@ -109,9 +118,16 @@ func resolveExecutionMode(cfg *config.Config, executeFlag, injectFlag bool) stri
 
 // parseArgsFlags preserves unknown flags for aliases while the root command uses
 // DisableFlagParsing. It does not mutate package state.
+//
+//nolint:gocognit // Manual flag parsing must preserve unknown alias arguments and -- separators.
 func parseArgsFlags(args []string) parsedFlags {
-	result := parsedFlags{Args: []string{}}
-	for _, arg := range args {
+	result := parsedFlags{Args: []string{}, Option: 1}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			result.Args = append(result.Args, args[i+1:]...)
+			break
+		}
 		switch {
 		case arg == "-h", arg == "--help":
 			result.Help = true
@@ -131,6 +147,31 @@ func parseArgsFlags(args []string) parsedFlags {
 			result.NoHistory = true
 		case arg == "--no-context":
 			result.NoContext = true
+		case arg == "--print":
+			result.Print = true
+		case arg == "--json":
+			result.JSON = true
+		case arg == "--option":
+			result.OptionSet = true
+			if i+1 >= len(args) {
+				result.ParseError = "--option requires a value"
+				continue
+			}
+			i++
+			value, err := strconv.Atoi(args[i])
+			if err != nil {
+				result.ParseError = "--option must be a number"
+			} else {
+				result.Option = value
+			}
+		case strings.HasPrefix(arg, "--option="):
+			result.OptionSet = true
+			value, err := strconv.Atoi(strings.TrimPrefix(arg, "--option="))
+			if err != nil {
+				result.ParseError = "--option must be a number"
+			} else {
+				result.Option = value
+			}
 		default:
 			result.Args = append(result.Args, arg)
 		}
@@ -155,8 +196,15 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	if cmd.Flags().Changed("inject") {
 		parsed.Inject = injectFlag
 	}
+	if err := validateMachineFlags(parsed); err != nil {
+		return err
+	}
 	verbosityLevel, executeFlag, injectFlag = parsed.Verbosity, parsed.Execute, parsed.Inject
 	logger := setupLogger(verbosityLevel)
+	if parsed.Print || parsed.JSON {
+		logger = slog.New(slog.NewTextHandler(cmd.ErrOrStderr(), &slog.HandlerOptions{Level: slog.LevelWarn}))
+		return runMachineConfigured(cmd, parsed, logger)
+	}
 	err := runConfiguredQuery(cmd, parsed, logger)
 	if errors.Is(err, errQueryCancelled) {
 		return nil
@@ -272,6 +320,7 @@ func executeNamedQuery(ctx context.Context, userPrompt string, logger *slog.Logg
 // querySession owns only the active conversation and its interactive UI seams.
 // Provider metadata and command execution stay in the composition root.
 type querySession struct {
+	machine         bool
 	persistence     *historyservice.Lifecycle
 	historyStore    *historyrepo.Store
 	provider, model string
@@ -353,7 +402,11 @@ func (s *querySession) warnHistory(err error) {
 }
 
 func (s *querySession) fetch(ctx context.Context) error {
-	if err := writeQueryOutput(s.cmd.OutOrStdout(), "Fetching suggestions...\n"); err != nil {
+	progressOut := s.cmd.OutOrStdout()
+	if s.machine {
+		progressOut = s.cmd.ErrOrStderr()
+	}
+	if err := writeQueryOutput(progressOut, "Fetching suggestions...\n"); err != nil {
 		return err
 	}
 	response, err := s.svc.GetOptionsWithHistory(ctx, s.history)
@@ -399,12 +452,21 @@ func (s *querySession) addRefinement(value string) {
 
 func (s *querySession) acceptResponse() (bool, error) {
 	if err := s.response.Validate(); err != nil {
+		if s.machine {
+			return false, machineError(4, err)
+		}
 		return false, fmt.Errorf("validate response before selection: %w", err)
 	}
 	if !s.response.IsValid {
+		if s.machine {
+			return false, machineError(4, fmt.Errorf("provider returned an invalid response: %s", s.response.ExplanationIfNotValid))
+		}
 		return false, writeQueryOutput(s.cmd.ErrOrStderr(), "\n⚠️  Unable to process your request:\n%s\n", s.response.ExplanationIfNotValid)
 	}
 	if len(s.response.Commands) == 0 {
+		if s.machine {
+			return false, machineError(4, errors.New("provider returned no commands"))
+		}
 		return false, writeQueryOutput(s.cmd.OutOrStdout(), "\n⚠️  No commands found for your query.\n")
 	}
 	s.history.Messages = append(s.history.Messages, domain.Message{Role: queryAssistantRole, Content: s.response.CompactJSON()})

@@ -59,7 +59,7 @@ func TestCorruptMetadataPreserved(t *testing.T) {
 	for _, operation := range []string{createOperation, removeOperation} {
 		t.Run(operation, func(t *testing.T) {
 			svc, dir := newTestService(t)
-			if err := svc.Create("safe", "test"); err != nil {
+			if err := svc.Create(safeScriptName, "test"); err != nil {
 				t.Fatal(err)
 			}
 			path := filepath.Join(dir, "scripts")
@@ -71,7 +71,7 @@ func TestCorruptMetadataPreserved(t *testing.T) {
 			if operation == createOperation {
 				err = svc.Create("new", "test")
 			} else {
-				err = svc.Remove("safe")
+				err = svc.Remove(safeScriptName)
 			}
 			if err == nil {
 				t.Fatal("accepted corrupt metadata")

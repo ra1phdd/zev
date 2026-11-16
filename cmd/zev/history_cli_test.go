@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+const historyValidationQuery = "query"
+
 func TestHistoryCommandValidation(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -13,7 +15,7 @@ func TestHistoryCommandValidation(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"empty search", []string{historyCommandSearch, " "}, "query"},
+		{"empty search", []string{historyCommandSearch, " "}, historyValidationQuery},
 		{"unknown mode", []string{historyCommandSearch, historyTestFiles, "--mode", historyBadValue}, "mode"},
 		{"unknown fuzzy", []string{historyCommandSearch, historyTestFiles, "--fuzzy", historyBadValue}, "fuzzy"},
 		{"negative limit", []string{historyCommandSearch, historyTestFiles, "--limit", "-1"}, "limit"},

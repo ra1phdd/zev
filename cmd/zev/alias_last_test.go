@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	lastAliasName    = "recent"
-	lastAliasCommand = "printf 'hello: world' | cat"
+	lastAliasName       = "recent"
+	aliasHistoryFixture = "fixture"
+	lastAliasCommand    = "printf 'hello: world' | cat"
 )
 
 func TestAliasLast(t *testing.T) {
@@ -120,12 +121,12 @@ func seedAliasHistory(t *testing.T, s *historyrepo.Store, id, command, status, o
 	t.Helper()
 	if _, err := s.StartConversation(t.Context(), historyservice.StartConversationInput{
 		Conversation:   historyservice.Conversation{ID: id, CreatedAt: at},
-		InitialMessage: historyservice.Message{ID: id + "-user", Role: "user", Kind: "initial_prompt", Content: "fixture"},
+		InitialMessage: historyservice.Message{ID: id + "-user", Role: "user", Kind: "initial_prompt", Content: aliasHistoryFixture},
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.RecordResponse(t.Context(), historyservice.RecordResponseInput{
-		Message: historyservice.Message{ID: id + "-assistant", Role: queryAssistantRole, Kind: "response", Content: "fixture"},
+		Message: historyservice.Message{ID: id + "-assistant", Role: queryAssistantRole, Kind: "response", Content: aliasHistoryFixture},
 		Response: historyservice.Response{ID: id + "-response", ConversationID: id, PayloadJSON: `{}`, IsValid: true, Commands: []historyservice.Command{
 			{ID: id + "-unchosen", Command: "echo wrong alternative"}, {ID: id + "-command", Command: command},
 		}},

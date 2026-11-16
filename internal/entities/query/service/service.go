@@ -52,8 +52,25 @@ func (s *Service) GetOptionsWithHistory(ctx context.Context, history *domain.Con
 	return response, nil
 }
 
-// GetEnvContext собирает информацию об окружении пользователя.
+// GetEnvContext collects information about the user's environment.
 func (s *Service) GetEnvContext() string {
+	context, err := s.GetEnvContextChecked()
+	if err != nil {
+		return s.envContextWithWorkingDirectory("")
+	}
+	return context
+}
+
+// GetEnvContextChecked collects local context and returns a read error when the working directory cannot be read.
+func (s *Service) GetEnvContextChecked() (string, error) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("get working directory: %w", err)
+	}
+	return s.envContextWithWorkingDirectory(pwd), nil
+}
+
+func (s *Service) envContextWithWorkingDirectory(pwd string) string {
 	osName := runtime.GOOS
 	arch := runtime.GOARCH
 	shell := os.Getenv("SHELL")
@@ -69,11 +86,6 @@ func (s *Service) GetEnvContext() string {
 	home := os.Getenv("HOME")
 	if home == "" {
 		home = os.Getenv("USERPROFILE") // Windows
-	}
-
-	pwd, err := os.Getwd()
-	if err != nil {
-		pwd = ""
 	}
 
 	var result strings.Builder

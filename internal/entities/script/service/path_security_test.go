@@ -85,9 +85,9 @@ func TestServiceRejectsUnsafeScriptFiles(t *testing.T) {
 				case createOperation:
 					err = svc.Create("new", "unsafe")
 				case executeOperation:
-					err = svc.Execute(t.Context(), "safe", []string{sentinel})
+					err = svc.Execute(t.Context(), safeScriptName, []string{sentinel})
 				case removeOperation:
-					err = svc.Remove("safe")
+					err = svc.Remove(safeScriptName)
 				case "list":
 					_, err = svc.List()
 				}
@@ -118,7 +118,7 @@ func TestCreateDoesNotOverwriteUnregisteredFile(t *testing.T) {
 	if err := os.WriteFile(path, []byte("sentinel"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Create("safe", "new"); err == nil {
+	if err := svc.Create(safeScriptName, "new"); err == nil {
 		t.Error("Create overwrote an existing file")
 	}
 	if data, err := os.ReadFile(filepath.Clean(path)); err != nil || string(data) != "sentinel" {

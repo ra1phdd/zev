@@ -8,6 +8,8 @@ import (
 	"github.com/ra1phdd/zev/internal/entities/script/repository"
 )
 
+const safeScriptName = "safe"
+
 // newTestService создаёт сервис скриптов с репозиторием во временной директории.
 // t.TempDir() уникален для каждого теста, поэтому тесты изолированы и не
 // разделяют глобальное состояние.
