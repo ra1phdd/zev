@@ -19,6 +19,7 @@ func newScriptCmd() *cobra.Command {
 
 	cmd.AddCommand(newScriptCreateCmd())
 	cmd.AddCommand(newScriptListCmd())
+	cmd.AddCommand(newScriptShowCmd())
 	cmd.AddCommand(newScriptRemoveCmd())
 
 	return cmd
@@ -43,6 +44,26 @@ func newScriptListCmd() *cobra.Command {
 		Short: "List all scripts",
 		RunE:  runScriptList,
 	}
+}
+
+func newScriptShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show <name>",
+		Short: "Show a script body",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runScriptShow,
+	}
+}
+
+func runScriptShow(cmd *cobra.Command, args []string) error {
+	repo := repository.New(config.GetZevDir())
+	svc := service.New(repo)
+
+	name := args[0]
+	if err := svc.Show(cmd.Context(), name, cmd.OutOrStdout()); err != nil {
+		return fmt.Errorf("show script %q: %w", name, err)
+	}
+	return nil
 }
 
 func newScriptRemoveCmd() *cobra.Command {

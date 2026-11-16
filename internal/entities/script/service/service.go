@@ -162,6 +162,40 @@ func (s *Service) findScript(ctx context.Context, name string) (domain.Script, e
 	return script, nil
 }
 
+// Show writes the exact body of a registered script to out without executing it.
+// The script metadata is resolved before the pinned file is opened, and ctx is
+// checked between reads. The caller owns out; Show closes the opened script.
+func (s *Service) Show(ctx context.Context, name string, out io.Writer) (err error) {
+	script, err := s.findScript(ctx, name)
+	if err != nil {
+		return err
+	}
+	file, err := s.repo.OpenScript(ctx, script.ScriptFile)
+	if err != nil {
+		return fmt.Errorf("open script: %w", err)
+	}
+	defer closeResource(&err, file)
+	if _, err := io.Copy(out, contextReader{ctx: ctx, reader: file}); err != nil {
+		return fmt.Errorf("show script %q: %w", name, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("show script %q: %w", name, err)
+	}
+	return nil
+}
+
+type contextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r contextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(p)
+}
+
 // Execute runs the pinned script with literal arguments and the caller's stdin.
 func (s *Service) Execute(ctx context.Context, name string, args []string) (err error) {
 	script, err := s.findScript(ctx, name)
