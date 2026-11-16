@@ -28,7 +28,7 @@ func TestShowHTTPHeaders(t *testing.T) {
 		want    string
 	}{
 		{name: "empty", want: "Headers:\n  (none set)\n"},
-		{name: "one header", headers: map[string]string{"X-Example": "value:with:colons"}, want: "Headers:\n  X-Example: value:with:colons\n"},
+		{name: "one header", headers: map[string]string{"X-Example": "value:with:colons"}, want: "Headers:\n  X-Example: [redacted]\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

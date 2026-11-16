@@ -37,6 +37,8 @@ const (
 var (
 	executeFlag       bool
 	injectFlag        bool
+	noHistoryFlag     bool
+	noContextFlag     bool
 	errQueryCancelled = errors.New(queryCancelled)
 )
 
@@ -47,6 +49,8 @@ type parsedFlags struct {
 	Verbosity int
 	Execute   bool
 	Inject    bool
+	NoHistory bool
+	NoContext bool
 }
 
 // setupLogger enables warnings by default, info at -v and debug at -vv.
@@ -78,6 +82,8 @@ func newQueryCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&executeFlag, "execute", false, "Execute selected command immediately")
 	cmd.Flags().BoolVar(&injectFlag, "inject", false, "Inject selected command into terminal (default)")
+	cmd.Flags().BoolVar(&noHistoryFlag, "no-history", false, "Do not persist this query in history")
+	cmd.Flags().BoolVar(&noContextFlag, "no-context", false, "Do not send local environment context")
 	cmd.MarkFlagsMutuallyExclusive("execute", "inject")
 	return cmd
 }
@@ -116,6 +122,10 @@ func parseArgsFlags(args []string) parsedFlags {
 			result.Execute = true
 		case arg == "--inject":
 			result.Inject = true
+		case arg == "--no-history":
+			result.NoHistory = true
+		case arg == "--no-context":
+			result.NoContext = true
 		default:
 			result.Args = append(result.Args, arg)
 		}
@@ -125,32 +135,45 @@ func parseArgsFlags(args []string) parsedFlags {
 
 func runQuery(cmd *cobra.Command, args []string) error {
 	parsed := parseArgsFlags(args)
+	parsed.NoHistory = parsed.NoHistory || noHistoryFlag
+	parsed.NoContext = parsed.NoContext || noContextFlag
 	if parsed.Help {
 		if err := cmd.Help(); err != nil {
 			return fmt.Errorf("show query help: %w", err)
 		}
 		return nil
 	}
-	// The root command parses flags manually to preserve alias arguments.
+	// Cobra consumes subcommand flags; the root preserves them for manual parsing.
+	if cmd.Flags().Changed("execute") {
+		parsed.Execute = executeFlag
+	}
+	if cmd.Flags().Changed("inject") {
+		parsed.Inject = injectFlag
+	}
 	verbosityLevel, executeFlag, injectFlag = parsed.Verbosity, parsed.Execute, parsed.Inject
 	logger := setupLogger(verbosityLevel)
-	err := runConfiguredQuery(cmd, parsed.Args, logger)
+	err := runConfiguredQuery(cmd, parsed, logger)
 	if errors.Is(err, errQueryCancelled) {
 		return nil
 	}
 	return err
 }
 
-func runConfiguredQuery(cmd *cobra.Command, args []string, logger *slog.Logger) error {
+func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logger) error {
+	args := flags.Args
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w. Run `zev setup` to configure", err)
 	}
+	cfg.HistoryEnabled = cfg.HistoryEnabled && !flags.NoHistory
+	cfg.ContextEnabled = cfg.ContextEnabled && !flags.NoContext
 	logger.Info("Configuration loaded", "provider", cfg.LLMProvider)
 	userPrompt := strings.Join(args, " ")
 	if len(args) == 0 {
 		var err error
-		userPrompt, err = readQueryInput(prompt.Input, "What command do you need?")
+		userPrompt, err = readQueryInput(func(title string) (string, error) {
+			return prompt.InputContext(cmd.Context(), title)
+		}, "What command do you need?")
 		if err != nil {
 			return err
 		}
@@ -168,6 +191,9 @@ func runConfiguredQuery(cmd *cobra.Command, args []string, logger *slog.Logger) 
 	}
 	logger.Debug("Provider created", "name", provider.Name(), "model", provider.Model())
 	s := newQuerySession(queryservice.New(provider), cmd, userPrompt)
+	if !cfg.ContextEnabled {
+		s.history.SystemPrompt = fmt.Sprintf(repository.SystemPrompt, "Local environment context is disabled.")
+	}
 	if err := s.start(cmd.Context()); err != nil {
 		return err
 	}
@@ -184,6 +210,9 @@ func runConfiguredQuery(cmd *cobra.Command, args []string, logger *slog.Logger) 
 		command: selected, mode: mode, out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger,
 	}); err != nil {
 		return err
+	}
+	if !cfg.HistoryEnabled {
+		return nil
 	}
 	entry := service.HistoryEntry{
 		Timestamp: time.Now(), Prompt: s.userPrompt, Response: s.response,
@@ -208,6 +237,9 @@ func executeNamedQuery(ctx context.Context, userPrompt string, logger *slog.Logg
 			return true, fmt.Errorf("execute alias: %w", err)
 		}
 		return true, nil
+	}
+	if err != nil && !errors.Is(err, aliasservice.ErrAliasNotFound) {
+		return true, fmt.Errorf("resolve alias: %w", err)
 	}
 	scriptSvc := scriptservice.New(scriptrepo.New(config.GetZevDir()))
 	if err := scriptSvc.Execute(ctx, name, args); err != nil {
@@ -238,7 +270,12 @@ func newQuerySession(svc *queryservice.Service, cmd *cobra.Command, userPrompt s
 			SystemPrompt: fmt.Sprintf(repository.SystemPrompt, svc.GetEnvContext()),
 			Messages:     []domain.Message{{Role: queryUserRole, Content: userPrompt}},
 		},
-		input: prompt.Input, selectItem: list.Select,
+		input: func(title string) (string, error) {
+			return prompt.InputContext(cmd.Context(), title)
+		},
+		selectItem: func(options list.SelectOptions) (list.Item, error) {
+			return list.SelectContext(cmd.Context(), options)
+		},
 	}
 }
 
@@ -290,6 +327,9 @@ func (s *querySession) addRefinement(value string) {
 }
 
 func (s *querySession) acceptResponse() (bool, error) {
+	if err := s.response.Validate(); err != nil {
+		return false, fmt.Errorf("validate response before selection: %w", err)
+	}
 	if !s.response.IsValid {
 		return false, writeQueryOutput(s.cmd.ErrOrStderr(), "\n⚠️  Unable to process your request:\n%s\n", s.response.ExplanationIfNotValid)
 	}
@@ -381,6 +421,16 @@ type queryDelivery struct {
 
 func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
 	selected := delivery.command
+	if selected == nil {
+		return fmt.Errorf("%w: selected command is nil", domain.ErrInvalidOptionsResponse)
+	}
+	response := &domain.OptionsResponse{IsValid: true, Commands: []domain.Command{*selected}}
+	if err := response.Validate(); err != nil {
+		return fmt.Errorf("validate selected command: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("deliver selected command: %w", err)
+	}
 	if delivery.mode == executionModeExecute {
 		if err := terminal.Execute(ctx, selected.Command); err != nil {
 			return fmt.Errorf("failed to execute command: %w", err)

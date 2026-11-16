@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
+	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/ra1phdd/zev/pkg/terminal"
 	"github.com/ra1phdd/zev/pkg/tui/list"
@@ -46,6 +48,9 @@ func runHistory(cmd *cobra.Command, _ []string) error {
 
 	items := make([]list.Item, len(reversedEntries))
 	for i, entry := range reversedEntries {
+		if err := validateHistoryEntry(&entry); err != nil {
+			return fmt.Errorf("history entry %d: %w", len(entries)-i, err)
+		}
 		var title string
 		switch {
 		case entry.SelectedCommand != "":
@@ -64,7 +69,7 @@ func runHistory(cmd *cobra.Command, _ []string) error {
 		items[i] = list.NewSimpleItem(title, description)
 	}
 
-	selectedItem, err := list.Select(list.SelectOptions{
+	selectedItem, err := list.SelectContext(cmd.Context(), list.SelectOptions{
 		Title: "📜 Query History",
 		Items: items,
 	})
@@ -81,10 +86,33 @@ func runHistory(cmd *cobra.Command, _ []string) error {
 	}
 
 	selectedEntry := reversedEntries[selectedIdx]
-	return showHistoryDetails(&selectedEntry, cmd.OutOrStdout())
+	return showHistoryDetails(cmd.Context(), &selectedEntry, cmd.OutOrStdout())
 }
 
-func showHistoryDetails(entry *service.HistoryEntry, out io.Writer) error {
+func validateHistoryEntry(entry *service.HistoryEntry) error {
+	if entry.SelectedCommand != "" {
+		selected := domain.OptionsResponse{IsValid: true, Commands: []domain.Command{{Command: entry.SelectedCommand}}}
+		if err := selected.Validate(); err != nil {
+			return fmt.Errorf("invalid selected history command: %w", err)
+		}
+	}
+	// Legacy history can contain rejected requests or no response, but not selectable commands.
+	if entry.Response == nil || (!entry.Response.IsValid && len(entry.Response.Commands) == 0) {
+		return nil
+	}
+	if err := entry.Response.Validate(); err != nil {
+		return fmt.Errorf("invalid history response: %w", err)
+	}
+	if !entry.Response.IsValid {
+		return fmt.Errorf("%w: rejected history response contains commands", domain.ErrInvalidOptionsResponse)
+	}
+	return nil
+}
+
+func showHistoryDetails(ctx context.Context, entry *service.HistoryEntry, out io.Writer) error {
+	if err := validateHistoryEntry(entry); err != nil {
+		return err
+	}
 	if entry.Response == nil || len(entry.Response.Commands) == 0 {
 		if _, err := fmt.Fprintln(out, "No commands in this entry"); err != nil {
 			return fmt.Errorf("write empty history entry: %w", err)
@@ -121,7 +149,7 @@ func showHistoryDetails(entry *service.HistoryEntry, out io.Writer) error {
 		entry.Model,
 	)
 
-	selectedItem, err := list.Select(list.SelectOptions{
+	selectedItem, err := list.SelectContext(ctx, list.SelectOptions{
 		Title: header,
 		Items: items,
 	})

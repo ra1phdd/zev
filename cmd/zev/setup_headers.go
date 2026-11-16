@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -51,7 +52,7 @@ func runSetupHeaders(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("write header instructions: %w", err)
 	}
 
-	newHeaders, err := readHTTPHeaders(out)
+	newHeaders, err := readHTTPHeaders(cmd.Context(), out)
 	if err != nil {
 		return err
 	}
@@ -83,18 +84,18 @@ func showHTTPHeaders(out io.Writer, title string, headers map[string]string) err
 		}
 		return nil
 	}
-	for key, value := range headers {
-		if _, err := fmt.Fprintf(out, "  %s: %s\n", key, value); err != nil {
+	for key := range headers {
+		if _, err := fmt.Fprintf(out, "  %s: [redacted]\n", key); err != nil {
 			return fmt.Errorf("write HTTP header %q: %w", key, err)
 		}
 	}
 	return nil
 }
 
-func readHTTPHeaders(out io.Writer) (map[string]string, error) {
+func readHTTPHeaders(ctx context.Context, out io.Writer) (map[string]string, error) {
 	headers := make(map[string]string)
 	for {
-		line, err := prompt.Input("Header (empty to finish):")
+		line, err := prompt.SecretInputContext(ctx, "Header (empty to finish):")
 		if err != nil {
 			return nil, fmt.Errorf("read HTTP header: %w", err)
 		}
@@ -121,7 +122,7 @@ func readHTTPHeaders(out io.Writer) (map[string]string, error) {
 		}
 
 		headers[name] = value
-		if _, err := fmt.Fprintf(out, "✅ Added: %s: %s\n", name, value); err != nil {
+		if _, err := fmt.Fprintf(out, "✅ Added: %s: [redacted]\n", name); err != nil {
 			return nil, fmt.Errorf("write added header confirmation: %w", err)
 		}
 	}

@@ -2,15 +2,15 @@
 package service
 
 import (
-	"bufio"
+	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/filestore"
 )
 
 const maxHistoryEntries = 100
@@ -37,77 +37,80 @@ func New() *Service {
 	if err != nil {
 		home = ""
 	}
-	return &Service{
-		historyPath: filepath.Join(home, ".zev", "history"),
-	}
+	return &Service{historyPath: filepath.Join(home, ".zev", "history")}
 }
 
-// Save сохраняет запись в историю с автоматической ротацией.
+// Save appends entry and retains the most recent 100 entries in one transaction.
+// Corrupt history or failures before rename leave the previous file unchanged.
+// Write errors preserve filestore.ErrCommitted when replacement succeeded but
+// directory sync failed; callers must not blindly retry the append in that case.
 func (s *Service) Save(entry HistoryEntry) error {
-	entries, err := s.LoadAll()
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to load existing history: %w", err)
+	if err := filestore.ValidateDirectory(filepath.Dir(s.historyPath)); err != nil {
+		return fmt.Errorf("validate history directory: %w", err)
 	}
-
-	entries = append(entries, entry)
-
-	// Ротация: оставляем только последние maxHistoryEntries записей
-	if len(entries) > maxHistoryEntries {
-		entries = entries[len(entries)-maxHistoryEntries:]
+	if err := filestore.WithLock(s.historyPath, func() error {
+		entries, err := s.loadAll()
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to load existing history: %w", err)
+		}
+		entries = append(entries, entry)
+		if len(entries) > maxHistoryEntries {
+			entries = entries[len(entries)-maxHistoryEntries:]
+		}
+		return s.saveAll(entries)
+	}); err != nil {
+		return fmt.Errorf("save history: %w", err)
 	}
-
-	return s.saveAll(entries)
+	return nil
 }
 
-// LoadAll reads all valid entries from the history file.
+// LoadAll reads the history, returning an error with the line number on corruption.
+// A missing file returns an error recognized by os.IsNotExist. Symlinks at the
+// history file or application directory are rejected.
 func (s *Service) LoadAll() (entries []HistoryEntry, err error) {
-	file, err := os.Open(s.historyPath)
+	if err := filestore.ValidateDirectory(filepath.Dir(s.historyPath)); err != nil {
+		return nil, fmt.Errorf("validate history directory: %w", err)
+	}
+	err = filestore.WithLock(s.historyPath, func() error {
+		entries, err = s.loadAll()
+		return err
+	})
+	return entries, err
+}
+
+func (s *Service) loadAll() ([]HistoryEntry, error) {
+	data, err := filestore.ReadFile(s.historyPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, err //nolint:wrapcheck // Callers use os.IsNotExist to handle a missing history file.
+			return nil, err //nolint:wrapcheck // Callers use os.IsNotExist for missing history.
 		}
-		return nil, fmt.Errorf("open history file: %w", err)
+		return nil, fmt.Errorf("read history file: %w", err)
 	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("close history file: %w", closeErr))
+	var entries []HistoryEntry
+	lines := bytes.Split(data, []byte("\n"))
+	for i, line := range lines {
+		if i == len(lines)-1 && len(line) == 0 {
+			break
 		}
-	}()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
 		var entry HistoryEntry
-		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
-			continue
+		if err := json.Unmarshal(line, &entry); err != nil {
+			return nil, fmt.Errorf("corrupt history at line %d: %w", i+1, err)
 		}
 		entries = append(entries, entry)
 	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("failed to read history: %w", err)
-	}
-
 	return entries, nil
 }
 
-// saveAll rewrites the history file with entries.
-func (s *Service) saveAll(entries []HistoryEntry) (err error) {
-	file, err := os.Create(s.historyPath)
-	if err != nil {
-		return fmt.Errorf("failed to create history file: %w", err)
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("close history file: %w", closeErr))
-		}
-	}()
-
-	encoder := json.NewEncoder(file)
+func (s *Service) saveAll(entries []HistoryEntry) error {
+	var data bytes.Buffer
+	encoder := json.NewEncoder(&data)
 	for _, entry := range entries {
 		if err := encoder.Encode(entry); err != nil {
-			return fmt.Errorf("failed to write history entry: %w", err)
+			return fmt.Errorf("failed to encode history entry: %w", err)
 		}
 	}
-
+	if err := filestore.AtomicWrite(s.historyPath, data.Bytes(), 0o600); err != nil {
+		return fmt.Errorf("failed to write history: %w", err)
+	}
 	return nil
 }

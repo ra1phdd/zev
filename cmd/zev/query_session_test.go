@@ -59,6 +59,32 @@ func newTestQuerySession(t *testing.T, provider *queryFlowProvider) *querySessio
 	return newQuerySession(queryservice.New(provider), cmd, queryTestPrompt)
 }
 
+func TestQueryRefinementUsesCommandContext(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	cmd := &cobra.Command{}
+	cmd.SetContext(ctx)
+	s := newQuerySession(queryservice.New(&queryFlowProvider{}), cmd, queryTestPrompt)
+	_, err := s.refine(ctx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("refine() error = %v, want context.Canceled", err)
+	}
+}
+
+func TestQuerySelectionUsesCommandContext(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	cmd := &cobra.Command{}
+	cmd.SetContext(ctx)
+	s := newQuerySession(queryservice.New(&queryFlowProvider{}), cmd, queryTestPrompt)
+	_, err := s.selectItem(list.SelectOptions{Items: []list.Item{list.NewSimpleItem("item", "")}})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("selectItem() error = %v, want context.Canceled", err)
+	}
+}
+
 func TestQueryConversationPreservesPromptAndEnvironmentSplit(t *testing.T) {
 	t.Parallel()
 	provider := &queryFlowProvider{results: []queryProviderResult{
@@ -148,8 +174,7 @@ func TestQueryDiagnosticOutputFailures(t *testing.T) {
 		response    *domain.OptionsResponse
 		providerErr error
 	}{
-		{name: "invalid request", response: &domain.OptionsResponse{ExplanationIfNotValid: "invalid"}},
-		{name: "empty response", response: &domain.OptionsResponse{IsValid: true}},
+		{name: "invalid request", response: &domain.OptionsResponse{ExplanationIfNotValid: "invalid", Commands: []domain.Command{{Command: queryRefineMarker}}}},
 		{name: "clarification warning", providerErr: domain.ErrNoResponse},
 	}
 	for _, tt := range tests {

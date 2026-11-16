@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Add opt-out privacy controls for provider context and query history, mask setup
+  secrets and custom header values, and redact them from setup output.
+- Make Unix and PowerShell release installers fail closed when SHA-256 metadata or
+  verification tools are unavailable, malformed, duplicated or mismatched.
+- Run tests, lint and build before the release publishing step; publish checksums
+  in a draft before the release artifacts are made public. The shared local/CI
+  release path also runs formatting and race tests before tag creation/push and
+  refuses tracked source changes after gates or packaging hooks.
 - Reduce the README demo display width to 346 pixels.
 - Use `-s -w` for local Make builds to omit symbol tables and DWARF debug information,
   matching GoReleaser and reducing executable size while retaining the build version;
@@ -26,6 +34,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Validate provider responses and persisted history before command selection or
+  delivery, with fixed byte/count limits and bounded provider response bodies;
+  reject terminal control characters before injecting any input.
+- Serialize configuration, alias and history read-modify-write operations with
+  cooperative cross-process locks and atomic file replacement; preserve malformed
+  existing data and distinguish post-replacement durability errors from failures
+  before commit.
+- Confine saved-script paths, reject unsafe links, execute pinned script files and
+  edit private temporary copies; atomically replace edited files and reject stale
+  editor saves rather than overwriting a newer cooperating edit. Serialize script
+  metadata/body changes with rollback for pre-commit failures, without claiming
+  crash-atomic multi-file transactions.
+- Propagate CLI signal cancellation through provider calls, retry waits, TUI input,
+  editors and command execution; clean up owned process groups/jobs and preserve
+  child exit errors. Detached Unix children and externally brokered processes are
+  outside the ownership boundary; native Windows runtime validation remains needed.
 - Correct the README HTML header layout and Russian language switcher, and
   document the history location as `~/.zev/history`.
 - Complete the Makefile migration to `GO`, `APP` and `BIN`: repair run/setup and

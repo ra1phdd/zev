@@ -32,6 +32,9 @@ func (s *Service) GetOptions(ctx context.Context, prompt string) (*domain.Option
 	if err != nil {
 		return nil, fmt.Errorf("get command options: %w", err)
 	}
+	if err := response.Validate(); err != nil {
+		return nil, fmt.Errorf("validate command options: %w", err)
+	}
 	ApplyDangerousValidation(response)
 	return response, nil
 }
@@ -41,6 +44,9 @@ func (s *Service) GetOptionsWithHistory(ctx context.Context, history *domain.Con
 	response, err := s.provider.GetOptionsWithHistory(ctx, history)
 	if err != nil {
 		return nil, fmt.Errorf("get command options with history: %w", err)
+	}
+	if err := response.Validate(); err != nil {
+		return nil, fmt.Errorf("validate command options: %w", err)
 	}
 	ApplyDangerousValidation(response)
 	return response, nil

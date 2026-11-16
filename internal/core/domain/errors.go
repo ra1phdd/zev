@@ -9,4 +9,6 @@ var (
 	ErrInvalidPrompt = errors.New("prompt cannot be empty")
 	// ErrNoResponse indicates that the LLM returned no response.
 	ErrNoResponse = errors.New("no response from LLM")
+	// ErrInvalidOptionsResponse indicates that a decoded provider response violates the response contract.
+	ErrInvalidOptionsResponse = errors.New("invalid options response")
 )

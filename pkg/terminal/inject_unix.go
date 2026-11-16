@@ -5,26 +5,37 @@ package terminal
 import (
 	"fmt"
 	"os"
+	"strings"
 	"syscall"
+	"unicode"
 	"unsafe"
 
+	"github.com/ra1phdd/zev/internal/core/domain"
 	"golang.org/x/term"
 )
 
-// Inject вставляет текст в input buffer терминала.
-// Использует TIOCSTI ioctl для "впрыскивания" символов.
-// Работает только на Unix-системах (Linux, macOS) и только когда stdin является TTY.
+// Inject inserts a nonempty single-line command into terminal input without executing it.
+// It returns ErrInjectionFailed for invalid command text or any control character,
+// including newlines and tabs, before accessing the terminal. Callers can use
+// errors.Is to distinguish ErrNotTTY and ioctl failures wrapping ErrInjectionFailed.
 func Inject(text string) error {
-	// Проверяем, что stdin является TTY
+	response := domain.OptionsResponse{IsValid: true, Commands: []domain.Command{{Command: text}}}
+	if err := response.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", ErrInjectionFailed, err)
+	}
+	// TIOCSTI feeds terminal input processing: newlines execute and tabs complete.
+	if strings.ContainsFunc(text, unicode.IsControl) {
+		return fmt.Errorf("%w: terminal control characters are not allowed", ErrInjectionFailed)
+	}
+
 	fd := int(os.Stdin.Fd())
 	if !term.IsTerminal(fd) {
 		return ErrNotTTY
 	}
 
-	// TIOCSTI позволяет записать символы в input buffer
-	const TIOCSTI = 0x5412 // для Linux и macOS
+	// TIOCSTI writes each byte through the terminal's input processing.
+	const TIOCSTI = 0x5412
 
-	// Записываем каждый байт в input buffer
 	for i := range len(text) {
 		b := text[i]
 		_, _, errno := syscall.Syscall(

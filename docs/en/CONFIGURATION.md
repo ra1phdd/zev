@@ -35,6 +35,25 @@ absent from `~/.zev/config`.
 | `ANTHROPIC_MODEL` | `claude-haiku-5.5` |
 | `COMMAND_EXECUTION_MODE` | `inject` |
 | `SCRIPT_EDITOR` | `nano` |
+| `HISTORY_ENABLED` | `true` |
+| `CONTEXT_ENABLED` | `true` |
+
+## Privacy controls
+
+`HISTORY_ENABLED=false` prevents completed queries from being written to `~/.zev/history`.
+`CONTEXT_ENABLED=false` prevents local OS, shell, user, home and working-directory details
+from being sent to the provider. The command-line overrides `--no-history` and
+`--no-context` disable the corresponding behavior for one query. Disabling history
+leaves existing entries untouched; it does not disable the active in-memory dialogue
+sent to the provider. Disabling context does not remove anything explicitly included
+in your prompt. Never include credentials in prompts or generated commands: those
+contents can otherwise reach the provider, terminal output and enabled history.
+
+API keys and custom header values are entered with masked input and are redacted from
+setup output. Provider diagnostics omit raw request/response bodies, credentials and
+endpoint URLs; this does not redact ordinary command output or enabled history.
+Installers fail closed unless the downloaded archive has exactly one
+matching SHA-256 entry and the computed digest matches it.
 
 ## Variables
 
@@ -95,6 +114,22 @@ that has already returned HTTP `200` is not restarted if it breaks while reading
 Retry warnings are visible without `-v`; URLs, API keys and payloads are not
 included in retry logs. These defaults require no extra configuration.
 
+## Response validation and limits
+
+All five providers validate suggestions before selection, execution or saving to
+history. Existing history is also validated before command selection. Fixed limits
+are **3 alternatives**, **4096 UTF-8 bytes per command**, **2048 UTF-8 bytes per
+explanation**, **32 KiB of structured response JSON**, and **256 KiB of provider HTTP
+response body** (including SSE framing for OpenCode). These are byte limits, not
+character counts, and are not configurable. Empty commands, invalid UTF-8, oversized
+responses and inconsistent valid/invalid response shapes are rejected.
+
+Response text rejects control characters except tab, LF and CR. Terminal injection
+is stricter: it rejects **every control character**, including those three, before
+writing any terminal input. A multiline suggestion can still be displayed as a
+fallback or executed in `execute` mode. Validation is not shell sanitization, a
+sandbox or a guarantee that a suggested command is safe.
+
 ## Command execution mode
 
 `zev setup mode` controls how suggestions are handled:
@@ -106,13 +141,33 @@ included in retry logs. These defaults require no extra configuration.
 
 Aliases and saved scripts execute directly, independently of this setting.
 
+The CLI propagates cancellation from Ctrl-C/SIGTERM through provider requests,
+retry waits, interactive prompts and child execution. Child processes run in an
+owned Unix process group or Windows kill-on-close job. Unix cleanup kills remaining
+owned group descendants on cancellation or normal leader exit, before reaping the
+leader. Windows starts the child suspended, assigns it to the job, then resumes it;
+job cleanup terminates remaining owned processes. This is not containment: Unix
+children that detach into another group/session and processes launched through
+external brokers are outside that boundary. Arbitrary blocking caller-supplied
+I/O is not bounded by child pipe cleanup. Windows runtime behavior needs native
+Windows verification; cross-compilation alone does not prove it.
+
 ## Editor resolution for `zev script create`
 
 1. `$SCRIPT_EDITOR`
 2. `$EDITOR`
 3. first available binary from `nano`, `vim`, `vi`
 
-If no editor is found, Zev returns an error containing the created file path.
+Editors receive a private temporary working copy, not the registered script path.
+A successful edit is staged, synced and atomically replaces the original only if
+its file identity still matches; a stale editor cannot overwrite a cooperating
+editor's newer replacement. Editors that save by rename are supported. Symlinks,
+non-regular files and multiply linked script/working files are rejected.
+
+The initial script is registered before the editor opens. If the editor cannot be
+found, fails or is cancelled, the registered script remains, while the temporary
+working copy is cleaned up. An error may mention that temporary path; it is not a
+persistent recovery file. `SKIP_EDITOR=1` skips opening the editor.
 
 ## Files on disk
 
@@ -126,3 +181,35 @@ If no editor is found, Zev returns an error containing the created file path.
 
 `~/.zev/scripts` is a file and `~/.zev/script_files` is a directory on purpose: a file
 and a directory with the same name cannot coexist.
+
+### Storage safety and recovery boundaries
+
+Configuration, aliases and history use same-directory temporary files followed by
+replacement, with cooperative locks covering read-modify-write operations. Files
+are written with mode `0600`, new application directories with `0700`, and new
+script bodies with `0700` on Unix. These permissions do not encrypt API keys or
+history; Windows ACL behavior is not proven by Unix mode bits.
+
+Persistent `*.lock` sidecars identify cross-process locks: **do not delete or replace
+them**, even when idle. Data-file symlinks and a symlink at `~/.zev` are rejected;
+lock sidecars must be regular singly linked files. Trusted ancestor aliases (such
+as a symlink in the home-directory path) are allowed. This cooperative protocol is
+not a sandbox against hostile same-user processes or writers that ignore locks.
+Malformed existing storage is reported, not silently reset; corrupt history blocks
+an append rather than discarding earlier entries.
+
+Script metadata paths must remain relative beneath `script_files`: absolute paths,
+traversal, symlinked application-owned components and multiply linked script files
+are rejected. Execution reads the already-open validated script, rather than
+reopening a checked pathname. Script creation/removal serializes metadata and body
+changes and attempts rollback on pre-commit failures, but **does not provide a
+crash-atomic transaction across both files**.
+
+For an atomic replacement, a failure before rename leaves the previous destination
+unchanged. A directory-sync error after rename means the new file is already visible
+but crash durability is uncertain; it is not evidence that nothing changed. Go callers
+can classify this with `errors.Is(err, filestore.ErrCommitted)` or the script
+repository's `ErrCommitted`. Inspect the current state before retrying, especially
+for history appends. Cleanup errors can also accompany a completed change. Windows
+has no portable directory-fsync step here, and its crash durability/runtime behavior
+must not be inferred from a successful cross-build.

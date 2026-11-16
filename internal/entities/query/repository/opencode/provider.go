@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -39,7 +40,7 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 	}
 
 	return &Provider{
-		client:  httpClient,
+		client:  repository.WithResponseBodyLimit(httpClient),
 		apiKey:  apiKey,
 		model:   model,
 		baseURL: baseURL,
@@ -160,7 +161,7 @@ func (p *Provider) sendRequest(ctx context.Context, reqBody openCodeRequest) (*d
 	url := p.baseURL + "/chat/completions"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", repository.WrapNetworkError(p.Name(), err))
 	}
 
 	req.Header.Set("Accept", "*/*")
@@ -182,9 +183,27 @@ func (p *Provider) sendRequest(ctx context.Context, reqBody openCodeRequest) (*d
 		return nil, fmt.Errorf("OpenCode request failed: %w", repository.HTTPStatusError("OpenCode", resp.StatusCode))
 	}
 
+	fullContent, err := readOpenCodeContent(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+	}
+	if fullContent == "" {
+		return nil, domain.ErrNoResponse
+	}
+
+	result, err := repository.DecodeOptionsResponse(p.Name(), fullContent)
+	if err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
+	}
+
+	return result, nil
+}
+
+func readOpenCodeContent(body io.Reader) (string, error) {
 	// Читаем streaming-ответ (SSE)
 	var fullContent strings.Builder
-	scanner := bufio.NewScanner(resp.Body)
+	scanner := bufio.NewScanner(body)
+	scanner.Buffer(make([]byte, 64*1024), repository.MaxProviderResponseBytes+1)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -206,27 +225,23 @@ func (p *Provider) sendRequest(ctx context.Context, reqBody openCodeRequest) (*d
 		}
 
 		if len(chunk.Choices) > 0 {
-			fullContent.WriteString(chunk.Choices[0].Delta.Content)
+			if err := appendContent(&fullContent, chunk.Choices[0].Delta.Content); err != nil {
+				return "", err
+			}
 		}
 	}
-
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("failed to read streaming response: %w", err)
+		return "", fmt.Errorf("reading OpenCode stream: %w", err)
 	}
+	return fullContent.String(), nil
+}
 
-	if fullContent.Len() == 0 {
-		return nil, domain.ErrNoResponse
+func appendContent(content *strings.Builder, value string) error {
+	if content.Len()+len(value) > repository.MaxProviderResponseBytes {
+		return repository.ErrProviderResponseTooLarge
 	}
-
-	// Извлекаем JSON из markdown/escape-тегов
-	cleanJSON := repository.ExtractJSON(fullContent.String())
-
-	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
-	}
-
-	return &result, nil
+	content.WriteString(value)
+	return nil
 }
 
 // Name returns the provider identifier.

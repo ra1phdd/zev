@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
@@ -44,14 +45,14 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 		return nil, errors.New("httpClient is required")
 	}
 
-	apiURL := fmt.Sprintf("%s/v1beta/models/%s:generateContent?key=%s", baseURL, model, apiKey)
+	apiURL := fmt.Sprintf("%s/v1beta/models/%s:generateContent", baseURL, model)
 
 	return &Provider{
 		apiKey:  apiKey,
 		model:   model,
 		baseURL: baseURL,
 		apiURL:  apiURL,
-		client:  httpClient,
+		client:  repository.WithResponseBodyLimit(httpClient),
 	}, nil
 }
 
@@ -84,9 +85,10 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.apiURL, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", repository.WrapNetworkError("Gemini", err))
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-goog-api-key", p.apiKey)
 
 	resp, err := p.client.Do(req)
 	if err != nil {
@@ -102,6 +104,11 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 		return nil, fmt.Errorf("gemini request failed: %w", repository.HTTPStatusError("Gemini", resp.StatusCode))
 	}
 
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+	}
+
 	var geminiResp struct {
 		Candidates []struct {
 			Content struct {
@@ -112,8 +119,8 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 		} `json:"candidates"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := json.Unmarshal(responseBody, &geminiResp); err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
 	}
 
 	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
@@ -121,14 +128,12 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	}
 
 	textOutput := geminiResp.Candidates[0].Content.Parts[0].Text
-	cleanJSON := repository.ExtractJSON(textOutput)
-
-	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+	result, err := repository.DecodeOptionsResponse(p.Name(), textOutput)
+	if err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 // GetOptionsWithHistory requests query options for an existing conversation.
@@ -165,9 +170,10 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.apiURL, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", repository.WrapNetworkError("Gemini", err))
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-goog-api-key", p.apiKey)
 
 	resp, err := p.client.Do(req)
 	if err != nil {
@@ -183,6 +189,11 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 		return nil, fmt.Errorf("gemini request failed: %w", repository.HTTPStatusError("Gemini", resp.StatusCode))
 	}
 
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+	}
+
 	var geminiResp struct {
 		Candidates []struct {
 			Content struct {
@@ -193,8 +204,8 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 		} `json:"candidates"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if err := json.Unmarshal(responseBody, &geminiResp); err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
 	}
 
 	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
@@ -202,14 +213,12 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	}
 
 	textOutput := geminiResp.Candidates[0].Content.Parts[0].Text
-	cleanJSON := repository.ExtractJSON(textOutput)
-
-	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+	result, err := repository.DecodeOptionsResponse(p.Name(), textOutput)
+	if err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 // Name returns the provider identifier.

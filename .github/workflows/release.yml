@@ -27,29 +27,46 @@ jobs:
 
       - name: Resolve version
         id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="$REQUESTED_VERSION"
           if [ -z "$VERSION" ]; then
             VERSION=$(tr -d '[:space:]' < VERSION)
           fi
-          if [ -z "$VERSION" ]; then
-            echo "Version is empty" >&2
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid version" >&2
             exit 1
           fi
           echo "value=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Releasing version $VERSION"
 
-      - name: Tag commit
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "v${{ steps.version.outputs.value }}" -m "Release v${{ steps.version.outputs.value }}"
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
 
-      - name: Run GoReleaser
+      - name: Install pinned release tools
+        run: |
+          go install mvdan.cc/gofumpt@v0.12.0
+          go install golang.org/x/tools/cmd/goimports@v0.52.0
+          go install golang.org/x/tools/cmd/deadcode@v0.52.0
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
-          args: release --clean
+          version: v2.18.3
+          install-only: true
+
+      - name: Run release gates and publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          bash deploy/release.sh "${{ steps.version.outputs.value }}"
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -34,8 +34,8 @@
 ### Linux and macOS
 
 Install the latest release with one command — the script picks the archive for your OS
-and architecture and installs it, checking SHA-256 when checksums and a hash
-utility are available (otherwise it warns and skips the check):
+and architecture and refuses to install unless `checksums.txt` is available, contains exactly
+one valid SHA-256 entry for the archive, and a hash utility verifies a match:
 
 ```bash
 # curl
@@ -66,7 +66,8 @@ irm https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/install.ps1 | iex
 ```
 
 Or download [`install.ps1`](deploy/install.ps1) and run `.\install.ps1`. It installs into
-`%LOCALAPPDATA%\Programs\zev` and needs no administrator rights.
+`%LOCALAPPDATA%\Programs\zev` and needs no administrator rights. SHA-256 verification is
+mandatory here too: missing or invalid checksums, or a hash mismatch, stop installation.
 
 ### Then configure a provider
 

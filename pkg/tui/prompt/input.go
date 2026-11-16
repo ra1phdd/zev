@@ -2,6 +2,7 @@
 package prompt
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,19 +14,58 @@ import (
 // Input displays promptText and returns the submitted value with whitespace trimmed.
 // It returns an error on cancellation or terminal UI failure.
 func Input(promptText string) (string, error) {
+	return InputContext(context.Background(), promptText)
+}
+
+// InputContext displays promptText and returns trimmed input. Cancellation is
+// reported with an error matching ctx.Err() through errors.Is.
+func InputContext(ctx context.Context, promptText string) (string, error) {
+	return inputContext(ctx, promptText)
+}
+
+// SecretInputContext displays promptText and masks typed input. It returns the
+// trimmed secret on submission, or an empty value on cancellation or UI failure.
+// Errors never format input contents; errors.Is can inspect their underlying cause.
+// Callers must not include secrets in promptText.
+func SecretInputContext(ctx context.Context, promptText string) (string, error) {
+	return secretInputContext(ctx, promptText)
+}
+
+type inputError struct{ cause error }
+
+func (e inputError) Error() string { return "input UI failed or canceled" }
+func (e inputError) Unwrap() error { return e.cause }
+
+func inputContext(ctx context.Context, promptText string, opts ...tea.ProgramOption) (string, error) {
+	return runInputContext(ctx, newInputModel(promptText, false), opts...)
+}
+
+func secretInputContext(ctx context.Context, promptText string, opts ...tea.ProgramOption) (string, error) {
+	return runInputContext(ctx, newInputModel(promptText, true), opts...)
+}
+
+func newInputModel(promptText string, secret bool) inputModel {
 	ti := textinput.New()
-	ti.Placeholder = promptText
-	ti.Focus()
-
-	m := inputModel{
-		textInput: ti,
-		prompt:    promptText,
+	if secret {
+		ti.EchoMode = textinput.EchoPassword
+	} else {
+		ti.Placeholder = promptText
 	}
+	ti.Focus()
+	return inputModel{textInput: ti, prompt: promptText}
+}
 
-	p := tea.NewProgram(m)
+func runInputContext(ctx context.Context, m inputModel, opts ...tea.ProgramOption) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", inputError{cause: err}
+	}
+	p := tea.NewProgram(m, append(opts, tea.WithContext(ctx))...)
 	result, err := p.Run()
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return "", inputError{cause: ctxErr}
+	}
 	if err != nil {
-		return "", fmt.Errorf("run input UI: %w", err)
+		return "", inputError{cause: err}
 	}
 
 	finalModel, ok := result.(inputModel)

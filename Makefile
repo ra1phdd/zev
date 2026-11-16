@@ -96,11 +96,9 @@ release-snapshot: ## Локальная проверка релизной сбо
 release-check: ## Проверить .goreleaser.yaml без сборки
 	goreleaser check
 
-release: ## Опубликовать релиз в GitHub (использует версию из файла VERSION)
+release: ## Опубликовать релиз только после всех локальных проверок
 	@test -f VERSION || (echo "VERSION not found" && exit 1)
-	@echo "Releasing version $$(tr -d '[:space:]' < VERSION)..."
-	@git tag -f "v$$(tr -d '[:space:]' < VERSION)" -m "Release v$$(tr -d '[:space:]' < VERSION)"
-	goreleaser release --clean
+	@bash deploy/release.sh "$$(tr -d '[:space:]' < VERSION)"
 
 dev: ## Запустить в режиме разработки (debug логи)
 	$(GO) run $(FLAGS) $(APP) -vv $(ARGS)

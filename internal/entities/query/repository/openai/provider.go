@@ -3,7 +3,6 @@ package openai
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -37,7 +36,7 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 
 	config := openai.DefaultConfig(apiKey)
 	config.BaseURL = baseURL
-	config.HTTPClient = httpClient
+	config.HTTPClient = repository.WithResponseBodyLimit(httpClient)
 	client := openai.NewClientWithConfig(config)
 
 	return &Provider{
@@ -71,14 +70,12 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	}
 
 	rawContent := resp.Choices[0].Message.Content
-	cleanJSON := repository.ExtractJSON(rawContent)
-
-	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+	result, err := repository.DecodeOptionsResponse(p.Name(), rawContent)
+	if err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 // GetOptionsWithHistory requests query options for an existing conversation.
@@ -112,14 +109,12 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	}
 
 	rawContent := resp.Choices[0].Message.Content
-	cleanJSON := repository.ExtractJSON(rawContent)
-
-	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+	result, err := repository.DecodeOptionsResponse(p.Name(), rawContent)
+	if err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 // Name returns the provider identifier.

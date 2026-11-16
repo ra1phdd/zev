@@ -44,6 +44,7 @@ make build
 | `make clean` | Remove `BIN` and its four cross-compiled variants, preserving other files |
 | `make release-check` | Validate `.goreleaser.yaml` without publishing |
 | `make release-snapshot` | Build a GoReleaser snapshot without publishing |
+| `make release` | Run release gates, then tag, package and publish (explicit authorization required) |
 | `make version` | Print the build version (`dev` by default) |
 | `make info` | Print the app package, binary path, version and Go platform |
 
@@ -78,11 +79,31 @@ make build FLAGS=
 `deadcode -test $(APP)` reports reachability for the selected application and
 its tests, not a cross-platform proof that reported functions can be deleted.
 
+## Release ordering and verification
+
 `VERSION` defaults to `dev` for local builds; the `VERSION` file is the release
-source of truth. `make release` creates or replaces a local version tag and
-publishes through GoReleaser: it is not a verification command. The GitHub
-release workflow is triggered by changes to `VERSION` on `main` or manually;
-it does not run the test/lint gates. Run those checks before releasing.
+source of truth. Both `make release` and the [GitHub release workflow](../../.github/workflows/release.yml)
+call [deploy/release.sh](../../deploy/release.sh). The workflow starts on a `VERSION`
+change on `main` or manually, with an optional version override.
+
+The shared release path runs `make fmt`, `make lint`, `make test`, `make test-race`
+and `make build VERSION=<version>` **before creating or pushing a tag**. A failed
+gate stops the release; an existing version tag must point at `HEAD` and is not
+force-replaced. GoReleaser then packages with `--skip=publish`, and
+[deploy/publish-release.sh](../../deploy/publish-release.sh) verifies the local
+archives against `dist/checksums.txt` before the tag is pushed. It creates a draft
+release with checksums first, uploads archives, then makes the release public.
+A publishing failure can leave a pushed tag or draft; inspect remote state before
+retrying. The workflow pins its release-tool versions; local release execution
+requires those tools plus `gh`, `sha256sum`, Git and Bash.
+
+`make release` is a mutating publishing command and requires explicit authorization.
+Formatting/linting and GoReleaser hooks can change the working tree; the release
+script rejects tracked changes against `HEAD` after the gates and again after
+packaging, rather than publishing uncommitted fixes. Snapshot and release builds
+use `--clean` and clear `dist/`. `make release-check` only validates
+GoReleaser configuration; it neither exercises the release gates nor publishes.
+A successful cross-build is not native Windows runtime verification.
 
 ## TDD
 
@@ -112,6 +133,16 @@ targets reserve the workflow for future tagged tests and still include untagged
 unit tests. Unit tests do not require provider credentials or a running LLM.
 Use `make test-race` separately for concurrency checks. Do not run manual tests
 without explicit authorization.
+
+Hardening tests cover provider response limits, history/terminal validation,
+cooperative file updates and post-commit errors, confined script paths and stale
+editor saves, plus cancellation through the real CLI-to-HTTP path. Unix child tests
+also exercise cleanup after normal leader exit, not only cancellation. Windows
+uses suspended-start job assignment before resume, but a cross-build does not
+exercise native process jobs, reparse-point handling or installer behavior. Unix
+children that detach into another group/session and externally brokered processes
+remain outside supervision. See [CONFIGURATION.md](CONFIGURATION.md) for the
+storage, execution and recovery boundaries.
 
 ## Project conventions
 

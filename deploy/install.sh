@@ -83,6 +83,13 @@ if [ -z "$VERSION" ]; then
 	fi
 fi
 
+if [ -z "$VERSION" ]; then
+	die "version is required"
+fi
+if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+	die "invalid version: $VERSION"
+fi
+
 info "Installing zev ${VERSION}"
 
 # Resolve the archive name for this platform. Note: macOS ships bash 3.2, so no
@@ -132,27 +139,37 @@ download "${base_url}/${tarball}" "${tmp}/${tarball}" \
 	|| die "download failed: ${base_url}/${tarball}"
 
 # Verify the archive against the published checksums before unpacking.
-if download "${base_url}/checksums.txt" "${tmp}/checksums.txt" 2>/dev/null; then
-	if ! (cd "$tmp" && grep " ${tarball}\$" checksums.txt > "${tarball}.sha256"); then
-		die "no checksum published for ${tarball}"
-	fi
-
-	if command -v sha256sum >/dev/null 2>&1; then
-		(cd "$tmp" && sha256sum -c "${tarball}.sha256" >/dev/null) \
-			|| die "checksum mismatch for ${tarball} — refusing to install"
-	elif command -v shasum >/dev/null 2>&1; then
-		(cd "$tmp" && shasum -a 256 -c "${tarball}.sha256" >/dev/null) \
-			|| die "checksum mismatch for ${tarball} — refusing to install"
-	else
-		warn "no sha256sum or shasum found — skipping integrity check"
-	fi
-	info "Checksum verified"
-else
-	warn "checksums.txt unavailable — skipping integrity check"
+if ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then
+	die "no SHA-256 utility found (sha256sum or shasum) — refusing to install"
 fi
+if ! download "${base_url}/checksums.txt" "${tmp}/checksums.txt" 2>/dev/null; then
+	die "checksums.txt unavailable — refusing to install"
+fi
+checksum_lines="$(awk -v name="$tarball" '$2 == name || $2 == "*" name { print }' "${tmp}/checksums.txt")"
+if [ "$(printf '%s\n' "$checksum_lines" | awk 'NF {n++} END {print n+0}')" -ne 1 ]; then
+	die "expected exactly one checksum for ${tarball}"
+fi
+expected="$(printf '%s' "$checksum_lines" | awk '{print $1}')"
+if ! printf '%s' "$expected" | grep -Eq '^[[:xdigit:]]{64}$'; then
+	die "malformed checksum for ${tarball}"
+fi
+if command -v sha256sum >/dev/null 2>&1; then
+	actual="$(sha256sum "${tmp}/${tarball}")" || die "SHA-256 check failed"
+else
+	actual="$(shasum -a 256 "${tmp}/${tarball}")" || die "SHA-256 check failed"
+fi
+actual="$(printf '%s' "$actual" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
+expected="$(printf '%s' "$expected" | tr '[:upper:]' '[:lower:]')"
+[ "$actual" = "$expected" ] || die "checksum mismatch for ${tarball} — refusing to install"
+info "Checksum verified"
 
+members="$(tar -tvzf "${tmp}/${tarball}" zev)" || die "archive does not contain zev"
+if ! printf '%s\n' "$members" | awk 'substr($0,1,1) != "-" {bad=1} END {exit (NR != 1 || bad)}'; then
+	die "archive must contain exactly one regular zev binary"
+fi
 info "Extracting"
 tar -xzf "${tmp}/${tarball}" -C "$tmp" zev || die "failed to extract zev from ${tarball}"
+[ -f "${tmp}/zev" ] && [ ! -L "${tmp}/zev" ] || die "extracted zev is not a regular file"
 
 # Install through sudo when we picked a system-wide directory, otherwise write
 # directly (an explicit PREFIX is always honoured as-is).

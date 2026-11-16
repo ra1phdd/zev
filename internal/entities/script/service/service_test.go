@@ -14,7 +14,10 @@ import (
 func newTestService(t *testing.T) (*Service, string) {
 	t.Helper()
 
-	tmpDir := t.TempDir()
+	tmpDir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return New(repository.New(tmpDir)), tmpDir
 }

@@ -1,10 +1,23 @@
 package list
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+func TestSelectContextAlreadyCanceled(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	_, err := SelectContext(ctx, SelectOptions{Items: []Item{NewSimpleItem("item", "")}})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("SelectContext() error = %v, want context.Canceled", err)
+	}
+}
 
 func requireModel(t *testing.T, updated tea.Model) model {
 	t.Helper()

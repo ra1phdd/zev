@@ -15,13 +15,19 @@ import (
 	"github.com/ra1phdd/zev/internal/core/httpclient"
 )
 
-func TestProviderAutomaticHTTPRetry(t *testing.T) {
-	t.Parallel()
-	providers := []struct {
-		name  string
-		setup func(*config.Config, string)
-		wire  func(string) string
-	}{
+const (
+	wireContent = "content"
+	wireText    = "text"
+)
+
+type providerTestCase struct {
+	name  string
+	setup func(*config.Config, string)
+	wire  func(string) string
+}
+
+func providerTestCases() []providerTestCase {
+	return []providerTestCase{
 		{
 			name: "openai",
 			setup: func(cfg *config.Config, baseURL string) {
@@ -72,6 +78,11 @@ func TestProviderAutomaticHTTPRetry(t *testing.T) {
 			wire: openCodeResponse,
 		},
 	}
+}
+
+func TestProviderAutomaticHTTPRetry(t *testing.T) {
+	t.Parallel()
+	providers := providerTestCases()
 
 	methods := []struct {
 		name string
@@ -196,22 +207,47 @@ func testOptionsJSON() string {
 }
 
 func openAIResponse(options string) string {
-	return `{"choices":[{"message":{"content":` + strconvQuote(options) + `}}]}`
+	return marshalProviderJSON(map[string]any{
+		"choices": []any{
+			map[string]any{
+				"message": map[string]string{wireContent: options},
+			},
+		},
+	})
 }
 
 func anthropicResponse(options string) string {
-	return `{"content":[{"type":"text","text":` + strconvQuote(options) + `}]}`
+	return marshalProviderJSON(map[string]any{
+		wireContent: []any{
+			map[string]string{"type": wireText, wireText: options},
+		},
+	})
 }
 
 func geminiResponse(options string) string {
-	return `{"candidates":[{"content":{"parts":[{"text":` + strconvQuote(options) + `}]}}]}`
+	return marshalProviderJSON(map[string]any{
+		"candidates": []any{
+			map[string]any{
+				"content": map[string]any{
+					"parts": []any{map[string]string{wireText: options}},
+				},
+			},
+		},
+	})
 }
 
 func openCodeResponse(options string) string {
-	return "data: {\"choices\":[{\"delta\":{\"content\":" + strconvQuote(options) + "}}]}\n\ndata: [DONE]\n\n"
+	chunk := marshalProviderJSON(map[string]any{
+		"choices": []any{
+			map[string]any{
+				"delta": map[string]string{wireContent: options},
+			},
+		},
+	})
+	return "data: " + chunk + "\n\ndata: [DONE]\n\n"
 }
 
-func strconvQuote(value string) string {
+func marshalProviderJSON(value any) string {
 	payload, err := json.Marshal(value)
 	if err != nil {
 		panic(err)

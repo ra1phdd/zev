@@ -3,7 +3,6 @@ package anthropic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -37,7 +36,7 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 
 	client := anthropic.NewClient(
 		apiKey,
-		anthropic.WithHTTPClient(httpClient),
+		anthropic.WithHTTPClient(repository.WithResponseBodyLimit(httpClient)),
 		anthropic.WithBaseURL(baseURL),
 	)
 
@@ -70,15 +69,12 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 		return nil, domain.ErrNoResponse
 	}
 
-	// Извлекаем JSON из markdown блока, если он там есть
-	jsonContent := repository.ExtractJSON(textContent)
-
-	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(jsonContent), &result); err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+	result, err := repository.DecodeOptionsResponse(p.Name(), textContent)
+	if err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 // GetOptionsWithHistory requests query options for an existing conversation.
@@ -109,15 +105,12 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 		return nil, domain.ErrNoResponse
 	}
 
-	// Извлекаем JSON из markdown блока, если он там есть
-	jsonContent := repository.ExtractJSON(textContent)
-
-	var result domain.OptionsResponse
-	if err := json.Unmarshal([]byte(jsonContent), &result); err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+	result, err := repository.DecodeOptionsResponse(p.Name(), textContent)
+	if err != nil {
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 // Name returns the provider identifier.

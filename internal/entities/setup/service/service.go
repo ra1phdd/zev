@@ -2,38 +2,50 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"os"
+
+	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/pkg/tui/list"
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
 )
 
+const (
+	providerOpenAI    = "openai"
+	providerGemini    = "gemini"
+	providerAnthropic = "anthropic"
+	providerOllama    = "ollama"
+	providerOpenCode  = "opencode"
+)
+
 // Service runs the interactive configuration setup flow.
-type Service struct{}
+type Service struct {
+	runSecretInput func(tea.Model) (tea.Model, error)
+	inputContext   func(context.Context, string) (string, error)
+	selectContext  func(context.Context, list.SelectOptions) (list.Item, error)
+}
 
 // New creates a setup service.
 func New() *Service {
-	return &Service{}
+	return &Service{inputContext: prompt.InputContext, selectContext: list.SelectContext}
 }
 
-// maskAPIKey маскирует API ключ, показывая первые 3 и последние 3 символа.
+// maskAPIKey conceals the entire saved key, including its length.
 func maskAPIKey(key string) string {
 	if key == "" {
 		return ""
 	}
-	if len(key) < 6 {
-		return "***"
-	}
-	return key[:3] + "***..." + key[len(key)-3:]
+	return "***"
 }
 
 // promptWithDefault показывает промпт с текущим значением и дефолтом.
 // Если пользователь жмёт Enter — возвращает current.
 // Если пользователь пишет "default" — возвращает defaultVal.
 // Иначе возвращает то, что пользователь ввёл.
-func promptWithDefault(promptText, current, defaultVal string) (string, error) {
+func (s *Service) promptWithDefault(ctx context.Context, promptText, current, defaultVal string) (string, error) {
 	var fullPrompt string
 	switch {
 	case current != "" && defaultVal != "" && current != defaultVal:
@@ -46,7 +58,7 @@ func promptWithDefault(promptText, current, defaultVal string) (string, error) {
 		fullPrompt = promptText + ":"
 	}
 
-	input, err := prompt.Input(fullPrompt)
+	input, err := s.inputContext(ctx, fullPrompt)
 	if err != nil {
 		return "", fmt.Errorf("read setup input: %w", err)
 	}
@@ -65,29 +77,43 @@ func promptWithDefault(promptText, current, defaultVal string) (string, error) {
 	return input, nil
 }
 
-// Run prompts for provider settings and saves the resulting configuration.
+// Run prompts for provider settings using a background context.
 func (s *Service) Run() error {
-	// Загружаем текущий конфиг (или дефолтный, если файла нет)
-	cfg, err := config.Load()
-	if err != nil {
-		// Если файл не существует, используем дефолт
-		cfg = config.DefaultConfig()
-	}
+	return s.RunContext(context.Background())
+}
 
-	providers := []string{"openai", "gemini", "anthropic", "ollama", "opencode"}
+// RunContext prompts for provider settings and saves them unless ctx is canceled.
+func (s *Service) RunContext(ctx context.Context) error {
+	run := *s
+	if run.inputContext == nil {
+		run.inputContext = prompt.InputContext
+	}
+	if run.selectContext == nil {
+		run.selectContext = list.SelectContext
+	}
+	s = &run
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("setup canceled: %w", err)
+	}
+	original, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	cfg := *original
+
+	providers := []string{providerOpenAI, providerGemini, providerAnthropic, providerOllama, providerOpenCode}
 	items := make([]list.Item, len(providers))
 	for i, p := range providers {
 		items[i] = list.NewSimpleItem(p, "")
 	}
 
-	selected, err := list.Select(list.SelectOptions{
+	selected, err := s.selectContext(ctx, list.SelectOptions{
 		Title: "Which LLM provider would you like to use?",
 		Items: items,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to select provider: %w", err)
 	}
-
 	item, ok := selected.(list.SimpleItem)
 	if !ok {
 		return fmt.Errorf("unexpected provider selection type %T", selected)
@@ -96,30 +122,33 @@ func (s *Service) Run() error {
 	cfg.LLMProvider = provider
 
 	switch provider {
-	case "openai":
-		if err := s.setupOpenAI(cfg); err != nil {
+	case providerOpenAI:
+		if err := s.setupOpenAI(ctx, &cfg); err != nil {
 			return err
 		}
-	case "gemini":
-		if err := s.setupGemini(cfg); err != nil {
+	case providerGemini:
+		if err := s.setupGemini(ctx, &cfg); err != nil {
 			return err
 		}
-	case "anthropic":
-		if err := s.setupAnthropic(cfg); err != nil {
+	case providerAnthropic:
+		if err := s.setupAnthropic(ctx, &cfg); err != nil {
 			return err
 		}
-	case "ollama":
-		if err := s.setupOllama(cfg); err != nil {
+	case providerOllama:
+		if err := s.setupOllama(ctx, &cfg); err != nil {
 			return err
 		}
-	case "opencode":
-		if err := s.setupOpenCode(cfg); err != nil {
+	case providerOpenCode:
+		if err := s.setupOpenCode(ctx, &cfg); err != nil {
 			return err
 		}
 	}
 
-	if err := config.Save(cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+	if err := config.Update(func(latest *config.Config) error {
+		mergeProviderChanges(latest, original, &cfg, provider)
+		return nil
+	}); err != nil {
+		return fmt.Errorf("save config: %w", err)
 	}
 
 	if _, err := fmt.Fprintln(os.Stdout, "\n✓ Configuration saved successfully!"); err != nil {
@@ -128,35 +157,24 @@ func (s *Service) Run() error {
 	return nil
 }
 
-func (s *Service) setupOpenAI(cfg *config.Config) error {
+func (s *Service) setupOpenAI(ctx context.Context, cfg *config.Config) error {
 	defaults := config.DefaultConfig()
 
-	// API Key с маскировкой
-	currentMasked := ""
-	if cfg.OpenAIAPIKey != "" {
-		currentMasked = maskAPIKey(cfg.OpenAIAPIKey)
-	}
-	apiKeyPrompt := "Enter your OpenAI API key"
-	if currentMasked != "" {
-		apiKeyPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep)", apiKeyPrompt, currentMasked)
-	}
-	apiKey, err := prompt.Input(apiKeyPrompt + ":")
+	apiKey, err := s.promptAPIKey(ctx, "OpenAI", cfg.OpenAIAPIKey)
 	if err != nil {
-		return fmt.Errorf("read API key: %w", err)
+		return err
 	}
-	if apiKey != "" {
-		cfg.OpenAIAPIKey = apiKey
-	}
+	cfg.OpenAIAPIKey = apiKey
 
 	// Model
-	model, err := promptWithDefault("Enter the model to use", cfg.OpenAIModel, defaults.OpenAIModel)
+	model, err := s.promptWithDefault(ctx, "Enter the model to use", cfg.OpenAIModel, defaults.OpenAIModel)
 	if err != nil {
 		return err
 	}
 	cfg.OpenAIModel = model
 
 	// Base URL
-	baseURL, err := promptWithDefault("Enter custom base URL", cfg.OpenAIBaseURL, defaults.OpenAIBaseURL)
+	baseURL, err := s.promptWithDefault(ctx, "Enter custom base URL", cfg.OpenAIBaseURL, defaults.OpenAIBaseURL)
 	if err != nil {
 		return err
 	}
@@ -165,35 +183,24 @@ func (s *Service) setupOpenAI(cfg *config.Config) error {
 	return nil
 }
 
-func (s *Service) setupGemini(cfg *config.Config) error {
+func (s *Service) setupGemini(ctx context.Context, cfg *config.Config) error {
 	defaults := config.DefaultConfig()
 
-	// API Key с маскировкой
-	currentMasked := ""
-	if cfg.GeminiAPIKey != "" {
-		currentMasked = maskAPIKey(cfg.GeminiAPIKey)
-	}
-	apiKeyPrompt := "Enter your Gemini API key"
-	if currentMasked != "" {
-		apiKeyPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep)", apiKeyPrompt, currentMasked)
-	}
-	apiKey, err := prompt.Input(apiKeyPrompt + ":")
+	apiKey, err := s.promptAPIKey(ctx, "Gemini", cfg.GeminiAPIKey)
 	if err != nil {
-		return fmt.Errorf("read API key: %w", err)
+		return err
 	}
-	if apiKey != "" {
-		cfg.GeminiAPIKey = apiKey
-	}
+	cfg.GeminiAPIKey = apiKey
 
 	// Model
-	model, err := promptWithDefault("Enter the model to use", cfg.GeminiModel, defaults.GeminiModel)
+	model, err := s.promptWithDefault(ctx, "Enter the model to use", cfg.GeminiModel, defaults.GeminiModel)
 	if err != nil {
 		return err
 	}
 	cfg.GeminiModel = model
 
 	// Base URL
-	baseURL, err := promptWithDefault("Enter custom base URL", cfg.GeminiBaseURL, defaults.GeminiBaseURL)
+	baseURL, err := s.promptWithDefault(ctx, "Enter custom base URL", cfg.GeminiBaseURL, defaults.GeminiBaseURL)
 	if err != nil {
 		return err
 	}
@@ -202,35 +209,24 @@ func (s *Service) setupGemini(cfg *config.Config) error {
 	return nil
 }
 
-func (s *Service) setupAnthropic(cfg *config.Config) error {
+func (s *Service) setupAnthropic(ctx context.Context, cfg *config.Config) error {
 	defaults := config.DefaultConfig()
 
-	// API Key с маскировкой
-	currentMasked := ""
-	if cfg.AnthropicAPIKey != "" {
-		currentMasked = maskAPIKey(cfg.AnthropicAPIKey)
-	}
-	apiKeyPrompt := "Enter your Anthropic API key"
-	if currentMasked != "" {
-		apiKeyPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep)", apiKeyPrompt, currentMasked)
-	}
-	apiKey, err := prompt.Input(apiKeyPrompt + ":")
+	apiKey, err := s.promptAPIKey(ctx, "Anthropic", cfg.AnthropicAPIKey)
 	if err != nil {
-		return fmt.Errorf("read API key: %w", err)
+		return err
 	}
-	if apiKey != "" {
-		cfg.AnthropicAPIKey = apiKey
-	}
+	cfg.AnthropicAPIKey = apiKey
 
 	// Model
-	model, err := promptWithDefault("Enter the model to use", cfg.AnthropicModel, defaults.AnthropicModel)
+	model, err := s.promptWithDefault(ctx, "Enter the model to use", cfg.AnthropicModel, defaults.AnthropicModel)
 	if err != nil {
 		return err
 	}
 	cfg.AnthropicModel = model
 
 	// Base URL
-	baseURL, err := promptWithDefault("Enter custom base URL", cfg.AnthropicBaseURL, defaults.AnthropicBaseURL)
+	baseURL, err := s.promptWithDefault(ctx, "Enter custom base URL", cfg.AnthropicBaseURL, defaults.AnthropicBaseURL)
 	if err != nil {
 		return err
 	}
@@ -239,18 +235,18 @@ func (s *Service) setupAnthropic(cfg *config.Config) error {
 	return nil
 }
 
-func (s *Service) setupOllama(cfg *config.Config) error {
+func (s *Service) setupOllama(ctx context.Context, cfg *config.Config) error {
 	defaults := config.DefaultConfig()
 
 	// Base URL
-	baseURL, err := promptWithDefault("Enter Ollama base URL", cfg.OllamaBaseURL, defaults.OllamaBaseURL)
+	baseURL, err := s.promptWithDefault(ctx, "Enter Ollama base URL", cfg.OllamaBaseURL, defaults.OllamaBaseURL)
 	if err != nil {
 		return err
 	}
 	cfg.OllamaBaseURL = baseURL
 
 	// Model
-	model, err := promptWithDefault("Enter the model to use", cfg.OllamaModel, "")
+	model, err := s.promptWithDefault(ctx, "Enter the model to use", cfg.OllamaModel, "")
 	if err != nil {
 		return err
 	}
@@ -259,30 +255,19 @@ func (s *Service) setupOllama(cfg *config.Config) error {
 	return nil
 }
 
-func (s *Service) setupOpenCode(cfg *config.Config) error {
-	// API Key с маскировкой
-	currentMasked := ""
-	if cfg.OpenAIAPIKey != "" {
-		currentMasked = maskAPIKey(cfg.OpenAIAPIKey)
-	}
-	apiKeyPrompt := "Enter your OpenCode API key"
-	if currentMasked != "" {
-		apiKeyPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep)", apiKeyPrompt, currentMasked)
-	}
-	apiKey, err := prompt.Input(apiKeyPrompt + ":")
+func (s *Service) setupOpenCode(ctx context.Context, cfg *config.Config) error {
+	apiKey, err := s.promptAPIKey(ctx, "OpenCode", cfg.OpenAIAPIKey)
 	if err != nil {
-		return fmt.Errorf("read API key: %w", err)
+		return err
 	}
-	if apiKey != "" {
-		cfg.OpenAIAPIKey = apiKey
-	}
+	cfg.OpenAIAPIKey = apiKey
 
 	// Model
 	currentModel := cfg.OpenAIModel
 	if currentModel == "" {
 		currentModel = "big-pickle"
 	}
-	model, err := promptWithDefault("Enter the model to use", currentModel, "big-pickle")
+	model, err := s.promptWithDefault(ctx, "Enter the model to use", currentModel, "big-pickle")
 	if err != nil {
 		return err
 	}

@@ -2,6 +2,7 @@
 package list
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -47,14 +48,30 @@ func NewSimpleItem(title, description string) SimpleItem {
 // Select returns the item chosen interactively from opts.Items.
 // It returns an error for an empty list, cancellation, or a terminal UI failure.
 func Select(opts SelectOptions) (Item, error) {
+	return SelectContext(context.Background(), opts)
+}
+
+// SelectContext returns the chosen item, or an error for empty items, terminal
+// failure, or cancellation. Context errors are preserved for errors.Is.
+func SelectContext(ctx context.Context, opts SelectOptions) (Item, error) {
+	return selectContext(ctx, opts)
+}
+
+func selectContext(ctx context.Context, opts SelectOptions, programOpts ...tea.ProgramOption) (Item, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("selection canceled: %w", err)
+	}
 	if len(opts.Items) == 0 {
 		return nil, errors.New("no items to select from")
 	}
 
 	m := newModel(opts)
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(m, append(programOpts, tea.WithContext(ctx))...)
 
 	result, err := p.Run()
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, fmt.Errorf("selection canceled: %w", ctxErr)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("run selection UI: %w", err)
 	}

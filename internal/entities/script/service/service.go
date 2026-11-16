@@ -5,10 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
+	"github.com/ra1phdd/zev/internal/core/childprocess"
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/entities/script/repository"
 )
@@ -17,182 +20,161 @@ import (
 var ErrScriptNotFound = errors.New("script not found")
 
 // Service manages script metadata, files, and execution.
-type Service struct {
-	repo *repository.Repository
-}
+type Service struct{ repo *repository.Repository }
 
 // New creates a script service backed by repo.
-func New(repo *repository.Repository) *Service {
-	return &Service{repo: repo}
+func New(repo *repository.Repository) *Service { return &Service{repo: repo} }
+
+// Create registers a script and opens an isolated copy in the editor.
+// Call CreateContext to supply editor cancellation.
+func (s *Service) Create(name, description string) error {
+	return s.CreateContext(context.Background(), name, description)
 }
 
-// Create создаёт новый скрипт и открывает его в редакторе.
-func (s *Service) Create(name, description string) error {
-	scripts, err := s.repo.LoadAll()
-	if err != nil {
-		return fmt.Errorf("load scripts: %w", err)
+// CreateContext registers a script and opens an isolated editor copy unless
+// SKIP_EDITOR is set to 1. Cancellation leaves an already-created script registered.
+func (s *Service) CreateContext(ctx context.Context, name, description string) error {
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\:`) {
+		return fmt.Errorf("invalid script name %q", name)
 	}
-
-	if _, exists := scripts[name]; exists {
-		return fmt.Errorf("script %q already exists", name)
+	script := domain.Script{Name: name, ScriptFile: name + ".sh", Description: description}
+	content := []byte("#!/usr/bin/env bash\n\n# " + description + "\n\n")
+	if err := s.repo.Create(ctx, script, content); err != nil {
+		return fmt.Errorf("create script: %w", err)
 	}
-
-	scriptFile := name + ".sh"
-	scriptPath := filepath.Join(s.repo.GetScriptsDir(), scriptFile)
-
-	// Создаём директорию ~/.zev/scripts, если её нет
-	if err := os.MkdirAll(s.repo.GetScriptsDir(), 0o700); err != nil {
-		return fmt.Errorf("failed to create scripts directory: %w", err)
-	}
-
-	// Создаём пустой скрипт с shebang
-	content := "#!/usr/bin/env bash\n\n# " + description + "\n\n"
-	if err := os.WriteFile(scriptPath, []byte(content), 0o700); err != nil { //nolint:gosec // Script files must be owner-executable for direct use and remain private.
-		return fmt.Errorf("failed to create script file: %w", err)
-	}
-
-	// Добавляем метаданные в scripts.yaml
-	scripts[name] = domain.Script{
-		Name:        name,
-		ScriptFile:  scriptFile,
-		Description: description,
-	}
-
-	if err := s.repo.SaveAll(scripts); err != nil {
-		return fmt.Errorf("save scripts: %w", err)
-	}
-
-	// Открываем скрипт в редакторе (пропускаем в тестах)
 	if os.Getenv("SKIP_EDITOR") != "1" {
-		if err := s.openInEditor(scriptPath); err != nil {
-			return fmt.Errorf("open script in editor: %w", err)
-		}
+		return s.OpenEditor(ctx, name)
 	}
-
 	return nil
 }
 
-// openInEditor opens the script in the configured editor.
-func (s *Service) openInEditor(path string) error {
-	editor := s.chooseEditor()
+// OpenEditor edits a private working copy, then atomically replaces the script
+// only if it still names the inode originally opened. Editors using atomic saves
+// are supported. Replaced or unsafe destinations are rejected without writing
+// through their pathname.
+func (s *Service) OpenEditor(ctx context.Context, name string) (err error) {
+	script, err := s.findScript(ctx, name)
+	if err != nil {
+		return err
+	}
+	original, err := s.repo.OpenScript(ctx, script.ScriptFile)
+	if err != nil {
+		return fmt.Errorf("open script: %w", err)
+	}
+	defer closeResource(&err, original)
+	directory, err := os.MkdirTemp("", "zev-editor-*")
+	if err != nil {
+		return fmt.Errorf("create editor directory: %w", err)
+	}
+	defer func() {
+		if cleanupErr := os.RemoveAll(directory); cleanupErr != nil {
+			err = errors.Join(err, fmt.Errorf("remove editor directory: %w", cleanupErr))
+		}
+	}()
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		return fmt.Errorf("open editor directory: %w", err)
+	}
+	defer closeResource(&err, root)
+	working, err := root.OpenFile("script.sh", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("create editor working file: %w", err)
+	}
+	_, copyErr := io.Copy(working, original)
+	if err := errors.Join(copyErr, working.Close()); err != nil {
+		return fmt.Errorf("copy script: %w", err)
+	}
+	if err := s.openInEditor(ctx, filepath.Join(directory, "script.sh")); err != nil {
+		return err
+	}
+	data, err := repository.ReadEditorFile(root, "script.sh")
+	if err != nil {
+		return fmt.Errorf("read edited script: %w", err)
+	}
+	if err := s.repo.ReplaceScript(ctx, script.ScriptFile, original, data); err != nil {
+		return fmt.Errorf("save edited script: %w", err)
+	}
+	return nil
+}
 
-	// Если редактор не найден, выводим инструкцию
+func closeResource(result *error, resource io.Closer) {
+	if err := resource.Close(); err != nil {
+		*result = errors.Join(*result, fmt.Errorf("close script resource: %w", err))
+	}
+}
+
+func (s *Service) openInEditor(ctx context.Context, path string) error {
+	editor := s.chooseEditor()
 	if editor == "" {
 		return fmt.Errorf("no editor found (nano, vim, vi, or $EDITOR/$SCRIPT_EDITOR not set).\nPlease create a bash script manually:\n  %s", path)
 	}
-
-	// The editor path was validated with exec.LookPath in chooseEditor.
-	cmd := exec.CommandContext(context.Background(), editor, path) //nolint:gosec // The editor is accepted only after executable-path validation.
+	cmd := exec.CommandContext(ctx, editor, path) //nolint:gosec // User-selected editor is checked with LookPath and receives an isolated working copy.
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to open editor: %w", err)
+	if err := childprocess.Run(ctx, cmd); err != nil {
+		return fmt.Errorf("open editor: %w", err)
 	}
-
 	return nil
 }
 
-// chooseEditor выбирает редактор по приоритету.
 func (s *Service) chooseEditor() string {
-	// 1. Проверяем $SCRIPT_EDITOR из конфига
-	if editor := os.Getenv("SCRIPT_EDITOR"); editor != "" {
-		if _, err := exec.LookPath(editor); err == nil {
-			return editor
+	for _, editor := range []string{os.Getenv("SCRIPT_EDITOR"), os.Getenv("EDITOR"), "nano", "vim", "vi"} {
+		if editor != "" {
+			if _, err := exec.LookPath(editor); err == nil {
+				return editor
+			}
 		}
 	}
-
-	// 2. Проверяем $EDITOR
-	if editor := os.Getenv("EDITOR"); editor != "" {
-		if _, err := exec.LookPath(editor); err == nil {
-			return editor
-		}
-	}
-
-	// 3. Fallback на nano, vim, vi по порядку
-	fallbacks := []string{"nano", "vim", "vi"}
-	for _, editor := range fallbacks {
-		if _, err := exec.LookPath(editor); err == nil {
-			return editor
-		}
-	}
-
 	return ""
 }
 
-// Remove удаляет скрипт.
+// Remove removes script metadata and its confined file in one transaction.
 func (s *Service) Remove(name string) error {
-	scripts, err := s.repo.LoadAll()
-	if err != nil {
-		return fmt.Errorf("load scripts: %w", err)
+	if err := s.repo.Remove(name); err != nil {
+		return fmt.Errorf("remove script: %w", err)
 	}
-
-	script, exists := scripts[name]
-	if !exists {
-		return fmt.Errorf("script %q not found", name)
-	}
-
-	// Удаляем файл скрипта
-	scriptPath := filepath.Join(s.repo.GetScriptsDir(), script.ScriptFile)
-	if err := os.Remove(scriptPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove script file: %w", err)
-	}
-
-	// Удаляем метаданные
-	delete(scripts, name)
-
-	if err := s.repo.SaveAll(scripts); err != nil {
-		return fmt.Errorf("save scripts: %w", err)
-	}
-
 	return nil
 }
 
-// List возвращает все скрипты.
+// List returns all validated script metadata.
 func (s *Service) List() ([]domain.Script, error) {
 	scripts, err := s.repo.LoadAll()
 	if err != nil {
 		return nil, fmt.Errorf("load scripts: %w", err)
 	}
-
 	result := make([]domain.Script, 0, len(scripts))
 	for _, script := range scripts {
 		result = append(result, script)
 	}
-
 	return result, nil
 }
 
-// Execute executes a saved script with arguments.
-func (s *Service) Execute(ctx context.Context, name string, args []string) error {
-	scripts, err := s.repo.LoadAll()
+func (s *Service) findScript(ctx context.Context, name string) (domain.Script, error) {
+	scripts, err := s.repo.LoadAllContext(ctx)
 	if err != nil {
-		return fmt.Errorf("load scripts: %w", err)
+		return domain.Script{}, fmt.Errorf("load scripts: %w", err)
 	}
-
-	script, exists := scripts[name]
-	if !exists {
-		return fmt.Errorf("%w: %q", ErrScriptNotFound, name)
+	script, ok := scripts[name]
+	if !ok {
+		return domain.Script{}, fmt.Errorf("%w: %q", ErrScriptNotFound, name)
 	}
+	return script, nil
+}
 
-	scriptPath := filepath.Join(s.repo.GetScriptsDir(), script.ScriptFile)
-
-	// Проверяем существование файла
-	if _, err := os.Stat(scriptPath); err != nil {
-		return fmt.Errorf("script file not found: %w", err)
+// Execute runs the pinned script with literal arguments and the caller's stdin.
+func (s *Service) Execute(ctx context.Context, name string, args []string) (err error) {
+	script, err := s.findScript(ctx, name)
+	if err != nil {
+		return err
 	}
-
-	// Выполняем скрипт через bash
-	cmdArgs := append([]string{scriptPath}, args...)
-	cmd := exec.CommandContext(ctx, "bash", cmdArgs...) //nolint:gosec // bash is fixed; scriptPath and args are passed as argv, not shell source.
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
+	file, err := s.repo.OpenScript(ctx, script.ScriptFile)
+	if err != nil {
+		return fmt.Errorf("open script: %w", err)
+	}
+	defer closeResource(&err, file)
+	if err := runScript(ctx, file, args); err != nil {
 		return fmt.Errorf("execute script %q: %w", name, err)
 	}
-
 	return nil
 }

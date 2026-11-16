@@ -20,9 +20,9 @@ func newSetupCmd() *cobra.Command {
 	return setupCmd
 }
 
-func runSetup(_ *cobra.Command, _ []string) error {
+func runSetup(cmd *cobra.Command, _ []string) error {
 	setupSvc := setupservice.New()
-	if err := setupSvc.Run(); err != nil {
+	if err := setupSvc.RunContext(cmd.Context()); err != nil {
 		return fmt.Errorf("run setup: %w", err)
 	}
 	return nil

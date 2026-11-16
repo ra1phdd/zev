@@ -23,8 +23,7 @@ internal/entities/
     repository/ollama/          Ollama (reuses the OpenAI-compatible adapter)
     repository/opencode/        OpenCode (SSE streaming, tool calls)
     repository/factory/         provider selection from config
-    repository/system_prompt.txt  embedded system prompt
-    repository/user_prompt.txt    embedded per-query prompt template
+    repository/prompt.go          embeds system_prompt.txt; user template is "%s"
   history/service/              JSONL history, 100 entries, automatic rotation
   alias/{service,repository}/   argument substitution and YAML persistence
   script/{service,repository}/  bash scripts, metadata, editor and execution
@@ -40,20 +39,29 @@ pkg/terminal/                   shell execution and platform-specific input inje
 2. It resolves aliases first, then saved scripts. A match executes directly; only
    unmatched input reaches an LLM.
 3. The CLI creates the HTTP client and calls `factory.NewProvider`. The query
-   service collects OS, architecture, shell, user, home and cwd; the CLI builds
-   the initial conversation from embedded prompts. Installed tools are not scanned.
+   service collects OS, architecture, shell, user, home and cwd; the CLI renders the
+   system prompt from embedded `system_prompt.txt` with that environment context and
+   keeps the original query as the user message (`UserPromptTemplate = "%s"`). Installed
+   tools are not scanned.
 4. The CLI calls `InferenceProvider.GetOptionsWithHistory`. Providers decode an
-   `OptionsResponse`; prompts request up to three independent alternatives with
-   explanations and danger flags. The requested limit is not enforced by decoding.
-5. `inject` displays choices and supports refinement with in-memory conversation
-   history. The selected command is inserted into terminal input, or printed if
+   `OptionsResponse`; the query service validates it before selection and enforces up to
+   three alternatives plus field and encoded-response size limits.
+5. `inject` displays choices and supports refinement using the active in-memory
+   conversation. The selected command is inserted into terminal input, or printed if
    injection is unsupported or denied.
-6. `execute` runs the first suggestion without selection or confirmation. Its danger
-   warning is printed after execution, not used as a safety gate.
-7. The CLI saves the response and selected command to `~/.zev/history`.
+6. `execute` runs the first suggestion without selection or confirmation. The selected
+   command is validated again before delivery; its danger warning is printed after
+   execution, not used as a safety gate.
+7. When history is enabled, the CLI saves the response and selected command to
+   `~/.zev/history`.
 
 Conversation orchestration, selection, execution and history saving currently live
-in the CLI, not in `query/service`.
+in the CLI, not in `query/service`. The root `signal.NotifyContext` cancellation
+context is passed through provider/HTTP calls, retries, TUI, and command/editor
+execution. `CONTEXT_ENABLED=false` / `--no-context` omits automatically added environment
+context, not the user's query. The active conversation stays in memory even with
+`HISTORY_ENABLED=false` / `--no-history`; only the query result is persisted to JSONL
+history when history is enabled.
 
 ## Ports and adapters
 

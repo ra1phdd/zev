@@ -65,7 +65,7 @@ func runScriptCreate(cmd *cobra.Command, args []string) error {
 		description = args[1]
 	}
 
-	if err := svc.Create(name, description); err != nil {
+	if err := svc.CreateContext(cmd.Context(), name, description); err != nil {
 		return fmt.Errorf("create script %q: %w", name, err)
 	}
 

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/ra1phdd/zev/internal/core/childprocess"
 )
 
 var (
@@ -36,7 +38,7 @@ func Execute(ctx context.Context, command string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if err := cmd.Run(); err != nil {
+	if err := childprocess.Run(ctx, cmd); err != nil {
 		return fmt.Errorf("execute shell command: %w", err)
 	}
 	return nil

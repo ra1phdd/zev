@@ -2,7 +2,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
+	"github.com/ra1phdd/zev/internal/core/filestore"
 )
 
 // Config contains provider, HTTP, and command execution settings.
@@ -33,6 +36,8 @@ type Config struct {
 
 	CommandExecutionMode string `env:"COMMAND_EXECUTION_MODE"`
 	ScriptEditor         string `env:"SCRIPT_EDITOR"`
+	HistoryEnabled       bool   `env:"HISTORY_ENABLED"`
+	ContextEnabled       bool   `env:"CONTEXT_ENABLED"`
 }
 
 // DefaultConfig returns a new configuration with default provider and CLI settings.
@@ -50,42 +55,126 @@ func DefaultConfig() *Config {
 		AnthropicBaseURL:     "https://api.anthropic.com/v1",
 		CommandExecutionMode: "inject",
 		ScriptEditor:         "nano",
+		HistoryEnabled:       true,
+		ContextEnabled:       true,
 	}
 }
 
 // Load reads settings with environment values taking precedence over the config
-// file and defaults. It returns an error if file loading or environment parsing fails.
-func Load() (*Config, error) {
-	cfg := DefaultConfig()
-
+// file and defaults. Symlinks at the config file or application directory are
+// rejected. It returns an error if file loading or environment parsing fails.
+func Load() (cfg *Config, err error) {
 	configPath := getConfigPath()
-	if _, err := os.Stat(configPath); err == nil {
-		if err := godotenv.Load(configPath); err != nil {
-			return nil, fmt.Errorf("failed to load .env: %w", err)
-		}
+	if err := filestore.ValidateDirectory(filepath.Dir(configPath)); err != nil {
+		return nil, fmt.Errorf("validate config directory: %w", err)
 	}
-
-	if err := env.Parse(cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse env: %w", err)
+	err = filestore.WithLock(configPath, func() error {
+		cfg, err = load(configPath)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("load config transaction: %w", err)
 	}
-
-	if headersEnv := os.Getenv("HTTP_HEADERS"); headersEnv != "" {
-		cfg.HTTPHeaders = parseHTTPHeaders(headersEnv)
-	}
-
 	return cfg, nil
 }
 
-// Save writes the nonzero fields of a non-nil cfg to the config file.
-// It returns an error if the directory cannot be created or the file cannot be written.
+func load(configPath string) (*Config, error) {
+	values, err := readValues(configPath)
+	if err != nil {
+		return nil, err
+	}
+	maps.Copy(values, env.ToMap(os.Environ()))
+	return parseValues(values)
+}
+
+// configError keeps parser causes available for classification without printing
+// provider keys or malformed file contents in diagnostics.
+type configError struct {
+	message string
+	cause   error
+}
+
+func (e configError) Error() string { return e.message }
+func (e configError) Unwrap() error { return e.cause }
+
+func readValues(path string) (map[string]string, error) {
+	data, err := filestore.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return make(map[string]string), nil
+	}
+	if err != nil {
+		return nil, configError{message: "failed to read config file", cause: err}
+	}
+	values, err := godotenv.UnmarshalBytes(data)
+	if err != nil {
+		return nil, configError{message: "failed to read config file", cause: err}
+	}
+	return values, nil
+}
+
+func parseValues(values map[string]string) (*Config, error) {
+	cfg := DefaultConfig()
+	if err := env.ParseWithOptions(cfg, env.Options{Environment: values}); err != nil {
+		return nil, configError{message: "failed to parse config settings", cause: err}
+	}
+	if headers, ok := values["HTTP_HEADERS"]; ok {
+		cfg.HTTPHeaders = parseHTTPHeaders(headers)
+	}
+	return cfg, nil
+}
+
+// Save atomically replaces the config file with the nonzero fields of cfg.
+// Use Update for read-modify-write operations. Failures before rename leave an
+// existing configuration unchanged; errors.Is(err, filestore.ErrCommitted) marks
+// a visible replacement with uncertain crash durability. cfg must not be nil.
 func Save(cfg *Config) error {
 	configPath := getConfigPath()
-
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
-		return fmt.Errorf("failed to create config dir: %w", err)
+	if err := filestore.ValidateDirectory(filepath.Dir(configPath)); err != nil {
+		return fmt.Errorf("validate config directory: %w", err)
 	}
+	if err := filestore.WithLock(configPath, func() error {
+		return save(configPath, cfg)
+	}); err != nil {
+		return fmt.Errorf("save transaction: %w", err)
+	}
+	return nil
+}
 
-	var lines []string
+// Update changes the persisted configuration under one cooperative transaction
+// lock. It loads file values over defaults, deliberately excluding environment
+// overrides so that ambient settings do not overwrite unrelated persisted values.
+// If change fails or the existing file is malformed, no replacement is written.
+// The callback must not call Load, Save, or Update for the same configuration.
+// Write errors preserve filestore.ErrCommitted after a successful replacement.
+func Update(change func(*Config) error) error {
+	configPath := getConfigPath()
+	if err := filestore.ValidateDirectory(filepath.Dir(configPath)); err != nil {
+		return fmt.Errorf("validate config directory: %w", err)
+	}
+	if err := filestore.WithLock(configPath, func() error {
+		values, err := readValues(configPath)
+		if err != nil {
+			return err
+		}
+		cfg, err := parseValues(values)
+		if err != nil {
+			return err
+		}
+		if err := change(cfg); err != nil {
+			return err
+		}
+		return save(configPath, cfg)
+	}); err != nil {
+		return fmt.Errorf("update config: %w", err)
+	}
+	return nil
+}
+
+func save(configPath string, cfg *Config) error {
+	if cfg == nil {
+		return errors.New("config must not be nil")
+	}
+	values := make(map[string]string)
 	v := reflect.ValueOf(*cfg)
 	t := v.Type()
 
@@ -97,7 +186,7 @@ func Save(cfg *Config) error {
 		}
 
 		value := v.Field(i)
-		if value.IsZero() {
+		if value.IsZero() && value.Kind() != reflect.Bool {
 			continue
 		}
 
@@ -110,17 +199,20 @@ func Save(cfg *Config) error {
 				headerPairs = append(headerPairs, fmt.Sprintf("%s:%s", k, v))
 			}
 			if len(headerPairs) > 0 {
-				lines = append(lines, fmt.Sprintf("%s=%s", envTag, strings.Join(headerPairs, ",")))
+				values[envTag] = strings.Join(headerPairs, ",")
 			}
 			continue
 		}
 
-		lines = append(lines, fmt.Sprintf("%s=%v", envTag, value.Interface()))
+		values[envTag] = fmt.Sprint(value.Interface())
 	}
 
-	content := strings.Join(lines, "\n") + "\n"
+	content, err := godotenv.Marshal(values)
+	if err != nil {
+		return fmt.Errorf("encode config: %w", err)
+	}
 
-	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
+	if err := filestore.AtomicWrite(configPath, []byte(content+"\n"), 0o600); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 

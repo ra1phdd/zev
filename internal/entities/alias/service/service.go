@@ -3,6 +3,7 @@ package service
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 	"text/template"
@@ -10,6 +11,10 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/entities/alias/repository"
 )
+
+// ErrAliasNotFound indicates that Resolve found no alias for the requested name.
+// Use errors.Is to distinguish absence from storage or template failures.
+var ErrAliasNotFound = errors.New("alias not found")
 
 // Service manages command aliases and resolves their argument templates.
 type Service struct {
@@ -21,46 +26,31 @@ func New(repo *repository.Repository) *Service {
 	return &Service{repo: repo}
 }
 
-// Add добавляет новый алиас.
+// Add adds a new alias in a single read-modify-write transaction.
 func (s *Service) Add(name, tmpl string) error {
-	aliases, err := s.repo.LoadAll()
-	if err != nil {
-		return fmt.Errorf("load aliases: %w", err)
+	if err := s.repo.Update(func(aliases map[string]domain.Alias) error {
+		if _, exists := aliases[name]; exists {
+			return fmt.Errorf("alias %q already exists", name)
+		}
+		aliases[name] = domain.Alias{Name: name, Template: tmpl}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("add alias: %w", err)
 	}
-
-	if _, exists := aliases[name]; exists {
-		return fmt.Errorf("alias %q already exists", name)
-	}
-
-	aliases[name] = domain.Alias{
-		Name:     name,
-		Template: tmpl,
-	}
-
-	if err := s.repo.SaveAll(aliases); err != nil {
-		return fmt.Errorf("save aliases: %w", err)
-	}
-
 	return nil
 }
 
-// Remove удаляет алиас.
+// Remove removes an alias in a single read-modify-write transaction.
 func (s *Service) Remove(name string) error {
-	aliases, err := s.repo.LoadAll()
-	if err != nil {
-		return fmt.Errorf("load aliases: %w", err)
+	if err := s.repo.Update(func(aliases map[string]domain.Alias) error {
+		if _, exists := aliases[name]; !exists {
+			return fmt.Errorf("alias %q not found", name)
+		}
+		delete(aliases, name)
+		return nil
+	}); err != nil {
+		return fmt.Errorf("remove alias: %w", err)
 	}
-
-	if _, exists := aliases[name]; !exists {
-		return fmt.Errorf("alias %q not found", name)
-	}
-
-	delete(aliases, name)
-
-	if err := s.repo.SaveAll(aliases); err != nil {
-		return fmt.Errorf("save aliases: %w", err)
-	}
-
 	return nil
 }
 
@@ -79,7 +69,8 @@ func (s *Service) List() ([]domain.Alias, error) {
 	return result, nil
 }
 
-// Resolve разрешает алиас с подстановкой аргументов.
+// Resolve substitutes args into the named alias template. An absent alias wraps
+// ErrAliasNotFound; storage, parsing, and template errors do not.
 func (s *Service) Resolve(name string, args []string) (string, error) {
 	aliases, err := s.repo.LoadAll()
 	if err != nil {
@@ -88,7 +79,7 @@ func (s *Service) Resolve(name string, args []string) (string, error) {
 
 	alias, exists := aliases[name]
 	if !exists {
-		return "", fmt.Errorf("alias %q not found", name)
+		return "", fmt.Errorf("%w: %q", ErrAliasNotFound, name)
 	}
 
 	// Проверяем, использует ли шаблон переменные для аргументов

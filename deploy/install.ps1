@@ -84,8 +84,8 @@ if (-not $Version) {
     }
 }
 
-if (-not $Version) {
-    Stop-WithError 'version resolved to an empty string'
+if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$') {
+    Stop-WithError 'invalid version'
 }
 
 Write-Info "Installing zev $Version ($arch)"
@@ -111,36 +111,42 @@ try {
     $checksumsPath = Join-Path $tempDir 'checksums.txt'
     try {
         Invoke-WebRequest -UseBasicParsing "$baseUrl/checksums.txt" -OutFile $checksumsPath
-
-        $expected = (Get-Content $checksumsPath |
-            Where-Object { $_ -match "\s$([regex]::Escape($archive))$" } |
-            ForEach-Object { ($_ -split '\s+')[0] } |
-            Select-Object -First 1)
-
-        if (-not $expected) {
-            Stop-WithError "no checksum published for $archive"
-        }
-
-        $actual = (Get-FileHash -Algorithm SHA256 -Path $archivePath).Hash.ToLower()
-        if ($actual -ne $expected.ToLower()) {
-            Stop-WithError "checksum mismatch for $archive - refusing to install"
-        }
-
-        Write-Info 'Checksum verified'
     }
-    catch [System.Management.Automation.ErrorRecord] {
-        # Only a checksum mismatch is fatal; an unavailable checksums.txt is not.
-        if ($_.Exception.Message -match 'checksum') { throw }
-        Write-Warn 'checksums.txt unavailable - skipping integrity check'
+    catch {
+        Stop-WithError "checksums.txt unavailable - refusing to install"
     }
+
+    $checksumEntries = @(Get-Content -LiteralPath $checksumsPath |
+        Where-Object { $_ -match "^([0-9A-Fa-f]{64})\s+\*?$([regex]::Escape($archive))$" })
+    if ($checksumEntries.Count -ne 1) {
+        Stop-WithError "expected exactly one checksum for $archive"
+    }
+    $match = [regex]::Match($checksumEntries[0], '^([0-9A-Fa-f]{64})\s+\*?' + [regex]::Escape($archive) + '$')
+    $expected = $match.Groups[1].Value.ToLowerInvariant()
+    $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $archivePath).Hash.ToLowerInvariant()
+    if ($actual -ne $expected) {
+        Stop-WithError "checksum mismatch for $archive - refusing to install"
+    }
+
+    Write-Info 'Checksum verified'
 
     Write-Info 'Extracting'
-    Expand-Archive -Path $archivePath -DestinationPath $tempDir -Force
-
-    $binary = Join-Path $tempDir 'zev.exe'
-    if (-not (Test-Path $binary)) {
-        Stop-WithError "zev.exe not found inside $archive"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
+    try {
+        $binaries = @($zip.Entries | Where-Object { $_.FullName -ceq 'zev.exe' })
+        if ($binaries.Count -ne 1) {
+            Stop-WithError 'archive must contain exactly one zev.exe'
+        }
+        $entry = $binaries[0]
+        $unixType = ($entry.ExternalAttributes -shr 16) -band 0xF000
+        if ($unixType -ne 0 -and $unixType -ne 0x8000) {
+            Stop-WithError 'zev.exe is not a regular file'
+        }
+        $binary = Join-Path $tempDir 'zev.exe'
+        [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $binary, $false)
     }
+    finally { $zip.Dispose() }
 
     New-Item -ItemType Directory -Path $Prefix -Force | Out-Null
     Copy-Item -Path $binary -Destination (Join-Path $Prefix 'zev.exe') -Force
