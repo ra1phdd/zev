@@ -1,3 +1,4 @@
+// Package gemini adapts Gemini APIs to the query provider port.
 package gemini
 
 import (
@@ -6,13 +7,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/entities/query/repository"
 )
 
+const (
+	geminiJSONParts  = "parts"
+	geminiJSONText   = "text"
+	geminiJSONType   = "type"
+	geminiJSONString = "STRING"
+)
+
+// Provider calls Gemini and decodes query options.
 type Provider struct {
 	apiKey  string
 	model   string
@@ -21,6 +29,7 @@ type Provider struct {
 	client  *http.Client
 }
 
+// New creates a Gemini provider.
 func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, error) {
 	if apiKey == "" {
 		return nil, errors.New("GEMINI_API_KEY is required. Run `zev setup` to configure")
@@ -46,21 +55,22 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 	}, nil
 }
 
+// GetOptions requests query options for a new conversation.
 func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
 	systemPrompt := fmt.Sprintf(repository.SystemPrompt, envContext)
-	userMessage := fmt.Sprintf(repository.UserPromptTemplate, prompt)
+	userMessage := prompt
 
 	requestBody := map[string]any{
 		"system_instruction": map[string]any{
-			"parts": []map[string]string{
-				{"text": systemPrompt},
+			geminiJSONParts: []map[string]string{
+				{geminiJSONText: systemPrompt},
 			},
 		},
 		"contents": []map[string]any{
 			{
 				"role": "user",
-				"parts": []map[string]string{
-					{"text": userMessage},
+				geminiJSONParts: []map[string]string{
+					{geminiJSONText: userMessage},
 				},
 			},
 		},
@@ -80,13 +90,16 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, repository.WrapNetworkError("Gemini", err)
+		return nil, fmt.Errorf("gemini request failed: %w", repository.WrapNetworkError("Gemini", err))
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			return
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("gemini API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("gemini request failed: %w", repository.HTTPStatusError("Gemini", resp.StatusCode))
 	}
 
 	var geminiResp struct {
@@ -112,12 +125,13 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 
 	var result domain.OptionsResponse
 	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
 	}
 
 	return &result, nil
 }
 
+// GetOptionsWithHistory requests query options for an existing conversation.
 func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
 	contents := make([]map[string]any, 0, len(history.Messages))
 
@@ -128,16 +142,16 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 		}
 		contents = append(contents, map[string]any{
 			"role": role,
-			"parts": []map[string]string{
-				{"text": msg.Content},
+			geminiJSONParts: []map[string]string{
+				{geminiJSONText: msg.Content},
 			},
 		})
 	}
 
 	requestBody := map[string]any{
 		"system_instruction": map[string]any{
-			"parts": []map[string]string{
-				{"text": history.SystemPrompt},
+			geminiJSONParts: []map[string]string{
+				{geminiJSONText: history.SystemPrompt},
 			},
 		},
 		"contents":         contents,
@@ -157,13 +171,16 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, repository.WrapNetworkError("Gemini", err)
+		return nil, fmt.Errorf("gemini request failed: %w", repository.WrapNetworkError("Gemini", err))
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			return
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("gemini API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("gemini request failed: %w", repository.HTTPStatusError("Gemini", resp.StatusCode))
 	}
 
 	var geminiResp struct {
@@ -189,16 +206,18 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 
 	var result domain.OptionsResponse
 	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
 	}
 
 	return &result, nil
 }
 
+// Name returns the provider identifier.
 func (p *Provider) Name() string {
 	return "gemini"
 }
 
+// Model returns the configured model identifier.
 func (p *Provider) Model() string {
 	return p.model
 }
@@ -206,23 +225,23 @@ func (p *Provider) Model() string {
 var geminiResponseSchema = map[string]any{
 	"response_mime_type": "application/json",
 	"response_schema": map[string]any{
-		"type": "OBJECT",
+		geminiJSONType: "OBJECT",
 		"properties": map[string]any{
 			"commands": map[string]any{
-				"type": "ARRAY",
+				geminiJSONType: "ARRAY",
 				"items": map[string]any{
-					"type": "OBJECT",
+					geminiJSONType: "OBJECT",
 					"properties": map[string]any{
-						"command":               map[string]string{"type": "STRING"},
-						"short_explanation":     map[string]string{"type": "STRING"},
-						"is_dangerous":          map[string]string{"type": "BOOLEAN"},
-						"dangerous_explanation": map[string]string{"type": "STRING"},
+						"command":               map[string]string{geminiJSONType: geminiJSONString},
+						"short_explanation":     map[string]string{geminiJSONType: geminiJSONString},
+						"is_dangerous":          map[string]string{geminiJSONType: "BOOLEAN"},
+						"dangerous_explanation": map[string]string{geminiJSONType: geminiJSONString},
 					},
 					"required": []string{"command", "short_explanation", "is_dangerous"},
 				},
 			},
-			"is_valid":                 map[string]string{"type": "BOOLEAN"},
-			"explanation_if_not_valid": map[string]string{"type": "STRING"},
+			"is_valid":                 map[string]string{geminiJSONType: "BOOLEAN"},
+			"explanation_if_not_valid": map[string]string{geminiJSONType: geminiJSONString},
 		},
 		"required": []string{"commands", "is_valid"},
 	},

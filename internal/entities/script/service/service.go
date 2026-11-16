@@ -1,3 +1,4 @@
+// Package service manages user-defined executable scripts.
 package service
 
 import (
@@ -12,13 +13,15 @@ import (
 	"github.com/ra1phdd/zev/internal/entities/script/repository"
 )
 
-// ErrScriptNotFound возвращается, когда скрипт не зарегистрирован в scripts.yaml.
+// ErrScriptNotFound indicates that a script is not registered in the metadata file.
 var ErrScriptNotFound = errors.New("script not found")
 
+// Service manages script metadata, files, and execution.
 type Service struct {
 	repo *repository.Repository
 }
 
+// New creates a script service backed by repo.
 func New(repo *repository.Repository) *Service {
 	return &Service{repo: repo}
 }
@@ -27,7 +30,7 @@ func New(repo *repository.Repository) *Service {
 func (s *Service) Create(name, description string) error {
 	scripts, err := s.repo.LoadAll()
 	if err != nil {
-		return err
+		return fmt.Errorf("load scripts: %w", err)
 	}
 
 	if _, exists := scripts[name]; exists {
@@ -38,13 +41,13 @@ func (s *Service) Create(name, description string) error {
 	scriptPath := filepath.Join(s.repo.GetScriptsDir(), scriptFile)
 
 	// Создаём директорию ~/.zev/scripts, если её нет
-	if err := os.MkdirAll(s.repo.GetScriptsDir(), 0700); err != nil {
+	if err := os.MkdirAll(s.repo.GetScriptsDir(), 0o700); err != nil {
 		return fmt.Errorf("failed to create scripts directory: %w", err)
 	}
 
 	// Создаём пустой скрипт с shebang
 	content := "#!/usr/bin/env bash\n\n# " + description + "\n\n"
-	if err := os.WriteFile(scriptPath, []byte(content), 0700); err != nil {
+	if err := os.WriteFile(scriptPath, []byte(content), 0o700); err != nil { //nolint:gosec // Script files must be owner-executable for direct use and remain private.
 		return fmt.Errorf("failed to create script file: %w", err)
 	}
 
@@ -56,20 +59,20 @@ func (s *Service) Create(name, description string) error {
 	}
 
 	if err := s.repo.SaveAll(scripts); err != nil {
-		return err
+		return fmt.Errorf("save scripts: %w", err)
 	}
 
 	// Открываем скрипт в редакторе (пропускаем в тестах)
 	if os.Getenv("SKIP_EDITOR") != "1" {
 		if err := s.openInEditor(scriptPath); err != nil {
-			return err
+			return fmt.Errorf("open script in editor: %w", err)
 		}
 	}
 
 	return nil
 }
 
-// openInEditor открывает файл в редакторе.
+// openInEditor opens the script in the configured editor.
 func (s *Service) openInEditor(path string) error {
 	editor := s.chooseEditor()
 
@@ -78,7 +81,8 @@ func (s *Service) openInEditor(path string) error {
 		return fmt.Errorf("no editor found (nano, vim, vi, or $EDITOR/$SCRIPT_EDITOR not set).\nPlease create a bash script manually:\n  %s", path)
 	}
 
-	cmd := exec.CommandContext(context.Background(), editor, path)
+	// The editor path was validated with exec.LookPath in chooseEditor.
+	cmd := exec.CommandContext(context.Background(), editor, path) //nolint:gosec // The editor is accepted only after executable-path validation.
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -117,16 +121,11 @@ func (s *Service) chooseEditor() string {
 	return ""
 }
 
-// ChooseEditorForTest экспортирует chooseEditor для тестирования.
-func (s *Service) ChooseEditorForTest() string {
-	return s.chooseEditor()
-}
-
 // Remove удаляет скрипт.
 func (s *Service) Remove(name string) error {
 	scripts, err := s.repo.LoadAll()
 	if err != nil {
-		return err
+		return fmt.Errorf("load scripts: %w", err)
 	}
 
 	script, exists := scripts[name]
@@ -143,14 +142,18 @@ func (s *Service) Remove(name string) error {
 	// Удаляем метаданные
 	delete(scripts, name)
 
-	return s.repo.SaveAll(scripts)
+	if err := s.repo.SaveAll(scripts); err != nil {
+		return fmt.Errorf("save scripts: %w", err)
+	}
+
+	return nil
 }
 
 // List возвращает все скрипты.
 func (s *Service) List() ([]domain.Script, error) {
 	scripts, err := s.repo.LoadAll()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("load scripts: %w", err)
 	}
 
 	result := make([]domain.Script, 0, len(scripts))
@@ -161,11 +164,11 @@ func (s *Service) List() ([]domain.Script, error) {
 	return result, nil
 }
 
-// Execute выполняет скрипт с аргументами.
-func (s *Service) Execute(name string, args []string) error {
+// Execute executes a saved script with arguments.
+func (s *Service) Execute(ctx context.Context, name string, args []string) error {
 	scripts, err := s.repo.LoadAll()
 	if err != nil {
-		return err
+		return fmt.Errorf("load scripts: %w", err)
 	}
 
 	script, exists := scripts[name]
@@ -182,11 +185,14 @@ func (s *Service) Execute(name string, args []string) error {
 
 	// Выполняем скрипт через bash
 	cmdArgs := append([]string{scriptPath}, args...)
-	cmd := exec.CommandContext(context.Background(), "bash", cmdArgs...)
+	cmd := exec.CommandContext(ctx, "bash", cmdArgs...) //nolint:gosec // bash is fixed; scriptPath and args are passed as argv, not shell source.
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	// Ошибку не оборачиваем, чтобы main мог пробросить exit code скрипта
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("execute script %q: %w", name, err)
+	}
+
+	return nil
 }

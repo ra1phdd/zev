@@ -26,14 +26,16 @@ make check
 
 - Branch from `main` with a descriptive name (`feat/add-anthropic-provider`).
 - One logical change per commit; write tests first (TDD).
-- Run `make check` before pushing: `golangci-lint run --fix` and `go test ./... -race`
-  must both be clean.
+- Run `make check` and `make test-race` before pushing. Formatting checks,
+  golangci-lint, go vet and tests must pass; review the deadcode report.
+  Use `make fmt` to apply formatting explicitly.
 - Open a PR describing what changed and why, and link the issue.
 
 ## Code style
 
-The authoritative rules live in [AGENTS.md](../../AGENTS.md) and
-[CLAUDE.md](../../CLAUDE.md). The essentials:
+See [PROJECT.md](../../PROJECT.md) for repository-specific facts and
+[DEVELOPMENT.md](DEVELOPMENT.md) for commands. Local agent instructions live
+in `AGENTS.md` and `CLAUDE.md`. The essentials:
 
 - Vertical slices with ports and adapters. Business logic belongs in
   `internal/entities/*/service`; `cmd/*` only wires things together.
@@ -43,7 +45,8 @@ The authoritative rules live in [AGENTS.md](../../AGENTS.md) and
   `context.Context` is always the first argument and never a struct field.
 - Errors are wrapped with `fmt.Errorf("...: %w", err)`; no ignored errors.
 - Documentation comments start with the entity name.
-- All user-facing strings go through `internal/core/i18n`.
+- CLI and TUI packages currently own user-facing strings; there is no
+  `internal/core/i18n` package.
 
 ## Tests
 

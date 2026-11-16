@@ -1,18 +1,19 @@
 package httpclient
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
+const userAgentHeader = "User-Agent"
+
 func TestNew(t *testing.T) {
 	t.Parallel()
 
 	headers := map[string]string{
-		"User-Agent": "custom-agent",
-		"X-Custom":   "custom-value",
+		userAgentHeader: "custom-agent",
+		"X-Custom":      "custom-value",
 	}
 
 	client := New(headers)
@@ -34,28 +35,34 @@ func TestNewWithNilHeaders(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ua := r.Header.Get("User-Agent")
+		ua := r.Header.Get(userAgentHeader)
 		if ua != "zev/1.0" {
 			t.Errorf("expected User-Agent 'zev/1.0', got '%s'", ua)
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 
-	ctx := context.Background()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, server.URL, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL, nil)
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	t.Cleanup(func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("close response body: %v", err)
+		}
+	})
 }
 
 func TestCustomHeaders(t *testing.T) {
 	t.Parallel()
 
 	headers := map[string]string{
-		"User-Agent":    "custom-agent/2.0",
+		userAgentHeader: "custom-agent/2.0",
 		"X-Custom":      "custom-value",
 		"Authorization": "Bearer token123",
 	}
@@ -69,43 +76,55 @@ func TestCustomHeaders(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	client := New(headers)
-	ctx := context.Background()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, server.URL, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL, nil)
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	t.Cleanup(func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("close response body: %v", err)
+		}
+	})
 }
 
 func TestHeaderOverride(t *testing.T) {
 	t.Parallel()
 
 	headers := map[string]string{
-		"User-Agent": "base-agent/1.0",
+		userAgentHeader: "base-agent/1.0",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ua := r.Header.Get("User-Agent")
+		ua := r.Header.Get(userAgentHeader)
 
 		if ua != "base-agent/1.0" {
 			t.Errorf("expected base User-Agent 'base-agent/1.0', got '%s'", ua)
 		}
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	client := New(headers)
-	ctx := context.Background()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, server.URL, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL, nil)
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
 
-	req.Header.Set("User-Agent", "override-agent/1.0")
+	req.Header.Set(userAgentHeader, "override-agent/1.0")
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	t.Cleanup(func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Errorf("close response body: %v", err)
+		}
+	})
 }

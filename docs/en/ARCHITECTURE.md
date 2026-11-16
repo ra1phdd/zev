@@ -9,44 +9,51 @@
 Zev is a small Go CLI built as **vertical slices with ports and adapters**.
 
 ```
-cmd/zev/                        composition root (Cobra commands)
+cmd/zev/                        Cobra commands, composition and query orchestration
 internal/core/
   domain/                       domain types, InferenceProvider interface, errors
-  config/                       ~/.zevrc loading (godotenv + caarlos0/env)
+  config/                       ~/.zev/config loading (godotenv + caarlos0/env)
+  httpclient/                   shared HTTP client and transport
 internal/entities/
   query/
-    service/                    use case: build context, ask provider, save history
+    service/                    prompt validation and environment context
     repository/openai/          OpenAI + OpenAI-compatible providers
     repository/gemini/          Google Gemini (raw HTTP + JSON response schema)
     repository/anthropic/       Anthropic Claude
     repository/ollama/          Ollama (reuses the OpenAI-compatible adapter)
     repository/opencode/        OpenCode (SSE streaming, tool calls)
     repository/factory/         provider selection from config
-    system_prompt.txt           system prompt (go:embed)
-    user_prompt.txt             per-query prompt template (go:embed)
+    repository/system_prompt.txt  embedded system prompt
+    repository/user_prompt.txt    embedded per-query prompt template
   history/service/              JSONL history, 100 entries, automatic rotation
-  alias/service/                command aliases with argument substitution
-  script/service/               bash script metadata + files
+  alias/{service,repository}/   argument substitution and YAML persistence
+  script/{service,repository}/  bash scripts, metadata, editor and execution
   setup/service/                interactive TUI setup wizard
-pkg/tui/prompt/                 text input and choice (Bubble Tea)
-pkg/tui/selector/               suggestion selector with danger warnings
-pkg/tui/list/                   generic list renderer
-pkg/terminal/                   clipboard / terminal helpers
+pkg/tui/prompt/                 text input with wrapping
+pkg/tui/list/                   generic lists and command warnings
+pkg/terminal/                   shell execution and platform-specific input injection
 ```
 
 ## Query flow
 
-1. `cmd/zev` parses the query (flag parsing is disabled on the root command so that
-   aliases with flags still work).
-2. `query/service` collects environment context (OS, shell, cwd, installed tools) and
-   renders the user prompt from `user_prompt.txt`.
-3. `factory.NewProvider` builds the `InferenceProvider` implementation chosen by
-   `LLM_PROVIDER`.
-4. The provider returns an `OptionsResponse` with up to three `Command` values, each
-   carrying a short explanation and a `IsDangerous` flag.
-5. The selector renders the options; the chosen command is injected into the terminal or
-   executed, depending on `--execute` / `--inject` / `COMMAND_EXECUTION_MODE`.
-6. The exchange is appended to `~/.zevhistory`.
+1. `cmd/zev/query.go` manually parses root-command flags and loads configuration.
+2. It resolves aliases first, then saved scripts. A match executes directly; only
+   unmatched input reaches an LLM.
+3. The CLI creates the HTTP client and calls `factory.NewProvider`. The query
+   service collects OS, architecture, shell, user, home and cwd; the CLI builds
+   the initial conversation from embedded prompts. Installed tools are not scanned.
+4. The CLI calls `InferenceProvider.GetOptionsWithHistory`. Providers decode an
+   `OptionsResponse`; prompts request up to three independent alternatives with
+   explanations and danger flags. The requested limit is not enforced by decoding.
+5. `inject` displays choices and supports refinement with in-memory conversation
+   history. The selected command is inserted into terminal input, or printed if
+   injection is unsupported or denied.
+6. `execute` runs the first suggestion without selection or confirmation. Its danger
+   warning is printed after execution, not used as a safety gate.
+7. The CLI saves the response and selected command to `~/.zev/history`.
+
+Conversation orchestration, selection, execution and history saving currently live
+in the CLI, not in `query/service`.
 
 ## Ports and adapters
 
@@ -61,15 +68,16 @@ type InferenceProvider interface {
 }
 ```
 
-Interfaces are declared on the consumer side; `cmd/zev` is the only place that knows
-about concrete adapters. Adding a provider means adding one package under
-`internal/entities/query/repository/` plus one `case` in the factory — nothing else moves.
+The factory imports concrete provider adapters. Alias and script services currently
+use concrete repositories. History handles
+file persistence inside its service rather than in a separate repository adapter.
 
 ## Provider specifics
 
 - **OpenAI** — `github.com/sashabaranov/go-openai`, supports a custom base URL so any
   OpenAI-compatible router can be used.
 - **Gemini** — raw HTTP with a JSON response schema.
+- **Anthropic** — `github.com/liushuangls/go-anthropic/v2`.
 - **Ollama** — reuses the OpenAI adapter against the local endpoint.
 - **OpenCode** — direct HTTP client: `stream: true`, a `read` function tool,
   `stream_options.include_usage`, SSE parsing that accumulates `delta.content`, and
@@ -80,10 +88,14 @@ about concrete adapters. Adding a provider means adding one package under
 1. Create `internal/entities/query/repository/<name>/` implementing
    `domain.InferenceProvider`.
 2. Add config fields for the API key, model and base URL in `internal/core/config`.
-3. Add a `case` to `factory.NewProvider`.
+3. Add a `case` to `factory.NewProvider`, update setup/provider selection and both
+   configuration guides.
 4. Cover it with unit tests using `httptest`.
 
 ## Tests
 
-Unit tests live next to the code they cover. Integration tests use the `integration`
-build tag and are run separately. `make check` runs the linter and the full test suite.
+Tests live next to the code. `make check` runs formatting checks, the linter,
+application deadcode reporting, vet and default unit tests; `make test-race` is
+separate. Tagged-test targets exist, but tracked tests currently have no
+`integration`, `e2e` or `manual` suites. See [DEVELOPMENT.md](DEVELOPMENT.md) for
+commands and [PROJECT.md](../../PROJECT.md) for operational limitations.

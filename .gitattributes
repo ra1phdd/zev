@@ -1,0 +1,11 @@
+* text=auto
+
+*.sh text eol=lf
+*.bat text eol=crlf
+*.md text
+*.yml text
+*.yaml text
+*.json text
+*.png binary
+*.jpg binary
+*.pdf binary

@@ -1,3 +1,4 @@
+// Package service manages command aliases and resolves their argument templates.
 package service
 
 import (
@@ -10,10 +11,12 @@ import (
 	"github.com/ra1phdd/zev/internal/entities/alias/repository"
 )
 
+// Service manages command aliases and resolves their argument templates.
 type Service struct {
 	repo *repository.Repository
 }
 
+// New creates an alias service backed by repo.
 func New(repo *repository.Repository) *Service {
 	return &Service{repo: repo}
 }
@@ -22,7 +25,7 @@ func New(repo *repository.Repository) *Service {
 func (s *Service) Add(name, tmpl string) error {
 	aliases, err := s.repo.LoadAll()
 	if err != nil {
-		return err
+		return fmt.Errorf("load aliases: %w", err)
 	}
 
 	if _, exists := aliases[name]; exists {
@@ -34,14 +37,18 @@ func (s *Service) Add(name, tmpl string) error {
 		Template: tmpl,
 	}
 
-	return s.repo.SaveAll(aliases)
+	if err := s.repo.SaveAll(aliases); err != nil {
+		return fmt.Errorf("save aliases: %w", err)
+	}
+
+	return nil
 }
 
 // Remove удаляет алиас.
 func (s *Service) Remove(name string) error {
 	aliases, err := s.repo.LoadAll()
 	if err != nil {
-		return err
+		return fmt.Errorf("load aliases: %w", err)
 	}
 
 	if _, exists := aliases[name]; !exists {
@@ -50,14 +57,18 @@ func (s *Service) Remove(name string) error {
 
 	delete(aliases, name)
 
-	return s.repo.SaveAll(aliases)
+	if err := s.repo.SaveAll(aliases); err != nil {
+		return fmt.Errorf("save aliases: %w", err)
+	}
+
+	return nil
 }
 
 // List возвращает все алиасы.
 func (s *Service) List() ([]domain.Alias, error) {
 	aliases, err := s.repo.LoadAll()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("load aliases: %w", err)
 	}
 
 	result := make([]domain.Alias, 0, len(aliases))
@@ -72,7 +83,7 @@ func (s *Service) List() ([]domain.Alias, error) {
 func (s *Service) Resolve(name string, args []string) (string, error) {
 	aliases, err := s.repo.LoadAll()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("load aliases: %w", err)
 	}
 
 	alias, exists := aliases[name]

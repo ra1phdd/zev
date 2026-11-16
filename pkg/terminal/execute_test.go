@@ -7,6 +7,15 @@ import (
 	"testing"
 )
 
+func TestExecuteCancelledContext(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err := Execute(ctx, "true"); !errors.Is(err, context.Canceled) {
+		t.Errorf("Execute() error = %v, want context.Canceled", err)
+	}
+}
+
 func TestExecute(t *testing.T) {
 	t.Parallel()
 
@@ -18,6 +27,11 @@ func TestExecute(t *testing.T) {
 		{
 			name:    "successful command",
 			command: "echo 'test'",
+			wantErr: false,
+		},
+		{
+			name:    "shell syntax is interpreted",
+			command: "value='hello world'; test \"$value\" = 'hello world' && true",
 			wantErr: false,
 		},
 		{
@@ -41,7 +55,7 @@ func TestExecute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := Execute(context.Background(), tt.command)
+			err := Execute(t.Context(), tt.command)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
 			}

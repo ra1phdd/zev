@@ -9,6 +9,11 @@ import (
 func TestParseArgsFlags(t *testing.T) {
 	t.Parallel()
 
+	const (
+		listArgument  = "list"
+		aliasArgument = "dps"
+	)
+
 	tests := []struct {
 		name          string
 		args          []string
@@ -20,64 +25,64 @@ func TestParseArgsFlags(t *testing.T) {
 	}{
 		{
 			name:          "no flags",
-			args:          []string{"list", "files"},
-			wantArgs:      []string{"list", "files"},
+			args:          []string{listArgument, "files"},
+			wantArgs:      []string{listArgument, "files"},
 			wantVerbosity: 0,
 		},
 		{
 			name:          "single v",
-			args:          []string{"-v", "list"},
-			wantArgs:      []string{"list"},
+			args:          []string{"-v", listArgument},
+			wantArgs:      []string{listArgument},
 			wantVerbosity: 1,
 		},
 		{
 			name:          "double vv",
-			args:          []string{"-vv", "list"},
-			wantArgs:      []string{"list"},
+			args:          []string{"-vv", listArgument},
+			wantArgs:      []string{listArgument},
 			wantVerbosity: 2,
 		},
 		{
 			name:          "triple vvv",
-			args:          []string{"-vvv", "list"},
-			wantArgs:      []string{"list"},
+			args:          []string{"-vvv", listArgument},
+			wantArgs:      []string{listArgument},
 			wantVerbosity: 3,
 		},
 		{
 			name:          "quadruple vvvv",
-			args:          []string{"-vvvv", "list"},
-			wantArgs:      []string{"list"},
+			args:          []string{"-vvvv", listArgument},
+			wantArgs:      []string{listArgument},
 			wantVerbosity: 4,
 		},
 		{
 			name:          "long verbose with value",
-			args:          []string{"--verbose=2", "list"},
-			wantArgs:      []string{"list"},
+			args:          []string{"--verbose=2", listArgument},
+			wantArgs:      []string{listArgument},
 			wantVerbosity: 2,
 		},
 		{
 			name:          "execute flag",
-			args:          []string{"-e", "list"},
-			wantArgs:      []string{"list"},
+			args:          []string{"-e", listArgument},
+			wantArgs:      []string{listArgument},
 			wantVerbosity: 0,
 			wantExecute:   true,
 		},
 		{
 			name:          "inject long flag",
-			args:          []string{"--inject", "list"},
-			wantArgs:      []string{"list"},
+			args:          []string{"--inject", listArgument},
+			wantArgs:      []string{listArgument},
 			wantVerbosity: 0,
 			wantInject:    true,
 		},
 		{
 			name:          "alias with flags passed through",
-			args:          []string{"dps", "-a", "--format", "json"},
-			wantArgs:      []string{"dps", "-a", "--format", "json"},
+			args:          []string{aliasArgument, "-a", "--format", "json"},
+			wantArgs:      []string{aliasArgument, "-a", "--format", "json"},
 			wantVerbosity: 0,
 		},
 		{
 			name:          "zev flag mixed with alias args",
-			args:          []string{"-vvv", "dps", "-a"},
-			wantArgs:      []string{"dps", "-a"},
+			args:          []string{"-vvv", aliasArgument, "-a"},
+			wantArgs:      []string{aliasArgument, "-a"},
 			wantVerbosity: 3,
 		},
 		{
@@ -151,45 +156,45 @@ func TestResolveExecutionMode(t *testing.T) {
 	}{
 		{
 			name:        "default config, no flags",
-			cfg:         &config.Config{CommandExecutionMode: "inject"},
+			cfg:         &config.Config{CommandExecutionMode: executionModeInject},
 			executeFlag: false,
 			injectFlag:  false,
-			want:        "inject",
+			want:        executionModeInject,
 		},
 		{
 			name:        "config set to execute, no flags",
-			cfg:         &config.Config{CommandExecutionMode: "execute"},
+			cfg:         &config.Config{CommandExecutionMode: executionModeExecute},
 			executeFlag: false,
 			injectFlag:  false,
-			want:        "execute",
+			want:        executionModeExecute,
 		},
 		{
 			name:        "config inject, execute flag overrides",
-			cfg:         &config.Config{CommandExecutionMode: "inject"},
+			cfg:         &config.Config{CommandExecutionMode: executionModeInject},
 			executeFlag: true,
 			injectFlag:  false,
-			want:        "execute",
+			want:        executionModeExecute,
 		},
 		{
 			name:        "config execute, inject flag overrides",
-			cfg:         &config.Config{CommandExecutionMode: "execute"},
+			cfg:         &config.Config{CommandExecutionMode: executionModeExecute},
 			executeFlag: false,
 			injectFlag:  true,
-			want:        "inject",
+			want:        executionModeInject,
 		},
 		{
 			name:        "empty config mode defaults to inject",
 			cfg:         &config.Config{CommandExecutionMode: ""},
 			executeFlag: false,
 			injectFlag:  false,
-			want:        "inject",
+			want:        executionModeInject,
 		},
 		{
 			name:        "execute flag with empty config",
 			cfg:         &config.Config{CommandExecutionMode: ""},
 			executeFlag: true,
 			injectFlag:  false,
-			want:        "execute",
+			want:        executionModeExecute,
 		},
 	}
 

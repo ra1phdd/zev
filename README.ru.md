@@ -34,7 +34,8 @@
 ### Linux и macOS
 
 Установите последний релиз одной командой — скрипт сам подберёт архив под вашу ОС и
-архитектуру, проверит SHA-256 и установит бинарник:
+архитектуру и установит бинарник. SHA-256 проверяется при доступных checksums и
+хеш-утилите; иначе скрипт предупреждает и пропускает проверку:
 
 ```bash
 # curl
@@ -156,21 +157,24 @@ export OLLAMA_MODEL=qwen2.5-coder
 
 ## Документация
 
-- [Конфигурация](docs/ru/CONFIGURATION.md) — `~/.zevrc`, переменные окружения, режимы
+- [Конфигурация](docs/ru/CONFIGURATION.md) — `~/.zev/config`, переменные окружения, режимы
   выполнения, файлы на диске
 - [Архитектура](docs/ru/ARCHITECTURE.md) — карта пакетов, путь запроса, контракты
   провайдеров
 - [Разработка](docs/ru/DEVELOPMENT.md) — make-цели, TDD, соглашения проекта
 - [Contributing](docs/ru/CONTRIBUTING.md) — как предложить и принять изменение
+- [Профиль проекта](PROJECT.md) — факты о репозитории и эксплуатационные ограничения
+- [Changelog](CHANGELOG.md) — история релизов
 
 ## Технологии
 
 - Go 1.27+, Cobra для CLI
 - Bubble Tea + Lipgloss для терминального UI
 - [go-openai](https://github.com/sashabaranov/go-openai) для OpenAI-совместимых
-  провайдеров, raw HTTP для Gemini, Anthropic и OpenCode (SSE streaming)
+  провайдеров, [go-anthropic](https://github.com/liushuangls/go-anthropic) для
+  Anthropic, raw HTTP для Gemini и OpenCode (SSE streaming)
 - `godotenv` + `caarlos0/env` для конфигурации
-- `golangci-lint` и `go test` в CI
+- `golangci-lint`, `go vet` и `go test` через Make-цели
 
 ## Удаление
 

@@ -108,6 +108,8 @@ func TestServiceList(t *testing.T) {
 func TestServiceResolveAutoAppendArgs(t *testing.T) {
 	t.Parallel()
 
+	const dockerPS = "docker ps"
+
 	tests := []struct {
 		name     string
 		template string
@@ -116,15 +118,15 @@ func TestServiceResolveAutoAppendArgs(t *testing.T) {
 	}{
 		{
 			name:     "no template variables - args appended",
-			template: "docker ps",
+			template: dockerPS,
 			args:     []string{"-a", "--format", "json"},
 			expected: "docker ps -a --format json",
 		},
 		{
 			name:     "no template variables - no args",
-			template: "docker ps",
+			template: dockerPS,
 			args:     []string{},
-			expected: "docker ps",
+			expected: dockerPS,
 		},
 		{
 			name:     "has {{.args}} - no auto-append",

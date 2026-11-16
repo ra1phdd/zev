@@ -1,56 +1,95 @@
-.PHONY: help build test lint clean install run setup
-
-# Версия приложения
+GO ?= go
+APP ?= ./cmd/zev
+BIN ?= bin/zev
+GOFMT ?= gofmt
+GOFUMPT ?= gofumpt
+GOIMPORTS ?= goimports
+GOLANGCI_LINT ?= golangci-lint
+DEADCODE ?= deadcode
+GO_FILES := $(shell find . -type f -name '*.go' -not -path './.git/*' -not -path './vendor/*')
+FLAGS = -ldflags "-s -w -X main.version=$(VERSION) -buildid=" -trimpath
 VERSION ?= dev
-BINARY_NAME = zev
-BUILD_DIR = bin
-LDFLAGS = -ldflags "-X main.version=$(VERSION)"
+
+.DEFAULT_GOAL := help
+.PHONY: help build clean test test-race test-integration test-e2e test-manual \
+	lint fmt check-bin check-go-files check-format-tools check-lint-tools \
+	install run setup build-linux build-darwin build-windows build-all \
+	release-snapshot release-check release dev watch check version info
 
 help: ## Показать это сообщение
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-build: ## Собрать бинарник
-	@echo "Building $(BINARY_NAME) $(VERSION)..."
-	@mkdir -p $(BUILD_DIR)
-	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/zev
-	@echo "Binary created at $(BUILD_DIR)/$(BINARY_NAME)"
+check-bin:
+	@case "$(BIN)" in bin/?*) ;; *) echo 'BIN must point inside bin/' >&2; exit 1 ;; esac
+	@case "$(BIN)" in *..*|*/) echo 'BIN must name a file without parent traversal' >&2; exit 1 ;; esac
 
-test: ## Запустить все тесты
-	go test ./... -race
+build: check-bin ## Собрать бинарник в BIN (по умолчанию bin/zev)
+	mkdir -p "$(dir $(BIN))"
+	$(GO) build $(FLAGS) -o "$(BIN)" $(APP)
 
-lint: ## Запустить линтер
-	golangci-lint run --fix
+clean: check-bin ## Удалить бинарник BIN и его кросс-платформенные сборки
+	rm -f -- "$(BIN)" "$(BIN)-linux-amd64" "$(BIN)-darwin-amd64" "$(BIN)-darwin-arm64" "$(BIN)-windows-amd64.exe"
 
-clean: ## Очистить артефакты сборки
-	@echo "Cleaning..."
-	rm -rf $(BUILD_DIR)
-	go clean
+test: ## Запустить go vet и unit-тесты
+	$(GO) vet ./...
+	$(GO) test ./...
 
-install: build ## Установить в GOPATH/bin
-	@echo "Installing $(BINARY_NAME)..."
-	go install $(LDFLAGS) ./cmd/zev
-	@echo "Installed to $$(go env GOPATH)/bin/$(BINARY_NAME)"
+test-race: ## Запустить unit-тесты с детектором гонок
+	$(GO) test -race ./...
 
-run: build ## Собрать и запустить в интерактивном режиме
-	@$(BUILD_DIR)/$(BINARY_NAME)
+test-integration: ## Запустить тесты с тегом integration
+	$(GO) test -tags=integration ./...
+
+test-e2e: ## Запустить тесты с тегом e2e
+	$(GO) test -tags=e2e ./...
+
+test-manual: ## Запустить manual-тесты только с ALLOW_MANUAL_TESTS=1 и вне CI
+	@if [ -n "$${CI:-}" ]; then echo 'manual tests must not run in CI' >&2; exit 1; fi
+	@test "$(ALLOW_MANUAL_TESTS)" = "1" || { echo 'manual tests require explicit permission: set ALLOW_MANUAL_TESTS=1' >&2; exit 1; }
+	$(GO) test -tags=manual ./...
+
+lint: check-go-files check-lint-tools ## Проверить форматирование, применить исправления линтера и вывести deadcode
+	@files="$$($(GOFMT) -l $(GO_FILES))" || exit $$?; test -z "$$files" || { printf '%s\n' "$$files"; echo 'gofmt required; run make fmt' >&2; exit 1; }
+	@files="$$($(GOFUMPT) -l $(GO_FILES))" || exit $$?; test -z "$$files" || { printf '%s\n' "$$files"; echo 'gofumpt required; run make fmt' >&2; exit 1; }
+	@files="$$($(GOIMPORTS) -l $(GO_FILES))" || exit $$?; test -z "$$files" || { printf '%s\n' "$$files"; echo 'goimports required; run make fmt' >&2; exit 1; }
+	$(GOLANGCI_LINT) run --fix
+	$(DEADCODE) -test $(APP)
+
+fmt: check-go-files check-format-tools ## Применить gofmt, goimports и gofumpt
+	$(GOFMT) -w $(GO_FILES)
+	$(GOIMPORTS) -w $(GO_FILES)
+	$(GOFUMPT) -w $(GO_FILES)
+
+check-go-files:
+	@test -n "$(GO_FILES)" || { echo 'no Go files found' >&2; exit 1; }
+
+check-format-tools:
+	@for tool in "$(GOFMT)" "$(GOFUMPT)" "$(GOIMPORTS)"; do command -v "$$tool" >/dev/null || { echo "required tool not found in PATH: $$tool" >&2; exit 1; }; done
+
+check-lint-tools: check-format-tools
+	@for tool in "$(GOLANGCI_LINT)" "$(DEADCODE)"; do command -v "$$tool" >/dev/null || { echo "required tool not found in PATH: $$tool" >&2; exit 1; }; done
+
+install: ## Установить APP через go install (GOBIN или GOPATH/bin)
+	$(GO) install $(FLAGS) $(APP)
+
+run: build ## Собрать и запустить интерактивный режим (ARGS для аргументов)
+	@"$(BIN)" $(ARGS)
 
 setup: build ## Запустить интерактивную настройку
-	@$(BUILD_DIR)/$(BINARY_NAME) setup
+	@"$(BIN)" setup $(ARGS)
 
-# Сборка для разных платформ
-build-linux: ## Собрать для Linux
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/zev
+build-linux: ## Собрать для Linux amd64
+	$(MAKE) build GOOS=linux GOARCH=amd64 BIN="$(BIN)-linux-amd64"
 
-build-darwin: ## Собрать для macOS
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/zev
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/zev
+build-darwin: ## Собрать для macOS amd64 и arm64
+	$(MAKE) build GOOS=darwin GOARCH=amd64 BIN="$(BIN)-darwin-amd64"
+	$(MAKE) build GOOS=darwin GOARCH=arm64 BIN="$(BIN)-darwin-arm64"
 
-build-windows: ## Собрать для Windows
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/zev
+build-windows: ## Собрать для Windows amd64
+	$(MAKE) build GOOS=windows GOARCH=amd64 BIN="$(BIN)-windows-amd64.exe"
 
-build-all: build-linux build-darwin build-windows ## Собрать для всех платформ
+build-all: build-linux build-darwin build-windows ## Собрать для всех локальных платформенных целей
 
-# Релизы
 release-snapshot: ## Локальная проверка релизной сборки GoReleaser (без публикации)
 	goreleaser release --snapshot --clean --skip=publish
 
@@ -63,23 +102,21 @@ release: ## Опубликовать релиз в GitHub (использует 
 	@git tag -f "v$$(tr -d '[:space:]' < VERSION)" -m "Release v$$(tr -d '[:space:]' < VERSION)"
 	goreleaser release --clean
 
-# Разработка
 dev: ## Запустить в режиме разработки (debug логи)
-	@LOG_LEVEL=debug go run $(LDFLAGS) ./cmd/zev
+	$(GO) run $(FLAGS) $(APP) -vv $(ARGS)
 
 watch: ## Запустить с автоперезапуском (требуется entr)
-	@find . -name "*.go" | entr -r make run
+	@command -v entr >/dev/null || { echo 'required tool not found in PATH: entr' >&2; exit 1; }
+	@find . -type f -name '*.go' -not -path './.git/*' -not -path './vendor/*' | entr -r $(MAKE) run
 
-# Проверки качества
-check: lint test ## Запустить линтер и тесты
+check: lint test ## Запустить проверки форматирования, линтер и unit-тесты
 
-# Информация
-version: ## Показать версию
-	@echo $(VERSION)
+version: ## Показать версию сборки (VERSION, по умолчанию dev)
+	@echo "$(VERSION)"
 
 info: ## Показать информацию о проекте
-	@echo "Binary name: $(BINARY_NAME)"
+	@echo "App:         $(APP)"
+	@echo "Binary:      $(BIN)"
 	@echo "Version:     $(VERSION)"
-	@echo "Build dir:   $(BUILD_DIR)"
-	@echo "Go version:  $$(go version)"
-	@echo "Platform:    $$(go env GOOS)/$$(go env GOARCH)"
+	@echo "Go version:  $$($(GO) version)"
+	@echo "Platform:    $$($(GO) env GOOS)/$$($(GO) env GOARCH)"

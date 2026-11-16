@@ -1,3 +1,4 @@
+// Package factory selects a query provider from application configuration.
 package factory
 
 import (
@@ -22,15 +23,35 @@ func NewProvider(cfg *config.Config, httpClient *http.Client) (domain.InferenceP
 
 	switch cfg.LLMProvider {
 	case "openai":
-		return openai.New(cfg.OpenAIAPIKey, cfg.OpenAIModel, cfg.OpenAIBaseURL, httpClient)
+		provider, err := openai.New(cfg.OpenAIAPIKey, cfg.OpenAIModel, cfg.OpenAIBaseURL, httpClient)
+		if err != nil {
+			return nil, fmt.Errorf("creating openai provider: %w", err)
+		}
+		return provider, nil
 	case "gemini":
-		return gemini.New(cfg.GeminiAPIKey, cfg.GeminiModel, cfg.GeminiBaseURL, httpClient)
+		provider, err := gemini.New(cfg.GeminiAPIKey, cfg.GeminiModel, cfg.GeminiBaseURL, httpClient)
+		if err != nil {
+			return nil, fmt.Errorf("creating gemini provider: %w", err)
+		}
+		return provider, nil
 	case "anthropic":
-		return anthropic.New(cfg.AnthropicAPIKey, cfg.AnthropicModel, cfg.AnthropicBaseURL, httpClient)
+		provider, err := anthropic.New(cfg.AnthropicAPIKey, cfg.AnthropicModel, cfg.AnthropicBaseURL, httpClient)
+		if err != nil {
+			return nil, fmt.Errorf("creating anthropic provider: %w", err)
+		}
+		return provider, nil
 	case "ollama":
-		return ollama.New(cfg.OllamaBaseURL, cfg.OllamaModel, httpClient)
+		provider, err := ollama.New(cfg.OllamaBaseURL, cfg.OllamaModel, httpClient)
+		if err != nil {
+			return nil, fmt.Errorf("creating ollama provider: %w", err)
+		}
+		return provider, nil
 	case "opencode":
-		return opencode.New(cfg.OpenAIAPIKey, cfg.OpenAIModel, cfg.OpenAIBaseURL, httpClient)
+		provider, err := opencode.New(cfg.OpenAIAPIKey, cfg.OpenAIModel, cfg.OpenAIBaseURL, httpClient)
+		if err != nil {
+			return nil, fmt.Errorf("creating opencode provider: %w", err)
+		}
+		return provider, nil
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", cfg.LLMProvider)
 	}

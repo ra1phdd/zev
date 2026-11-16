@@ -2,21 +2,23 @@ package domain
 
 import "strings"
 
-// Command представляет одну команду терминала с пояснением.
+// Command is a terminal command suggestion with an explanation and safety metadata.
 type Command struct {
 	Command              string `json:"command"`
-	ShortExplanation     string `json:"short_explanation"`
-	IsDangerous          bool   `json:"is_dangerous"`
-	DangerousExplanation string `json:"dangerous_explanation,omitempty"`
+	ShortExplanation     string `json:"short_explanation"`               //nolint:tagliatelle // Snake_case is the established LLM response and persisted history format.
+	IsDangerous          bool   `json:"is_dangerous"`                    //nolint:tagliatelle // Snake_case is the established LLM response and persisted history format.
+	DangerousExplanation string `json:"dangerous_explanation,omitempty"` //nolint:tagliatelle // Snake_case is the established LLM response and persisted history format.
 }
 
-// OptionsResponse представляет ответ от LLM провайдера.
+// OptionsResponse contains command suggestions or an explanation of an invalid request.
 type OptionsResponse struct {
 	Commands              []Command `json:"commands"`
-	IsValid               bool      `json:"is_valid"`
-	ExplanationIfNotValid string    `json:"explanation_if_not_valid,omitempty"`
+	IsValid               bool      `json:"is_valid"`                           //nolint:tagliatelle // Snake_case is the established LLM response and persisted history format.
+	ExplanationIfNotValid string    `json:"explanation_if_not_valid,omitempty"` //nolint:tagliatelle // Snake_case is the established LLM response and persisted history format.
 }
 
+// CompactJSON returns a minimal conversation summary containing command strings
+// or an invalid-request flag. Command strings must already be JSON-safe.
 func (r *OptionsResponse) CompactJSON() string {
 	if !r.IsValid {
 		return `{"is_valid":false}`

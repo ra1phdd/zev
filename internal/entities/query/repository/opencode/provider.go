@@ -1,3 +1,4 @@
+// Package opencode adapts the OpenCode streaming API to the query provider port.
 package opencode
 
 import (
@@ -7,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -15,6 +15,7 @@ import (
 	"github.com/ra1phdd/zev/internal/entities/query/repository"
 )
 
+// Provider calls OpenCode and decodes query options.
 type Provider struct {
 	client  *http.Client
 	apiKey  string
@@ -22,6 +23,7 @@ type Provider struct {
 	baseURL string
 }
 
+// New creates an OpenCode provider.
 func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, error) {
 	if apiKey == "" {
 		return nil, errors.New("OPENAI_API_KEY is required. Run `zev setup` to configure")
@@ -50,9 +52,9 @@ type openCodeRequest struct {
 	Messages            []openCodeMessage       `json:"messages"`
 	Tools               []openCodeTool          `json:"tools"`
 	Stream              bool                    `json:"stream"`
-	StreamOptions       openCodeStreamOptions   `json:"stream_options"`
-	MaxCompletionTokens int                     `json:"max_completion_tokens"`
-	ResponseFormat      *openCodeResponseFormat `json:"response_format,omitempty"`
+	StreamOptions       openCodeStreamOptions   `json:"stream_options"`            //nolint:tagliatelle // OpenAI-compatible wire format uses snake_case.
+	MaxCompletionTokens int                     `json:"max_completion_tokens"`     //nolint:tagliatelle // OpenAI-compatible wire format uses snake_case.
+	ResponseFormat      *openCodeResponseFormat `json:"response_format,omitempty"` //nolint:tagliatelle // OpenAI-compatible wire format uses snake_case.
 }
 
 type openCodeMessage struct {
@@ -70,7 +72,7 @@ type openCodeToolFunction struct {
 }
 
 type openCodeStreamOptions struct {
-	IncludeUsage bool `json:"include_usage"`
+	IncludeUsage bool `json:"include_usage"` //nolint:tagliatelle // OpenAI-compatible wire format uses snake_case.
 }
 
 type openCodeResponseFormat struct {
@@ -83,13 +85,14 @@ type openCodeStreamChunk struct {
 		Delta struct {
 			Content string `json:"content"`
 		} `json:"delta"`
-		FinishReason *string `json:"finish_reason"`
+		FinishReason *string `json:"finish_reason"` //nolint:tagliatelle // OpenAI-compatible wire format uses snake_case.
 	} `json:"choices"`
 }
 
+// GetOptions requests query options for a new conversation.
 func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
 	systemPrompt := fmt.Sprintf(repository.SystemPrompt, envContext)
-	userMessage := fmt.Sprintf(repository.UserPromptTemplate, prompt)
+	userMessage := prompt
 
 	reqBody := openCodeRequest{
 		Model: p.model,
@@ -113,6 +116,7 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	return p.sendRequest(ctx, reqBody)
 }
 
+// GetOptionsWithHistory requests query options for an existing conversation.
 func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
 	messages := make([]openCodeMessage, 0, 1+len(history.Messages))
 	messages = append(messages, openCodeMessage{
@@ -166,13 +170,16 @@ func (p *Provider) sendRequest(ctx context.Context, reqBody openCodeRequest) (*d
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, repository.WrapNetworkError("OpenCode", err)
+		return nil, fmt.Errorf("OpenCode request failed: %w", repository.WrapNetworkError("OpenCode", err))
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			return
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("OpenCode API returned status %d: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("OpenCode request failed: %w", repository.HTTPStatusError("OpenCode", resp.StatusCode))
 	}
 
 	// Читаем streaming-ответ (SSE)
@@ -216,16 +223,18 @@ func (p *Provider) sendRequest(ctx context.Context, reqBody openCodeRequest) (*d
 
 	var result domain.OptionsResponse
 	if err := json.Unmarshal([]byte(cleanJSON), &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w (raw content: %s)", err, fullContent.String())
+		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
 	}
 
 	return &result, nil
 }
 
+// Name returns the provider identifier.
 func (p *Provider) Name() string {
 	return "opencode"
 }
 
+// Model returns the configured model identifier.
 func (p *Provider) Model() string {
 	return p.model
 }

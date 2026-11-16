@@ -1,0 +1,195 @@
+# Go
+go.work
+vendor/
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# Build artifacts
+bin/
+build/
+dist/
+out/
+target/
+release/
+debug/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.a
+*.o
+*.obj
+*.lib
+*.pdb
+*.class
+
+# JavaScript & TypeScript
+node_modules/
+jspm_packages/
+web_modules/
+.npm/
+.pnpm-store/
+.pnp.*
+*.tsbuildinfo
+*.tgz
+
+# Package manager caches
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.yarn-integrity
+
+# Frontend frameworks
+.next/
+.nuxt/
+.svelte-kit/
+.angular/
+.vuepress/.temp/
+.vuepress/.cache/
+.gatsby/
+.parcel-cache/
+.webpack/
+.vite/
+.turbo/
+.vercel/
+.netlify/
+
+# Testing & coverage
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+cypress/videos/
+cypress/screenshots/
+
+# IDE & editors
+.idea/
+.vscode/
+.vscode-test/
+.history/
+.zed/
+*.iws
+*.iml
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# CMake & native builds
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+Makefile.generated
+
+# Logs & diagnostics
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+*.stackdump
+
+# Runtime & temporary files
+tmp/
+temp/
+.tmp/
+.temp/
+*.tmp
+*.bak
+*.swp
+*.swo
+*.pid
+*.pid.lock
+*.seed
+pids
+.nfs*
+
+# Cache
+.cache/
+.eslintcache
+.stylelintcache
+.node_repl_history
+lib-cov/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.Trash-*/
+
+# Local environment & secrets
+.env
+.env.*
+!.env.example
+
+config.json
+config.*.json
+!config.example.json
+
+config.yaml
+config.*.yaml
+!config.example.yaml
+
+config.yml
+config.*.yml
+!config.example.yml
+
+.security.json
+.security.*.json
+!.security.example.json
+
+.security.yaml
+.security.*.yaml
+!.security.example.yaml
+
+.security.yml
+.security.*.yml
+!.security.example.yml
+
+# Local configuration
+*.local
+*.local.*
+
+# Sessions
+.session/
+
+# AI
+.superpowers/
+.claude/
+.codex/
+.opencode/
+.gemini/
+.cursor/
+.windsurf/
+.augment/
+.roo/
+.cline/
+.aider*
+.continue/
+.trae/
+.kiro/

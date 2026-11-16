@@ -1,8 +1,36 @@
 package domain
 
 import (
+	"encoding/json"
 	"testing"
 )
+
+func TestOptionsResponseJSONContract(t *testing.T) {
+	t.Parallel()
+
+	const fixture = `{"commands":[{"command":"rm file","short_explanation":"Remove file","is_dangerous":true,"dangerous_explanation":"Deletes file"}],"is_valid":false,"explanation_if_not_valid":"Needs clarification"}`
+	var response OptionsResponse
+	if err := json.Unmarshal([]byte(fixture), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response.Commands) != 1 {
+		t.Fatalf("expected one command, got %d", len(response.Commands))
+	}
+	command := response.Commands[0]
+	if command.Command != "rm file" || command.ShortExplanation != "Remove file" || !command.IsDangerous || command.DangerousExplanation != "Deletes file" {
+		t.Errorf("unexpected decoded command: %+v", command)
+	}
+	if response.IsValid || response.ExplanationIfNotValid != "Needs clarification" {
+		t.Errorf("unexpected decoded response: %+v", response)
+	}
+	encoded, err := json.Marshal(response)
+	if err != nil {
+		t.Fatalf("encode response: %v", err)
+	}
+	if string(encoded) != fixture {
+		t.Errorf("encoded response = %s, want %s", encoded, fixture)
+	}
+}
 
 func TestCommand(t *testing.T) {
 	t.Parallel()

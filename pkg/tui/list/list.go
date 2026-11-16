@@ -1,3 +1,4 @@
+// Package list provides interactive selection of terminal commands and text items.
 package list
 
 import (
@@ -9,36 +10,42 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// SelectOptions конфигурация для выбора.
+// SelectOptions configures the list title, required items, and optional warnings.
 type SelectOptions struct {
 	Title       string
 	Items       []Item
-	ShowWarning bool // показывать предупреждения для опасных элементов
+	ShowWarning bool // Display warnings for dangerous items.
 }
 
-// Item представляет элемент списка.
+// Item provides the display content and warning state of a selectable entry.
 type Item interface {
 	Title() string
 	Description() string
-	IsWarning() bool // для опасных команд
+	IsWarning() bool
 }
 
-// SimpleItem простой текстовый элемент.
+// SimpleItem is a text entry without a danger warning.
 type SimpleItem struct {
 	title       string
 	description string
 }
 
-func (i SimpleItem) Title() string       { return i.title }
-func (i SimpleItem) Description() string { return i.description }
-func (i SimpleItem) IsWarning() bool     { return false }
+// Title returns the entry's display text.
+func (i SimpleItem) Title() string { return i.title }
 
-// NewSimpleItem создаёт простой элемент списка.
+// Description returns the entry's optional explanation.
+func (i SimpleItem) Description() string { return i.description }
+
+// IsWarning returns false because simple text entries have no danger flag.
+func (i SimpleItem) IsWarning() bool { return false }
+
+// NewSimpleItem creates an entry with title and an optional description.
 func NewSimpleItem(title, description string) SimpleItem {
 	return SimpleItem{title: title, description: description}
 }
 
-// Select показывает интерактивный выбор из списка.
+// Select returns the item chosen interactively from opts.Items.
+// It returns an error for an empty list, cancellation, or a terminal UI failure.
 func Select(opts SelectOptions) (Item, error) {
 	if len(opts.Items) == 0 {
 		return nil, errors.New("no items to select from")
@@ -49,10 +56,13 @@ func Select(opts SelectOptions) (Item, error) {
 
 	result, err := p.Run()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("run selection UI: %w", err)
 	}
 
-	finalModel := result.(model)
+	finalModel, ok := result.(model)
+	if !ok {
+		return nil, fmt.Errorf("unexpected selection model type %T", result)
+	}
 	if finalModel.cancelled {
 		return nil, errors.New("cancelled")
 	}
@@ -111,27 +121,20 @@ func wrapText(text string, maxWidth, indent int) string {
 			break
 		}
 
-		// Разрыв по последнему пробелу
 		breakPoint := strings.LastIndex(remaining[:lineWidth], " ")
-		if breakPoint == -1 {
-			// Нет пробелов — режем по ширине
+		hardBreak := breakPoint == -1
+		if hardBreak {
 			breakPoint = lineWidth
-			if firstLine {
-				lines = append(lines, remaining[:breakPoint])
-				firstLine = false
-			} else {
-				lines = append(lines, strings.Repeat(" ", indent)+remaining[:breakPoint])
-			}
-			remaining = remaining[breakPoint:]
-		} else {
-			// Есть пробел — режем по нему
-			if firstLine {
-				lines = append(lines, remaining[:breakPoint])
-				firstLine = false
-			} else {
-				lines = append(lines, strings.Repeat(" ", indent)+remaining[:breakPoint])
-			}
-			remaining = strings.TrimSpace(remaining[breakPoint:])
+		}
+		line := remaining[:breakPoint]
+		if !firstLine {
+			line = strings.Repeat(" ", indent) + line
+		}
+		lines = append(lines, line)
+		firstLine = false
+		remaining = remaining[breakPoint:]
+		if !hardBreak {
+			remaining = strings.TrimSpace(remaining)
 		}
 	}
 
@@ -169,6 +172,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			m.cancelled = true
 			return m, tea.Quit
+		default:
+			// Other keys do not navigate or select; rune shortcuts are handled below.
 		}
 
 		// Handle 'q' key separately (it comes as KeyRunes)

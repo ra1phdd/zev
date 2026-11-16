@@ -34,7 +34,8 @@
 ### Linux and macOS
 
 Install the latest release with one command — the script picks the archive for your OS
-and architecture, verifies its SHA-256 checksum and installs it:
+and architecture and installs it, checking SHA-256 when checksums and a hash
+utility are available (otherwise it warns and skips the check):
 
 ```bash
 # curl
@@ -155,20 +156,23 @@ export OLLAMA_MODEL=qwen2.5-coder
 
 ## Documentation
 
-- [Configuration](docs/en/CONFIGURATION.md) — `~/.zevrc`, environment variables, execution
+- [Configuration](docs/en/CONFIGURATION.md) — `~/.zev/config`, environment variables, execution
   modes, files on disk
 - [Architecture](docs/en/ARCHITECTURE.md) — package map, query flow, provider contracts
 - [Development](docs/en/DEVELOPMENT.md) — make targets, TDD workflow, conventions
 - [Contributing](docs/en/CONTRIBUTING.md) — how to propose and land a change
+- [Project profile](PROJECT.md) — repository facts and operational limitations
+- [Changelog](CHANGELOG.md) — release history
 
 ## Technology stack
 
 - Go 1.27+, Cobra for the CLI
 - Bubble Tea + Lipgloss for the terminal UI
 - [go-openai](https://github.com/sashabaranov/go-openai) for OpenAI-compatible providers,
-  raw HTTP for Gemini, Anthropic and OpenCode (SSE streaming)
+  [go-anthropic](https://github.com/liushuangls/go-anthropic) for Anthropic,
+  raw HTTP for Gemini and OpenCode (SSE streaming)
 - `godotenv` + `caarlos0/env` for configuration
-- `golangci-lint` and `go test` in CI
+- `golangci-lint`, `go vet` and `go test` through Make targets
 
 ## Uninstallation
 

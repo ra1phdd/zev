@@ -2,10 +2,14 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/spf13/cobra"
+)
+
+const (
+	executionModeInject  = "inject"
+	executionModeExecute = "execute"
 )
 
 func newSetupModeCmd() *cobra.Command {
@@ -31,20 +35,20 @@ func runSetupMode(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Если аргумент не передан — показываем текущий режим
 	if len(args) == 0 {
 		mode := cfg.CommandExecutionMode
 		if mode == "" {
-			mode = "inject" // дефолт
+			mode = executionModeInject
 		}
-		fmt.Fprintf(os.Stdout, "Current command execution mode: %s\n", mode)
+		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Current command execution mode: %s\n", mode); err != nil {
+			return fmt.Errorf("write current execution mode: %w", err)
+		}
 		return nil
 	}
 
 	mode := args[0]
 
-	// Валидация
-	if mode != "inject" && mode != "execute" {
+	if mode != executionModeInject && mode != executionModeExecute {
 		return fmt.Errorf("invalid mode %q: must be 'inject' or 'execute'", mode)
 	}
 
@@ -54,6 +58,8 @@ func runSetupMode(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "✓ Command execution mode set to: %s\n", mode)
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "✓ Command execution mode set to: %s\n", mode); err != nil {
+		return fmt.Errorf("write execution mode confirmation: %w", err)
+	}
 	return nil
 }

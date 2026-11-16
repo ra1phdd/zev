@@ -22,19 +22,19 @@ func TestWrapNetworkError(t *testing.T) {
 	}{
 		{
 			name:         "context timeout",
-			providerName: "OpenAI",
+			providerName: testOpenAI,
 			err:          context.DeadlineExceeded,
 			wantContains: "OpenAI did not respond within timeout",
 		},
 		{
 			name:         "context cancelled",
-			providerName: "Gemini",
+			providerName: testGemini,
 			err:          context.Canceled,
 			wantContains: "request to Gemini was cancelled",
 		},
 		{
 			name:         "DNS error",
-			providerName: "OpenCode",
+			providerName: testOpenCode,
 			err:          &net.DNSError{Err: "no such host", Name: "api.opencode.ai"},
 			wantContains: "cannot resolve OpenCode hostname",
 		},
@@ -46,25 +46,25 @@ func TestWrapNetworkError(t *testing.T) {
 		},
 		{
 			name:         "connection timeout",
-			providerName: "OpenAI",
+			providerName: testOpenAI,
 			err:          &net.OpError{Op: "dial", Err: syscall.ETIMEDOUT},
 			wantContains: "OpenAI connection timed out",
 		},
 		{
 			name:         "URL timeout",
-			providerName: "Gemini",
-			err:          &url.Error{Op: "Post", URL: "https://api.gemini.com", Err: context.DeadlineExceeded},
+			providerName: testGemini,
+			err:          &url.Error{Op: testPost, URL: "https://api.gemini.com", Err: context.DeadlineExceeded},
 			wantContains: "Gemini did not respond within timeout", // DeadlineExceeded проверяется раньше
 		},
 		{
 			name:         "generic error",
-			providerName: "OpenAI",
+			providerName: testOpenAI,
 			err:          errors.New("unknown error"),
-			wantContains: "OpenAI API error: unknown error",
+			wantContains: "OpenAI API error: request failed. Check provider settings with `zev setup`",
 		},
 		{
 			name:         "nil error",
-			providerName: "OpenAI",
+			providerName: testOpenAI,
 			err:          nil,
 			wantContains: "",
 		},
@@ -86,6 +86,10 @@ func TestWrapNetworkError(t *testing.T) {
 			if got == nil {
 				t.Errorf("expected error, got nil")
 				return
+			}
+
+			if !errors.Is(got, tt.err) {
+				t.Errorf("error does not preserve original cause %T", tt.err)
 			}
 
 			if tt.wantContains != "" && !contains(got.Error(), tt.wantContains) {
@@ -112,6 +116,8 @@ func indexOf(s, substr string) int {
 func TestExtractJSON(t *testing.T) {
 	t.Parallel()
 
+	const plainJSON = `{"is_valid": true}`
+
 	tests := []struct {
 		name     string
 		input    string
@@ -119,20 +125,20 @@ func TestExtractJSON(t *testing.T) {
 	}{
 		{
 			name:     "plain JSON",
-			input:    `{"is_valid": true}`,
-			expected: `{"is_valid": true}`,
+			input:    plainJSON,
+			expected: plainJSON,
 		},
 		{
 			name: "markdown json block",
 			input: "```json\n" +
-				`{"is_valid": true}` + "\n" +
+				plainJSON + "\n" +
 				"```",
-			expected: `{"is_valid": true}`,
+			expected: plainJSON,
 		},
 		{
 			name:     "escape tags",
 			input:    `<escape>{"is_valid": true}</escape>`,
-			expected: `{"is_valid": true}`,
+			expected: plainJSON,
 		},
 		{
 			name: "escape tags with newlines",

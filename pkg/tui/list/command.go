@@ -6,11 +6,12 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
-// CommandItem адаптер для domain.Command.
+// CommandItem adapts a non-nil domain command for list display.
 type CommandItem struct {
 	Cmd *domain.Command
 }
 
+// Title returns the command, or its explanation for an internal action.
 func (i CommandItem) Title() string {
 	if strings.HasPrefix(i.Cmd.Command, "::") {
 		return i.Cmd.ShortExplanation
@@ -18,6 +19,7 @@ func (i CommandItem) Title() string {
 	return i.Cmd.Command
 }
 
+// Description returns the explanation, or an empty string for internal actions.
 func (i CommandItem) Description() string {
 	if strings.HasPrefix(i.Cmd.Command, "::") {
 		return ""
@@ -25,15 +27,17 @@ func (i CommandItem) Description() string {
 	return i.Cmd.ShortExplanation
 }
 
+// IsWarning reports whether the command is marked dangerous.
 func (i CommandItem) IsWarning() bool {
 	return i.Cmd.IsDangerous
 }
 
+// FilterValue returns the command text used for filtering.
 func (i CommandItem) FilterValue() string {
 	return i.Cmd.Command
 }
 
-// NewCommandItem создаёт элемент списка из domain.Command.
+// NewCommandItem creates a list entry for cmd, which must not be nil.
 func NewCommandItem(cmd *domain.Command) CommandItem {
 	return CommandItem{Cmd: cmd}
 }

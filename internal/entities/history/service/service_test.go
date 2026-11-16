@@ -9,6 +9,8 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
+const testProvider = "openai"
+
 func TestHistorySaveAndLoad(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
@@ -30,7 +32,7 @@ func TestHistorySaveAndLoad(t *testing.T) {
 			},
 			IsValid: true,
 		},
-		Provider: "openai",
+		Provider: testProvider,
 		Model:    "gpt-4-turbo",
 	}
 
@@ -52,7 +54,7 @@ func TestHistorySaveAndLoad(t *testing.T) {
 	if entries[0].Prompt != "list files" {
 		t.Errorf("expected prompt='list files', got %s", entries[0].Prompt)
 	}
-	if entries[0].Provider != "openai" {
+	if entries[0].Provider != testProvider {
 		t.Errorf("expected provider=openai, got %s", entries[0].Provider)
 	}
 }
@@ -75,7 +77,7 @@ func TestHistoryRotation(t *testing.T) {
 				},
 				IsValid: true,
 			},
-			Provider: "openai",
+			Provider: testProvider,
 			Model:    "gpt-4",
 		}
 		if err := srv.Save(entry); err != nil {

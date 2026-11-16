@@ -1,8 +1,8 @@
+// Package main provides the Zev command-line application.
 package main
 
 import (
 	"fmt"
-	"os"
 	"text/tabwriter"
 
 	"github.com/ra1phdd/zev/internal/core/config"
@@ -68,35 +68,46 @@ func runAliasAdd(cmd *cobra.Command, args []string) error {
 	template := args[1]
 
 	if err := svc.Add(name, template); err != nil {
-		return err
+		return fmt.Errorf("add alias %q: %w", name, err)
 	}
 
-	fmt.Fprintf(os.Stdout, "✓ Alias %q added successfully\n", name)
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "✓ Alias %q added successfully\n", name); err != nil {
+		return fmt.Errorf("write alias confirmation: %w", err)
+	}
 	return nil
 }
 
-func runAliasList(cmd *cobra.Command, args []string) error {
+func runAliasList(cmd *cobra.Command, _ []string) error {
 	repo := repository.New(config.GetZevDir())
 	svc := service.New(repo)
 
 	aliases, err := svc.List()
 	if err != nil {
-		return err
+		return fmt.Errorf("list aliases: %w", err)
 	}
 
 	if len(aliases) == 0 {
-		fmt.Fprintln(os.Stdout, "No aliases configured")
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), "No aliases configured"); err != nil {
+			return fmt.Errorf("write empty alias list: %w", err)
+		}
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tTEMPLATE")
-
-	for _, alias := range aliases {
-		fmt.Fprintf(w, "%s\t%s\n", alias.Name, alias.Template)
+	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(w, "NAME	TEMPLATE"); err != nil {
+		return fmt.Errorf("write alias table header: %w", err)
 	}
 
-	return w.Flush()
+	for _, alias := range aliases {
+		if _, err := fmt.Fprintf(w, "%s\t%s\n", alias.Name, alias.Template); err != nil {
+			return fmt.Errorf("write alias %q: %w", alias.Name, err)
+		}
+	}
+
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("flush alias table: %w", err)
+	}
+	return nil
 }
 
 func runAliasRemove(cmd *cobra.Command, args []string) error {
@@ -106,9 +117,11 @@ func runAliasRemove(cmd *cobra.Command, args []string) error {
 	name := args[0]
 
 	if err := svc.Remove(name); err != nil {
-		return err
+		return fmt.Errorf("remove alias %q: %w", name, err)
 	}
 
-	fmt.Fprintf(os.Stdout, "✓ Alias %q removed successfully\n", name)
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "✓ Alias %q removed successfully\n", name); err != nil {
+		return fmt.Errorf("write alias confirmation: %w", err)
+	}
 	return nil
 }

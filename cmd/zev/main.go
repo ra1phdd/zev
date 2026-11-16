@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 
@@ -22,7 +23,7 @@ func main() {
 		RunE:               runQuery,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
-		DisableFlagParsing: true, // Отключаем парсинг флагов для поддержки алиасов с флагами
+		DisableFlagParsing: true, // Preserve flags intended for aliases.
 	}
 	rootCmd.TraverseChildren = true
 
@@ -36,11 +37,13 @@ func main() {
 	rootCmd.AddCommand(newVersionCmd())
 
 	if err := rootCmd.Execute(); err != nil {
-		// Команда алиаса завершилась с ненулевым кодом — пробрасываем его без лишнего шума
+		// Preserve child exit codes without adding another diagnostic.
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			os.Exit(exitErr.ExitCode())
 		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		if _, writeErr := fmt.Fprintf(os.Stderr, "Error: %v\n", err); writeErr != nil {
+			slog.Error("Failed to write command error", "error", writeErr)
+		}
 		os.Exit(1)
 	}
 }
@@ -49,8 +52,11 @@ func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Show zev version",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintf(os.Stdout, "zev version %s\n", version)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "zev version %s\n", version); err != nil {
+				return fmt.Errorf("write version: %w", err)
+			}
+			return nil
 		},
 	}
 }

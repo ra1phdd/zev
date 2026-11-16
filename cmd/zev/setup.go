@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	setupservice "github.com/ra1phdd/zev/internal/entities/setup/service"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +20,10 @@ func newSetupCmd() *cobra.Command {
 	return setupCmd
 }
 
-func runSetup(cmd *cobra.Command, args []string) error {
+func runSetup(_ *cobra.Command, _ []string) error {
 	setupSvc := setupservice.New()
-	return setupSvc.Run()
+	if err := setupSvc.Run(); err != nil {
+		return fmt.Errorf("run setup: %w", err)
+	}
+	return nil
 }

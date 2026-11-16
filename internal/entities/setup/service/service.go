@@ -1,3 +1,4 @@
+// Package service implements the interactive configuration setup flow.
 package service
 
 import (
@@ -9,8 +10,10 @@ import (
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
 )
 
+// Service runs the interactive configuration setup flow.
 type Service struct{}
 
+// New creates a setup service.
 func New() *Service {
 	return &Service{}
 }
@@ -45,7 +48,7 @@ func promptWithDefault(promptText, current, defaultVal string) (string, error) {
 
 	input, err := prompt.Input(fullPrompt)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("read setup input: %w", err)
 	}
 
 	if input == "" {
@@ -62,6 +65,7 @@ func promptWithDefault(promptText, current, defaultVal string) (string, error) {
 	return input, nil
 }
 
+// Run prompts for provider settings and saves the resulting configuration.
 func (s *Service) Run() error {
 	// Загружаем текущий конфиг (или дефолтный, если файла нет)
 	cfg, err := config.Load()
@@ -84,7 +88,11 @@ func (s *Service) Run() error {
 		return fmt.Errorf("failed to select provider: %w", err)
 	}
 
-	provider := selected.(list.SimpleItem).Title()
+	item, ok := selected.(list.SimpleItem)
+	if !ok {
+		return fmt.Errorf("unexpected provider selection type %T", selected)
+	}
+	provider := item.Title()
 	cfg.LLMProvider = provider
 
 	switch provider {
@@ -114,7 +122,9 @@ func (s *Service) Run() error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Fprintln(os.Stdout, "\n✓ Configuration saved successfully!")
+	if _, err := fmt.Fprintln(os.Stdout, "\n✓ Configuration saved successfully!"); err != nil {
+		return fmt.Errorf("failed to print success message: %w", err)
+	}
 	return nil
 }
 
@@ -132,11 +142,9 @@ func (s *Service) setupOpenAI(cfg *config.Config) error {
 	}
 	apiKey, err := prompt.Input(apiKeyPrompt + ":")
 	if err != nil {
-		return err
+		return fmt.Errorf("read API key: %w", err)
 	}
-	if apiKey == "" && cfg.OpenAIAPIKey != "" {
-		// Оставляем текущий ключ
-	} else if apiKey != "" {
+	if apiKey != "" {
 		cfg.OpenAIAPIKey = apiKey
 	}
 
@@ -171,11 +179,9 @@ func (s *Service) setupGemini(cfg *config.Config) error {
 	}
 	apiKey, err := prompt.Input(apiKeyPrompt + ":")
 	if err != nil {
-		return err
+		return fmt.Errorf("read API key: %w", err)
 	}
-	if apiKey == "" && cfg.GeminiAPIKey != "" {
-		// Оставляем текущий ключ
-	} else if apiKey != "" {
+	if apiKey != "" {
 		cfg.GeminiAPIKey = apiKey
 	}
 
@@ -210,11 +216,9 @@ func (s *Service) setupAnthropic(cfg *config.Config) error {
 	}
 	apiKey, err := prompt.Input(apiKeyPrompt + ":")
 	if err != nil {
-		return err
+		return fmt.Errorf("read API key: %w", err)
 	}
-	if apiKey == "" && cfg.AnthropicAPIKey != "" {
-		// Оставляем текущий ключ
-	} else if apiKey != "" {
+	if apiKey != "" {
 		cfg.AnthropicAPIKey = apiKey
 	}
 
@@ -267,11 +271,9 @@ func (s *Service) setupOpenCode(cfg *config.Config) error {
 	}
 	apiKey, err := prompt.Input(apiKeyPrompt + ":")
 	if err != nil {
-		return err
+		return fmt.Errorf("read API key: %w", err)
 	}
-	if apiKey == "" && cfg.OpenAIAPIKey != "" {
-		// Оставляем текущий ключ
-	} else if apiKey != "" {
+	if apiKey != "" {
 		cfg.OpenAIAPIKey = apiKey
 	}
 

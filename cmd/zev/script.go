@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"text/tabwriter"
 
 	"github.com/ra1phdd/zev/internal/core/config"
@@ -67,35 +66,46 @@ func runScriptCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := svc.Create(name, description); err != nil {
-		return err
+		return fmt.Errorf("create script %q: %w", name, err)
 	}
 
-	fmt.Fprintf(os.Stdout, "✓ Script %q created successfully\n", name)
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "✓ Script %q created successfully\n", name); err != nil {
+		return fmt.Errorf("write script confirmation: %w", err)
+	}
 	return nil
 }
 
-func runScriptList(cmd *cobra.Command, args []string) error {
+func runScriptList(cmd *cobra.Command, _ []string) error {
 	repo := repository.New(config.GetZevDir())
 	svc := service.New(repo)
 
 	scripts, err := svc.List()
 	if err != nil {
-		return err
+		return fmt.Errorf("list scripts: %w", err)
 	}
 
 	if len(scripts) == 0 {
-		fmt.Fprintln(os.Stdout, "No scripts configured")
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), "No scripts configured"); err != nil {
+			return fmt.Errorf("write empty script list: %w", err)
+		}
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tFILE\tDESCRIPTION")
-
-	for _, script := range scripts {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", script.Name, script.ScriptFile, script.Description)
+	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(w, "NAME	FILE	DESCRIPTION"); err != nil {
+		return fmt.Errorf("write script table header: %w", err)
 	}
 
-	return w.Flush()
+	for _, script := range scripts {
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", script.Name, script.ScriptFile, script.Description); err != nil {
+			return fmt.Errorf("write script %q: %w", script.Name, err)
+		}
+	}
+
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("flush script table: %w", err)
+	}
+	return nil
 }
 
 func runScriptRemove(cmd *cobra.Command, args []string) error {
@@ -105,9 +115,11 @@ func runScriptRemove(cmd *cobra.Command, args []string) error {
 	name := args[0]
 
 	if err := svc.Remove(name); err != nil {
-		return err
+		return fmt.Errorf("remove script %q: %w", name, err)
 	}
 
-	fmt.Fprintf(os.Stdout, "✓ Script %q removed successfully\n", name)
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "✓ Script %q removed successfully\n", name); err != nil {
+		return fmt.Errorf("write script confirmation: %w", err)
+	}
 	return nil
 }

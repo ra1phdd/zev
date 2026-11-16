@@ -3,8 +3,32 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
+
+func TestGetZevDir(t *testing.T) {
+	homeEnv := "HOME"
+	switch runtime.GOOS {
+	case "windows":
+		homeEnv = "USERPROFILE"
+	case "plan9":
+		homeEnv = "home"
+	}
+	t.Run("home available", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv(homeEnv, home)
+		if got, want := GetZevDir(), filepath.Join(home, ".zev"); got != want {
+			t.Errorf("GetZevDir() = %q, want %q", got, want)
+		}
+	})
+	t.Run("home unavailable", func(t *testing.T) {
+		t.Setenv(homeEnv, "")
+		if got := GetZevDir(); got != ".zev" {
+			t.Errorf("GetZevDir() = %q, want .zev", got)
+		}
+	})
+}
 
 func TestDefaultConfig(t *testing.T) {
 	t.Parallel()
@@ -24,7 +48,7 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // меняет глобальную getConfigPath
+//nolint:paralleltest // Mutates the global config path.
 func TestLoadConfigWithMissing(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".zevrc")
@@ -43,7 +67,7 @@ func TestLoadConfigWithMissing(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // меняет глобальную getConfigPath
+//nolint:paralleltest // Mutates the global config path.
 func TestSaveConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".zevrc")

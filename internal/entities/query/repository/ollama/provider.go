@@ -1,7 +1,9 @@
+// Package ollama adapts an Ollama endpoint through the OpenAI-compatible provider.
 package ollama
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/ra1phdd/zev/internal/entities/query/repository/openai"
@@ -20,5 +22,9 @@ func New(baseURL, model string, httpClient *http.Client) (*openai.Provider, erro
 	}
 
 	// Ollama использует OpenAI-compatible API, но не требует API key
-	return openai.New("ollama", model, baseURL, httpClient)
+	provider, err := openai.New("ollama", model, baseURL, httpClient)
+	if err != nil {
+		return nil, fmt.Errorf("creating Ollama provider: %w", err)
+	}
+	return provider, nil
 }

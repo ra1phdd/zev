@@ -1,3 +1,4 @@
+// Package repository persists command aliases in the user's Zev directory.
 package repository
 
 import (
@@ -9,6 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Repository stores aliases in a YAML file.
 type Repository struct {
 	aliasesPath string
 }
@@ -49,7 +51,7 @@ func (r *Repository) LoadAll() (map[string]domain.Alias, error) {
 
 // SaveAll сохраняет все алиасы в файл ~/.zev/aliases.
 func (r *Repository) SaveAll(aliases map[string]domain.Alias) error {
-	if err := os.MkdirAll(filepath.Dir(r.aliasesPath), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(r.aliasesPath), 0o700); err != nil {
 		return fmt.Errorf("failed to create aliases dir: %w", err)
 	}
 
@@ -63,7 +65,7 @@ func (r *Repository) SaveAll(aliases map[string]domain.Alias) error {
 		return fmt.Errorf("failed to marshal aliases: %w", err)
 	}
 
-	if err := os.WriteFile(r.aliasesPath, data, 0600); err != nil {
+	if err := os.WriteFile(r.aliasesPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write aliases file: %w", err)
 	}
 

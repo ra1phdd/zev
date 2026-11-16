@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strconv"
@@ -27,12 +28,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	executeFlag bool
-	injectFlag  bool
+const (
+	queryCancelled    = "cancelled"
+	queryUserRole     = "user"
+	queryRefineMarker = "::REFINE_QUERY::"
 )
 
-// parsedFlags — результат ручного разбора аргументов командной строки.
+var (
+	executeFlag       bool
+	injectFlag        bool
+	errQueryCancelled = errors.New(queryCancelled)
+)
+
+// parsedFlags contains manually parsed CLI flags without changing package state.
 type parsedFlags struct {
 	Args      []string
 	Help      bool
@@ -41,34 +49,24 @@ type parsedFlags struct {
 	Inject    bool
 }
 
-// setupLogger настраивает логгер в зависимости от уровня verbosity.
-// 0 = FATAL (по умолчанию)
-// -v (1) = INFO
-// -vv (2) = DEBUG
-// -vvv (3+) = DEBUG с source location.
+// setupLogger enables warnings by default, info at -v and debug at -vv.
+// At -vvv and above it also includes source locations.
 func setupLogger(verbosity int) *slog.Logger {
 	var level slog.Level
 	var addSource bool
-
 	switch verbosity {
 	case 0:
-		level = slog.Level(10)
+		level = slog.LevelWarn
 	case 1:
 		level = slog.LevelInfo
 	case 2:
 		level = slog.LevelDebug
-	default: // >= 3
+	default:
 		level = slog.LevelDebug
 		addSource = true
 	}
-
-	opts := &slog.HandlerOptions{
-		Level:     level,
-		AddSource: addSource,
-	}
-
-	handler := slog.NewTextHandler(os.Stderr, opts)
-	return slog.New(handler)
+	opts := &slog.HandlerOptions{Level: level, AddSource: addSource}
+	return slog.New(slog.NewTextHandler(os.Stderr, opts))
 }
 
 func newQueryCmd() *cobra.Command {
@@ -78,373 +76,340 @@ func newQueryCmd() *cobra.Command {
 		Args:  cobra.ArbitraryArgs,
 		RunE:  runQuery,
 	}
-
 	cmd.Flags().BoolVar(&executeFlag, "execute", false, "Execute selected command immediately")
 	cmd.Flags().BoolVar(&injectFlag, "inject", false, "Inject selected command into terminal (default)")
 	cmd.MarkFlagsMutuallyExclusive("execute", "inject")
-
 	return cmd
 }
 
-// resolveExecutionMode определяет режим выполнения команды на основе флагов и конфига.
-// Приоритет: флаги > config > дефолт (inject).
+// resolveExecutionMode gives flags priority over configuration and defaults to inject.
 func resolveExecutionMode(cfg *config.Config, executeFlag, injectFlag bool) string {
 	if executeFlag {
-		return "execute"
+		return executionModeExecute
 	}
 	if injectFlag {
-		return "inject"
+		return executionModeInject
 	}
 	if cfg.CommandExecutionMode != "" {
 		return cfg.CommandExecutionMode
 	}
-	return "inject"
+	return executionModeInject
 }
 
-// parseArgsFlags разбирает флаги zev вручную, т.к. на корневом комманде
-// установлен DisableFlagParsing ради поддержки алиасов вида `zev dps -a`.
-// Поддерживаются: -h/--help, -v/-vv/-vvv/... (счётчик), --verbose=N,
-// -e/--execute, --inject. Всё остальное считается аргументами пользователя.
-// Функция чистая: она не трогает состояние пакета, поэтому её можно
-// вызывать из параллельных тестов.
+// parseArgsFlags preserves unknown flags for aliases while the root command uses
+// DisableFlagParsing. It does not mutate package state.
 func parseArgsFlags(args []string) parsedFlags {
 	result := parsedFlags{Args: []string{}}
-
 	for _, arg := range args {
 		switch {
 		case arg == "-h", arg == "--help":
 			result.Help = true
-
 		case arg == "-v", arg == "--verbose":
 			result.Verbosity++
-
 		case strings.HasPrefix(arg, "--verbose="):
 			if n, err := strconv.Atoi(strings.TrimPrefix(arg, "--verbose=")); err == nil && n > 0 {
 				result.Verbosity = n
 			}
-
 		case len(arg) > 2 && strings.HasPrefix(arg, "-vv"):
-			// -vv, -vvv, -vvvv... — количество v задаёт уровень verbosity
 			result.Verbosity = len(arg) - 1
-
 		case arg == "-e", arg == "--execute":
 			result.Execute = true
-
 		case arg == "--inject":
 			result.Inject = true
-
 		default:
 			result.Args = append(result.Args, arg)
 		}
 	}
-
 	return result
 }
 
 func runQuery(cmd *cobra.Command, args []string) error {
-	// Обработка флагов вручную (т.к. DisableFlagParsing=true для поддержки алиасов с флагами)
 	parsed := parseArgsFlags(args)
 	if parsed.Help {
-		return cmd.Help()
+		if err := cmd.Help(); err != nil {
+			return fmt.Errorf("show query help: %w", err)
+		}
+		return nil
 	}
-	args = parsed.Args
-
-	// Переносим разобранные значения в состояние команды: -v приходит сюда
-	// вручную, потому что DisableFlagParsing отключает парсинг cobra.
-	verbosityLevel = parsed.Verbosity
-	executeFlag = parsed.Execute
-	injectFlag = parsed.Inject
-
+	// The root command parses flags manually to preserve alias arguments.
+	verbosityLevel, executeFlag, injectFlag = parsed.Verbosity, parsed.Execute, parsed.Inject
 	logger := setupLogger(verbosityLevel)
-	logger.Debug("Starting query command", "args", args, "os.Args", os.Args, "verbosity", verbosityLevel)
+	err := runConfiguredQuery(cmd, parsed.Args, logger)
+	if errors.Is(err, errQueryCancelled) {
+		return nil
+	}
+	return err
+}
 
+func runConfiguredQuery(cmd *cobra.Command, args []string, logger *slog.Logger) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w. Run `zev setup` to configure", err)
 	}
 	logger.Info("Configuration loaded", "provider", cfg.LLMProvider)
-
-	var userPrompt string
-	if len(args) > 0 {
-		userPrompt = strings.Join(args, " ")
-	} else {
-		userPrompt, err = prompt.Input("What command do you need?")
+	userPrompt := strings.Join(args, " ")
+	if len(args) == 0 {
+		var err error
+		userPrompt, err = readQueryInput(prompt.Input, "What command do you need?")
 		if err != nil {
-			if err.Error() == "cancelled" {
-				return nil
-			}
-			return fmt.Errorf("failed to get input: %w", err)
+			return err
 		}
 	}
-
 	if strings.TrimSpace(userPrompt) == "" {
 		return errors.New("prompt cannot be empty")
 	}
-
-	// Проверяем алиасы
-	parts := strings.Fields(userPrompt)
-	if len(parts) > 0 {
-		aliasName := parts[0]
-		aliasArgs := parts[1:]
-
-		aliasRepo := aliasrepo.New(config.GetZevDir())
-		aliasSvc := aliasservice.New(aliasRepo)
-
-		resolvedCmd, err := aliasSvc.Resolve(aliasName, aliasArgs)
-		if err == nil {
-			// Алиас найден — выполняем команду
-			logger.Debug("Alias resolved", "name", aliasName, "command", resolvedCmd)
-			return terminal.Execute(cmd.Context(), resolvedCmd)
-		}
-		logger.Debug("Alias not found, checking scripts", "name", aliasName, "error", err)
-
-		// Проверяем скрипты
-		scriptRepo := scriptrepo.New(config.GetZevDir())
-		scriptSvc := scriptservice.New(scriptRepo)
-
-		err = scriptSvc.Execute(aliasName, aliasArgs)
-		if !errors.Is(err, scriptservice.ErrScriptNotFound) {
-			// Скрипт найден — возвращаем его результат (в т.ч. ненулевой exit code)
-			logger.Debug("Script executed", "name", aliasName, "error", err)
-			return err
-		}
-		logger.Debug("Script not found, falling back to LLM query", "name", aliasName)
+	if handled, err := executeNamedQuery(cmd.Context(), userPrompt, logger); handled {
+		return err
 	}
-
-	// Fallback на LLM запрос
-
-	httpClient := httpclient.New(cfg.HTTPHeaders)
+	httpClient := httpclient.New(cfg.HTTPHeaders, logger)
 	provider, err := factory.NewProvider(cfg, httpClient)
 	if err != nil {
 		return fmt.Errorf("failed to create provider: %w", err)
 	}
 	logger.Debug("Provider created", "name", provider.Name(), "model", provider.Model())
-
-	querySvc := queryservice.New(provider)
-	ctx := context.Background()
-
-	history := &domain.ConversationHistory{
-		SystemPrompt: repository.SystemPrompt,
-		Messages:     []domain.Message{},
+	s := newQuerySession(queryservice.New(provider), cmd, userPrompt)
+	if err := s.start(cmd.Context()); err != nil {
+		return err
 	}
-
-	envContext := querySvc.GetEnvContext()
-	firstUserMessage := fmt.Sprintf(repository.UserPromptTemplate, envContext, userPrompt)
-	history.Messages = append(history.Messages, domain.Message{
-		Role:    "user",
-		Content: firstUserMessage,
-	})
-
-	logger.Debug("Sending request to LLM", "prompt_length", len(userPrompt))
-	fmt.Fprintln(os.Stdout, "Fetching suggestions...")
-	response, err := provider.GetOptionsWithHistory(ctx, history)
-	if err != nil {
-		logger.Error("Failed to get response from provider", "error", err)
-		if errors.Is(err, domain.ErrNoResponse) {
-			fmt.Fprintf(os.Stderr, "\n⚠️  The AI did not provide a response. This might happen if your request is unclear.\n\n")
-			refinedPrompt, promptErr := prompt.Input("Please clarify your request:")
-			if promptErr != nil {
-				if promptErr.Error() == "cancelled" {
-					return nil
-				}
-				return fmt.Errorf("failed to get refined input: %w", promptErr)
-			}
-
-			if strings.TrimSpace(refinedPrompt) == "" {
-				return errors.New("the request cannot be empty")
-			}
-
-			userPrompt = refinedPrompt
-			logger.Debug("User clarified query after no response", "refined_prompt", refinedPrompt)
-
-			history.Messages = append(history.Messages, domain.Message{
-				Role:    "user",
-				Content: refinedPrompt,
-			})
-
-			fmt.Fprintln(os.Stdout, "Fetching suggestions...")
-			response, err = provider.GetOptionsWithHistory(ctx, history)
-			if err != nil {
-				logger.Error("Failed to get response after clarification", "error", err)
-				return err
-			}
-		} else {
-			return err
-		}
+	ready, err := s.acceptResponse()
+	if err != nil || !ready {
+		return err
 	}
-	logger.Info("Received response", "commands_count", len(response.Commands), "is_valid", response.IsValid)
-
-	if !response.IsValid {
-		fmt.Fprintf(os.Stderr, "\n⚠️  Unable to process your request:\n%s\n", response.ExplanationIfNotValid)
-		return nil
-	}
-
-	if len(response.Commands) == 0 {
-		fmt.Fprintln(os.Stdout, "\n⚠️  No commands found for your query.")
-		return nil
-	}
-
-	history.Messages = append(history.Messages, domain.Message{
-		Role:    "assistant",
-		Content: response.CompactJSON(),
-	})
-
 	mode := resolveExecutionMode(cfg, executeFlag, injectFlag)
-	logger.Debug("Execution mode resolved", "mode", mode)
+	selected, index, err := s.selectCommand(cmd.Context(), mode)
+	if err != nil || selected == nil {
+		return err
+	}
+	if err := deliverQueryCommand(cmd.Context(), queryDelivery{
+		command: selected, mode: mode, out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger,
+	}); err != nil {
+		return err
+	}
+	entry := service.HistoryEntry{
+		Timestamp: time.Now(), Prompt: s.userPrompt, Response: s.response,
+		Provider: provider.Name(), Model: provider.Model(),
+		SelectedCommand: selected.Command, SelectedIndex: index,
+	}
+	if err := service.New().Save(entry); err != nil {
+		return writeQueryOutput(cmd.ErrOrStderr(), "Warning: failed to save to history: %v\n", err)
+	}
+	logger.Info("Saved to history")
+	return nil
+}
 
-	const refineMarker = "::REFINE_QUERY::"
-	commandsWithRefine := make([]domain.Command, len(response.Commands), len(response.Commands)+1)
-	copy(commandsWithRefine, response.Commands)
-	commandsWithRefine = append(commandsWithRefine, domain.Command{
-		Command:          refineMarker,
-		ShortExplanation: "Clarify the request",
-		IsDangerous:      false,
-	})
+func executeNamedQuery(ctx context.Context, userPrompt string, logger *slog.Logger) (bool, error) {
+	parts := strings.Fields(userPrompt)
+	name, args := parts[0], parts[1:]
+	aliasSvc := aliasservice.New(aliasrepo.New(config.GetZevDir()))
+	resolved, err := aliasSvc.Resolve(name, args)
+	if err == nil {
+		logger.Debug("Alias resolved", "name", name)
+		if err := terminal.Execute(ctx, resolved); err != nil {
+			return true, fmt.Errorf("execute alias: %w", err)
+		}
+		return true, nil
+	}
+	scriptSvc := scriptservice.New(scriptrepo.New(config.GetZevDir()))
+	if err := scriptSvc.Execute(ctx, name, args); err != nil {
+		if errors.Is(err, scriptservice.ErrScriptNotFound) {
+			return false, nil
+		}
+		return true, fmt.Errorf("execute script: %w", err)
+	}
+	return true, nil
+}
 
-	var selectedCmd *domain.Command
-	var selectedIndex int
+// querySession owns only the active conversation and its interactive UI seams.
+// Provider metadata and command execution stay in the composition root.
+type querySession struct {
+	svc        *queryservice.Service
+	cmd        *cobra.Command
+	history    *domain.ConversationHistory
+	userPrompt string
+	response   *domain.OptionsResponse
+	input      func(string) (string, error)
+	selectItem func(list.SelectOptions) (list.Item, error)
+}
 
-	// В режиме execute сразу выполняем первую команду
-	if mode == "execute" {
-		selectedCmd = &response.Commands[0]
-		selectedIndex = 0
-		logger.Debug("Auto-selected first command in execute mode", "command", selectedCmd.Command)
-	} else {
-		// В режиме inject показываем селектор
-		for {
-			items := make([]list.Item, len(commandsWithRefine))
-			for i := range commandsWithRefine {
-				items[i] = list.NewCommandItem(&commandsWithRefine[i])
+func newQuerySession(svc *queryservice.Service, cmd *cobra.Command, userPrompt string) *querySession {
+	return &querySession{
+		svc: svc, cmd: cmd, userPrompt: userPrompt,
+		history: &domain.ConversationHistory{
+			SystemPrompt: fmt.Sprintf(repository.SystemPrompt, svc.GetEnvContext()),
+			Messages:     []domain.Message{{Role: queryUserRole, Content: userPrompt}},
+		},
+		input: prompt.Input, selectItem: list.Select,
+	}
+}
+
+func readQueryInput(input func(string) (string, error), title string) (string, error) {
+	value, err := input(title)
+	if err != nil {
+		if err.Error() == queryCancelled {
+			return "", errQueryCancelled
+		}
+		return "", fmt.Errorf("get query input: %w", err)
+	}
+	return value, nil
+}
+
+func (s *querySession) fetch(ctx context.Context) error {
+	if err := writeQueryOutput(s.cmd.OutOrStdout(), "Fetching suggestions...\n"); err != nil {
+		return err
+	}
+	response, err := s.svc.GetOptionsWithHistory(ctx, s.history)
+	if err != nil {
+		return fmt.Errorf("get command suggestions: %w", err)
+	}
+	s.response = response
+	return nil
+}
+
+func (s *querySession) start(ctx context.Context) error {
+	err := s.fetch(ctx)
+	if !errors.Is(err, domain.ErrNoResponse) {
+		return err
+	}
+	if err := writeQueryOutput(s.cmd.ErrOrStderr(), "\n⚠️  The AI did not provide a response. This might happen if your request is unclear.\n\n"); err != nil {
+		return err
+	}
+	refined, err := readQueryInput(s.input, "Please clarify your request:")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(refined) == "" {
+		return errors.New("the request cannot be empty")
+	}
+	s.addRefinement(refined)
+	return s.fetch(ctx)
+}
+
+func (s *querySession) addRefinement(value string) {
+	s.userPrompt = value
+	s.history.Messages = append(s.history.Messages, domain.Message{Role: queryUserRole, Content: value})
+}
+
+func (s *querySession) acceptResponse() (bool, error) {
+	if !s.response.IsValid {
+		return false, writeQueryOutput(s.cmd.ErrOrStderr(), "\n⚠️  Unable to process your request:\n%s\n", s.response.ExplanationIfNotValid)
+	}
+	if len(s.response.Commands) == 0 {
+		return false, writeQueryOutput(s.cmd.OutOrStdout(), "\n⚠️  No commands found for your query.\n")
+	}
+	s.history.Messages = append(s.history.Messages, domain.Message{Role: "assistant", Content: s.response.CompactJSON()})
+	return true, nil
+}
+
+func (s *querySession) commandItems() []list.Item {
+	items := make([]list.Item, 0, len(s.response.Commands)+1)
+	for i := range s.response.Commands {
+		items = append(items, list.NewCommandItem(&s.response.Commands[i]))
+	}
+	items = append(items, list.NewCommandItem(&domain.Command{
+		Command: queryRefineMarker, ShortExplanation: "Clarify the request",
+	}))
+	return items
+}
+
+func (s *querySession) selectCommand(ctx context.Context, mode string) (*domain.Command, int, error) {
+	if mode == executionModeExecute {
+		return &s.response.Commands[0], 0, nil
+	}
+	for {
+		selected, err := s.chooseCommand()
+		if err != nil {
+			return nil, 0, err
+		}
+		if selected.Command != queryRefineMarker {
+			for i := range s.response.Commands {
+				if s.response.Commands[i].Command == selected.Command {
+					return &s.response.Commands[i], i, nil
+				}
 			}
-
-			selected, err := list.Select(list.SelectOptions{
-				Title:       "Select a command to run:",
-				Items:       items,
-				ShowWarning: true,
-			})
-			if err != nil {
-				if err.Error() == "cancelled" {
-					return nil
-				}
-				return fmt.Errorf("failed to select command: %w", err)
-			}
-
-			cmdItem := selected.(list.CommandItem)
-			selectedCmd = cmdItem.Cmd
-
-			if selectedCmd.Command == refineMarker {
-				refinedPrompt, err := prompt.Input("Specify your request:")
-				if err != nil {
-					if err.Error() == "cancelled" {
-						return nil
-					}
-					return fmt.Errorf("failed to get refined input: %w", err)
-				}
-
-				if strings.TrimSpace(refinedPrompt) == "" {
-					fmt.Fprintln(os.Stderr, "The request cannot be empty.")
-					continue
-				}
-
-				userPrompt = refinedPrompt
-				logger.Debug("User refined query", "refined_prompt", refinedPrompt)
-
-				history.Messages = append(history.Messages, domain.Message{
-					Role:    "user",
-					Content: refinedPrompt,
-				})
-
-				fmt.Fprintln(os.Stdout, "Fetching suggestions...")
-				response, err = provider.GetOptionsWithHistory(ctx, history)
-				if err != nil {
-					logger.Error("Failed to get refined response", "error", err)
-					if errors.Is(err, domain.ErrNoResponse) {
-						fmt.Fprintf(os.Stderr, "\n⚠️  The AI did not provide a response. Please try rephrasing your request.\n")
-						continue
-					}
-					return err
-				}
-				logger.Info("Received refined response", "commands_count", len(response.Commands))
-
-				if !response.IsValid {
-					fmt.Fprintf(os.Stderr, "\n⚠️  Unable to process your request:\n%s\n", response.ExplanationIfNotValid)
-					return nil
-				}
-
-				if len(response.Commands) == 0 {
-					fmt.Fprintln(os.Stdout, "\n⚠️  No commands found for your query.")
-					return nil
-				}
-
-				history.Messages = append(history.Messages, domain.Message{
-					Role:    "assistant",
-					Content: response.CompactJSON(),
-				})
-
-				commandsWithRefine = make([]domain.Command, len(response.Commands), len(response.Commands)+1)
-				copy(commandsWithRefine, response.Commands)
-				commandsWithRefine = append(commandsWithRefine, domain.Command{
-					Command:          refineMarker,
-					ShortExplanation: "Clarify the request",
-					IsDangerous:      false,
-				})
-
-				continue
-			}
-
-			for i := range response.Commands {
-				if response.Commands[i].Command == selectedCmd.Command {
-					selectedIndex = i
-					break
-				}
-			}
-			break
+			return nil, 0, errors.New("selected command is not in the response")
+		}
+		ready, err := s.refine(ctx)
+		if err != nil || !ready {
+			return nil, 0, err
 		}
 	}
+}
 
-	logger.Debug("Selected command", "command", selectedCmd.Command, "is_dangerous", selectedCmd.IsDangerous)
+func (s *querySession) chooseCommand() (*domain.Command, error) {
+	selected, err := s.selectItem(list.SelectOptions{
+		Title: "Select a command to run:", Items: s.commandItems(), ShowWarning: true,
+	})
+	if err != nil {
+		if err.Error() == queryCancelled {
+			return nil, errQueryCancelled
+		}
+		return nil, fmt.Errorf("failed to select command: %w", err)
+	}
+	item, ok := selected.(list.CommandItem)
+	if !ok || item.Cmd == nil {
+		return nil, fmt.Errorf("unexpected command selection %T", selected)
+	}
+	return item.Cmd, nil
+}
 
-	if mode == "execute" {
-		if err := terminal.Execute(context.Background(), selectedCmd.Command); err != nil {
-			logger.Error("Failed to execute command", "error", err)
+func (s *querySession) refine(ctx context.Context) (bool, error) {
+	refined, err := readQueryInput(s.input, "Specify your request:")
+	if err != nil {
+		return false, err
+	}
+	if strings.TrimSpace(refined) == "" {
+		return true, writeQueryOutput(s.cmd.ErrOrStderr(), "The request cannot be empty.\n")
+	}
+	s.addRefinement(refined)
+	err = s.fetch(ctx)
+	if errors.Is(err, domain.ErrNoResponse) {
+		return true, writeQueryOutput(s.cmd.ErrOrStderr(), "\n⚠️  The AI did not provide a response. Please try rephrasing your request.\n")
+	}
+	if err != nil {
+		return false, err
+	}
+	return s.acceptResponse()
+}
+
+type queryDelivery struct {
+	command *domain.Command
+	mode    string
+	out     io.Writer
+	errOut  io.Writer
+	logger  *slog.Logger
+}
+
+func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
+	selected := delivery.command
+	if delivery.mode == executionModeExecute {
+		if err := terminal.Execute(ctx, selected.Command); err != nil {
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
-		if selectedCmd.IsDangerous {
-			fmt.Fprintf(os.Stderr, "\n⚠️  WARNING: %s\n", selectedCmd.DangerousExplanation)
+		return writeQueryWarning(delivery.errOut, selected)
+	}
+	if err := terminal.Inject(selected.Command); err != nil {
+		delivery.logger.Debug("Failed to inject command into terminal", "error", err)
+		if err := writeQueryOutput(delivery.out, "\n✓ Selected command:\n\n  %s\n\n", selected.Command); err != nil {
+			return err
 		}
-	} else {
-		if err := terminal.Inject(selectedCmd.Command); err != nil {
-			// Если не удалось вставить (не TTY, unsupported platform, или ioctl failed), просто выводим команду
-			logger.Debug("Failed to inject command into terminal", "error", err)
-			fmt.Fprintf(os.Stdout, "\n✓ Selected command:\n\n  %s\n\n", selectedCmd.Command)
-			if selectedCmd.IsDangerous {
-				fmt.Fprintf(os.Stdout, "⚠️  WARNING: %s\n\n", selectedCmd.DangerousExplanation)
-			}
-		} else {
-			logger.Debug("Command injected into terminal")
-			if selectedCmd.IsDangerous {
-				fmt.Fprintf(os.Stderr, "\n⚠️  WARNING: %s\n", selectedCmd.DangerousExplanation)
-			}
+		if selected.IsDangerous {
+			return writeQueryOutput(delivery.out, "⚠️  WARNING: %s\n\n", selected.DangerousExplanation)
 		}
+		return nil
 	}
+	return writeQueryWarning(delivery.errOut, selected)
+}
 
-	historySvc := service.New()
-	entry := service.HistoryEntry{
-		Timestamp:       time.Now(),
-		Prompt:          userPrompt,
-		Response:        response,
-		Provider:        provider.Name(),
-		Model:           provider.Model(),
-		SelectedCommand: selectedCmd.Command,
-		SelectedIndex:   selectedIndex,
+func writeQueryWarning(out io.Writer, selected *domain.Command) error {
+	if !selected.IsDangerous {
+		return nil
 	}
-	logger.Debug("Saving to history", "prompt", userPrompt, "provider", provider.Name())
-	if err := historySvc.Save(entry); err != nil {
-		logger.Warn("Failed to save to history", "error", err)
-		fmt.Fprintf(os.Stderr, "Warning: failed to save to history: %v\n", err)
-	} else {
-		logger.Info("Saved to history")
-	}
+	return writeQueryOutput(out, "\n⚠️  WARNING: %s\n", selected.DangerousExplanation)
+}
 
+func writeQueryOutput(out io.Writer, format string, args ...any) error {
+	if _, err := fmt.Fprintf(out, format, args...); err != nil {
+		return fmt.Errorf("write query output: %w", err)
+	}
 	return nil
 }

@@ -1,43 +1,204 @@
+
 version: "2"
 
 run:
   timeout: 5m
   tests: true
+  relative-path-mode: gomod
 
 linters:
-  default: all
-  disable:
-    - goconst
-    - gosmopolitan
-    - nestif
-    - promlinter
-    - maintidx
-    - cyclop
-    - funcorder
-    - depguard
-    - gocyclo
-    - err113
+  default: none
+
+  enable:
+    # Core correctness
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
     - errcheck
-    - exhaustruct
-    - exhaustruct_v5 # compatibility alias for exhaustruct on the installed v2 linter
+    - errorlint
+    - errchkjson
+    - errname
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - bodyclose
+    - durationcheck
+    - copyloopvar
+    - makezero
+    - wastedassign
+    - predeclared
+    - dogsled
+    - asasalint
+
+    # Security
+    - gosec
+    - bidichk
+    - nosprintfhostport
     - forcetypeassert
-    - funlen
-    - gochecknoglobals
+
+    # Context and resource management
+    - contextcheck
+    - fatcontext
+    - noctx
+    - sqlclosecheck
+    - rowserrcheck
+    - spancheck
+
+    # Code quality and AI-generated code
+    - gocritic
+    - goconst
     - gocognit
+    - nestif
+    - dupl
+    - iface
     - interfacebloat
-    - ireturn
-    - lll
-    - mnd
-    - nlreturn
-    - noinlineerr
-    - nonamedreturns
+    - exhaustive
+    - unparam
+
+    # API, naming and conventions
     - revive
     - tagliatelle
-    - varnamelen
+    - importas
+    - misspell
+    - dupword
+    - asciicheck
+    - godoclint
+    - goprintffuncname
+
+    # Error handling
     - wrapcheck
-    - wsl
-    - wsl_v5
-    - testpackage
-    - tagalign
-    - gosec
-    - exhaustive
+    - nolintlint
+
+    # Modern Go and standard library
+    - modernize
+    - intrange
+    - usestdlibvars
+    - perfsprint
+    - mirror
+    - prealloc
+    - unconvert
+
+    # SQL
+    - unqueryvet
+
+    # Tests
+    - thelper
+    - usetesting
+    - testifylint
+
+    # Prometheus
+    - promlinter
+
+    # Logging
+    - loggercheck
+
+    # Testing
+    - paralleltest
+
+    # Project conventions
+    - forbidigo
+
+    # Protobuf
+    - protogetter
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+    gocognit:
+      min-complexity: 20
+
+    nestif:
+      min-complexity: 5
+
+    interfacebloat:
+      max: 10
+
+    dogsled:
+      max-blank-identifiers: 2
+
+    nakedret:
+      max-func-lines: 0
+
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+
+    gosec:
+      severity: medium
+      confidence: medium
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+    unqueryvet:
+      check-sql-builders: true
+      check-aliased-wildcard: true
+      check-string-concat: true
+      check-format-strings: true
+      check-string-builder: true
+      check-subqueries: true
+      check-n1: false
+      check-sql-injection: false
+
+    promlinter:
+      strict: false
+
+    loggercheck:
+      require-string-key: true
+      no-printf-like: true
+
+    paralleltest:
+      ignore-missing: false
+      ignore-missing-subtests: true
+      check-cleanup: true
+
+    forbidigo:
+      analyze-types: true
+      exclude-godoc-examples: true
+      forbid:
+        # fmt output functions
+        - pattern: '^fmt\.(Print|Printf|Println)$'
+          msg: "Use the project logger instead of fmt output functions"
+
+        # Standard library log package
+        - pattern: '^log\.'
+          pkg: '^log$'
+          msg: "Use the project logger instead of the standard log package"
+
+    protogetter:
+      skip-any-generated: true
+
+  exclusions:
+    generated: strict
+
+    rules:
+      # Complexity thresholds should be less restrictive in tests.
+      - path: '(.+)_test\.go'
+        linters:
+          - gocognit
+          - nestif
+          - dupl
+
+      # Generated and mock code.
+      - path: '(^|/)(mock|mocks|generated|gen)/'
+        linters:
+          - revive
+          - goconst
+          - interfacebloat
+          - godoclint
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+  settings:
+    gofmt:
+      simplify: true

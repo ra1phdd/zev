@@ -1,3 +1,4 @@
+// Package repository persists script metadata and script files.
 package repository
 
 import (
@@ -14,6 +15,7 @@ type scriptYAML struct {
 	Description string `yaml:"description"`
 }
 
+// Repository stores script metadata and resolves the directory containing scripts.
 type Repository struct {
 	scriptsYAMLPath string
 	scriptsDir      string
@@ -60,7 +62,7 @@ func (r *Repository) LoadAll() (map[string]domain.Script, error) {
 
 // SaveAll сохраняет все метаданные скриптов в ~/.zev/scripts.
 func (r *Repository) SaveAll(scripts map[string]domain.Script) error {
-	if err := os.MkdirAll(filepath.Dir(r.scriptsYAMLPath), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(r.scriptsYAMLPath), 0o700); err != nil {
 		return fmt.Errorf("failed to create scripts dir: %w", err)
 	}
 
@@ -77,7 +79,7 @@ func (r *Repository) SaveAll(scripts map[string]domain.Script) error {
 		return fmt.Errorf("failed to marshal scripts: %w", err)
 	}
 
-	if err := os.WriteFile(r.scriptsYAMLPath, data, 0600); err != nil {
+	if err := os.WriteFile(r.scriptsYAMLPath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write %s: %w", r.scriptsYAMLPath, err)
 	}
 

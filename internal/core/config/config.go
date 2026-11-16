@@ -1,3 +1,4 @@
+// Package config loads and saves Zev settings from the environment and config file.
 package config
 
 import (
@@ -11,6 +12,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Config contains provider, HTTP, and command execution settings.
 type Config struct {
 	LLMProvider string            `env:"LLM_PROVIDER"`
 	HTTPHeaders map[string]string `env:"HTTP_HEADERS" envSeparator:","`
@@ -33,6 +35,7 @@ type Config struct {
 	ScriptEditor         string `env:"SCRIPT_EDITOR"`
 }
 
+// DefaultConfig returns a new configuration with default provider and CLI settings.
 func DefaultConfig() *Config {
 	return &Config{
 		LLMProvider: "openai",
@@ -50,6 +53,8 @@ func DefaultConfig() *Config {
 	}
 }
 
+// Load reads settings with environment values taking precedence over the config
+// file and defaults. It returns an error if file loading or environment parsing fails.
 func Load() (*Config, error) {
 	cfg := DefaultConfig()
 
@@ -71,10 +76,12 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
+// Save writes the nonzero fields of a non-nil cfg to the config file.
+// It returns an error if the directory cannot be created or the file cannot be written.
 func Save(cfg *Config) error {
 	configPath := getConfigPath()
 
-	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
 		return fmt.Errorf("failed to create config dir: %w", err)
 	}
 
@@ -113,7 +120,7 @@ func Save(cfg *Config) error {
 
 	content := strings.Join(lines, "\n") + "\n"
 
-	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o600); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
@@ -121,11 +128,11 @@ func Save(cfg *Config) error {
 }
 
 var getConfigPath = func() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".zev", "config")
+	return filepath.Join(GetZevDir(), "config")
 }
 
-// SetConfigPathForTests заменяет getConfigPath для тестов и возвращает старое значение.
+// SetConfigPathForTests overrides the config path and returns its previous value.
+// It changes global state and must not be called concurrently with config operations.
 func SetConfigPathForTests(newPath string) string {
 	old := getConfigPath()
 	getConfigPath = func() string {
@@ -134,9 +141,13 @@ func SetConfigPathForTests(newPath string) string {
 	return old
 }
 
-// GetZevDir возвращает путь к директории ~/.zev.
+// GetZevDir returns the path to ~/.zev. If the home directory is unavailable,
+// it returns the relative path .zev.
 func GetZevDir() string {
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ".zev"
+	}
 	return filepath.Join(home, ".zev")
 }
 

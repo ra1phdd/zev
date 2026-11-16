@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -19,19 +21,21 @@ func newHistoryCmd() *cobra.Command {
 	}
 }
 
-func runHistory(cmd *cobra.Command, args []string) error {
+func runHistory(cmd *cobra.Command, _ []string) error {
 	historySvc := service.New()
 	entries, err := historySvc.LoadAll()
 	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Fprintln(os.Stdout, "No history found. Run some queries first!")
-			return nil
+		if errors.Is(err, os.ErrNotExist) {
+			entries = nil
+		} else {
+			return fmt.Errorf("failed to load history: %w", err)
 		}
-		return fmt.Errorf("failed to load history: %w", err)
 	}
 
 	if len(entries) == 0 {
-		fmt.Fprintln(os.Stdout, "No history found. Run some queries first!")
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), "No history found. Run some queries first!"); err != nil {
+			return fmt.Errorf("write empty history: %w", err)
+		}
 		return nil
 	}
 
@@ -65,7 +69,7 @@ func runHistory(cmd *cobra.Command, args []string) error {
 		Items: items,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("select history entry: %w", err)
 	}
 
 	var selectedIdx int
@@ -77,12 +81,14 @@ func runHistory(cmd *cobra.Command, args []string) error {
 	}
 
 	selectedEntry := reversedEntries[selectedIdx]
-	return showHistoryDetails(&selectedEntry)
+	return showHistoryDetails(&selectedEntry, cmd.OutOrStdout())
 }
 
-func showHistoryDetails(entry *service.HistoryEntry) error {
+func showHistoryDetails(entry *service.HistoryEntry, out io.Writer) error {
 	if entry.Response == nil || len(entry.Response.Commands) == 0 {
-		fmt.Fprintln(os.Stdout, "No commands in this entry")
+		if _, err := fmt.Fprintln(out, "No commands in this entry"); err != nil {
+			return fmt.Errorf("write empty history entry: %w", err)
+		}
 		return nil
 	}
 
@@ -120,7 +126,7 @@ func showHistoryDetails(entry *service.HistoryEntry) error {
 		Items: items,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("select history command: %w", err)
 	}
 
 	var selectedIdx int
@@ -133,7 +139,9 @@ func showHistoryDetails(entry *service.HistoryEntry) error {
 	selectedCommand := entry.Response.Commands[selectedIdx].Command
 
 	if err := terminal.Inject(selectedCommand); err != nil {
-		fmt.Fprintf(os.Stdout, "\n✓ Selected command:\n\n  %s\n\n", selectedCommand)
+		if _, err := fmt.Fprintf(out, "\n✓ Selected command:\n\n  %s\n\n", selectedCommand); err != nil {
+			return fmt.Errorf("write selected history command: %w", err)
+		}
 	}
 
 	return nil

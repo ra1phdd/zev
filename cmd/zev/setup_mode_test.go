@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,97 +11,70 @@ import (
 	"github.com/ra1phdd/zev/internal/core/config"
 )
 
-//nolint:paralleltest // меняет глобальную config.getConfigPath
+// Tests change the process environment and global configuration path.
 func TestSetupMode(t *testing.T) {
 	tests := []struct {
-		name    string
-		args    []string
-		wantErr bool
-		wantOut string
+		name       string
+		args       []string
+		wantErr    bool
+		wantOut    string
+		failOutput bool
 	}{
 		{
 			name:    "valid inject mode",
-			args:    []string{"inject"},
-			wantErr: false,
-			wantOut: "",
+			args:    []string{executionModeInject},
+			wantOut: "✓ Command execution mode set to: inject\n",
 		},
 		{
 			name:    "valid execute mode",
-			args:    []string{"execute"},
-			wantErr: false,
-			wantOut: "",
+			args:    []string{executionModeExecute},
+			wantOut: "✓ Command execution mode set to: execute\n",
 		},
-		{
-			name:    "invalid mode",
-			args:    []string{"invalid"},
-			wantErr: true,
-			wantOut: "",
-		},
-		{
-			name:    "show current mode",
-			args:    []string{},
-			wantErr: false,
-			wantOut: "Current command execution mode: inject\n",
-		},
+		{name: "invalid mode", args: []string{"invalid"}, wantErr: true},
+		{name: "show current mode", wantOut: "Current command execution mode: inject\n"},
+		{name: "current mode output error", wantErr: true, failOutput: true},
+		{name: "confirmation output error", args: []string{executionModeExecute}, wantErr: true, failOutput: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Очищаем переменные окружения перед каждым тестом
-			os.Unsetenv("COMMAND_EXECUTION_MODE")
+			// Preserve the caller's environment even though loading dotenv sets it.
+			t.Setenv("COMMAND_EXECUTION_MODE", "")
+			if err := os.Unsetenv("COMMAND_EXECUTION_MODE"); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(t.TempDir(), "config")
+			originalPath := config.SetConfigPathForTests(path)
+			t.Cleanup(func() { config.SetConfigPathForTests(originalPath) })
 
-			// Создаём временную директорию для конфига
-			tmpDir := t.TempDir()
-			tmpConfigPath := filepath.Join(tmpDir, "config")
-
-			// Подменяем config.getConfigPath на время теста
-			originalGetConfigPath := config.SetConfigPathForTests(tmpConfigPath)
-			t.Cleanup(func() {
-				config.SetConfigPathForTests(originalGetConfigPath)
-			})
-
-			// Создаём дефолтный конфиг
-			cfg := config.DefaultConfig()
-			if err := config.Save(cfg); err != nil {
+			if err := config.Save(config.DefaultConfig()); err != nil {
 				t.Fatalf("failed to save default config: %v", err)
 			}
 
-			// Перенаправляем stdout если нужно проверить вывод
-			var oldStdout *os.File
-			var r *os.File
-			if tt.wantOut != "" {
-				oldStdout = os.Stdout
-				var w *os.File
-				r, w, _ = os.Pipe()
-				os.Stdout = w
-			}
-
-			// Создаём команду и запускаем
+			var out bytes.Buffer
+			outputErr := errors.New("mode output unavailable")
 			cmd := newSetupModeCmd()
 			cmd.SetArgs(tt.args)
+			cmd.SetErr(io.Discard)
+			cmd.SetOut(&out)
+			if tt.failOutput {
+				cmd.SetOut(failingOutput{err: outputErr})
+			}
 			err := cmd.Execute()
-
-			// Восстанавливаем stdout и читаем вывод
-			if tt.wantOut != "" {
-				os.Stdout.Close()
-				os.Stdout = oldStdout
-				buf := make([]byte, 1024)
-				n, _ := r.Read(buf)
-				output := string(buf[:n])
-				if output != tt.wantOut {
-					t.Errorf("unexpected output: got %q, want %q", output, tt.wantOut)
-				}
-			}
-
 			if (err != nil) != tt.wantErr {
-				t.Errorf("runSetupMode() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("Execute() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.failOutput && !errors.Is(err, outputErr) {
+				t.Errorf("Execute() error = %v, want output error", err)
+			}
+			if !tt.wantErr && out.String() != tt.wantOut {
+				t.Errorf("unexpected output: got %q, want %q", out.String(), tt.wantOut)
 			}
 
-			// Если не должно быть ошибки и это не показ текущего режима, проверяем сохранённое значение
-			if !tt.wantErr && len(tt.args) > 0 {
-				// Очищаем переменные окружения чтобы Load() читал из файла
-				os.Unsetenv("COMMAND_EXECUTION_MODE")
-
+			if len(tt.args) > 0 && (!tt.wantErr || tt.failOutput) {
+				if err := os.Unsetenv("COMMAND_EXECUTION_MODE"); err != nil {
+					t.Fatal(err)
+				}
 				loadedCfg, err := config.Load()
 				if err != nil {
 					t.Fatalf("failed to load config after save: %v", err)

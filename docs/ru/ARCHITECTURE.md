@@ -9,43 +9,51 @@
 Zev — небольшая Go-утилита, построенная как **vertical slices с ports and adapters**.
 
 ```
-cmd/zev/                        composition root (команды Cobra)
+cmd/zev/                        команды Cobra, создание зависимостей и оркестрация
 internal/core/
   domain/                       доменные типы, интерфейс InferenceProvider, ошибки
-  config/                       загрузка ~/.zevrc (godotenv + caarlos0/env)
+  config/                       загрузка ~/.zev/config (godotenv + caarlos0/env)
+  httpclient/                   общий HTTP-клиент и транспорт
 internal/entities/
   query/
-    service/                    use case: сбор контекста, запрос провайдера, запись истории
+    service/                    проверка запроса и контекст окружения
     repository/openai/          OpenAI и OpenAI-совместимые провайдеры
     repository/gemini/          Google Gemini (raw HTTP + JSON response schema)
     repository/anthropic/       Anthropic Claude
     repository/ollama/          Ollama (переиспользует OpenAI-адаптер)
     repository/opencode/        OpenCode (SSE streaming, tool calls)
     repository/factory/         выбор провайдера по конфигу
-    system_prompt.txt           системный промпт (go:embed)
-    user_prompt.txt             шаблон промпта запроса (go:embed)
+    repository/system_prompt.txt  встроенный системный промпт
+    repository/user_prompt.txt    встроенный шаблон запроса
   history/service/              JSONL-история, 100 записей, авто-ротация
-  alias/service/                алиасы команд с подстановкой аргументов
-  script/service/               метаданные и файлы bash-скриптов
+  alias/{service,repository}/   подстановка аргументов и YAML-хранилище
+  script/{service,repository}/  bash-скрипты, метаданные, редактор и выполнение
   setup/service/                интерактивный TUI-мастер настройки
-pkg/tui/prompt/                 ввод текста и выбор (Bubble Tea)
-pkg/tui/selector/               выбор подсказки с предупреждениями
-pkg/tui/list/                  generic-рендерер списков
-pkg/terminal/                   буфер обмена и помощники терминала
+pkg/tui/prompt/                 ввод текста с переносами
+pkg/tui/list/                   списки и предупреждения для команд
+pkg/terminal/                   shell и платформенная вставка в терминал
 ```
 
 ## Путь запроса
 
-1. `cmd/zev` разбирает запрос (парсинг флагов на корневой команде отключён, чтобы
-   алиасы с флагами работали корректно).
-2. `query/service` собирает контекст окружения (ОС, шелл, cwd, установленные утилиты) и
-   собирает промпт из `user_prompt.txt`.
-3. `factory.NewProvider` создаёт реализацию `InferenceProvider` согласно `LLM_PROVIDER`.
-4. Провайдер возвращает `OptionsResponse` с максимум тремя `Command`, у каждой — краткое
-   пояснение и флаг `IsDangerous`.
-5. Селектор отрисовывает варианты; выбранная команда подставляется в терминал или
-   выполняется — в зависимости от `--execute` / `--inject` / `COMMAND_EXECUTION_MODE`.
-6. Обмен записывается в `~/.zevhistory`.
+1. `cmd/zev/query.go` вручную разбирает флаги корневой команды и загружает конфигурацию.
+2. Сначала ищется алиас, затем сохранённый скрипт. Совпадение выполняется напрямую;
+   только оставшийся ввод передаётся LLM.
+3. CLI создаёт HTTP-клиент и вызывает `factory.NewProvider`. Сервис запроса собирает
+   ОС, архитектуру, shell, user, home и cwd; CLI формирует начальный диалог
+   из встроенных промптов. Установленные утилиты не сканируются.
+4. CLI вызывает `InferenceProvider.GetOptionsWithHistory`. Провайдеры декодируют
+   `OptionsResponse`; промпты запрашивают до трёх независимых вариантов с пояснениями
+   и флагами опасности. Декодер не проверяет этот лимит.
+5. `inject` показывает варианты и позволяет уточнять запрос с историей диалога
+   в памяти. Выбранная команда вставляется в терминал либо печатается, если
+   вставка не поддерживается или запрещена.
+6. `execute` выполняет первый вариант без выбора и подтверждения. Предупреждение
+   печатается после выполнения, а не используется как защитный барьер.
+7. CLI сохраняет ответ и выбранную команду в `~/.zev/history`.
+
+Оркестрация диалога, выбор, выполнение и запись истории сейчас находятся в CLI,
+а не в `query/service`.
 
 ## Ports и adapters
 
@@ -60,15 +68,16 @@ type InferenceProvider interface {
 }
 ```
 
-Интерфейсы объявляются на стороне потребителя; только `cmd/zev` знает о конкретных
-адаптерах. Чтобы добавить провайдера, достаточно создать один пакет в
-`internal/entities/query/repository/` и добавить один `case` в фабрику.
+Фабрика импортирует конкретные адаптеры провайдеров. Сервисы алиасов и скриптов
+пока используют конкретные репозитории.
+История работает с файлами внутри сервиса, без отдельного адаптера репозитория.
 
 ## Особенности провайдеров
 
 - **OpenAI** — `github.com/sashabaranov/go-openai`, поддерживает кастомный base URL для
   любого OpenAI-совместимого роутера.
 - **Gemini** — raw HTTP с JSON-схемой ответа.
+- **Anthropic** — `github.com/liushuangls/go-anthropic/v2`.
 - **Ollama** — переиспользует OpenAI-адаптер для локального эндпоинта.
 - **OpenCode** — прямой HTTP-клиент: `stream: true`, функция-инструмент `read`,
   `stream_options.include_usage`, разбор SSE с накоплением `delta.content` и
@@ -79,10 +88,14 @@ type InferenceProvider interface {
 1. Создать `internal/entities/query/repository/<name>/`, реализующий
    `domain.InferenceProvider`.
 2. Добавить поля конфигурации (ключ, модель, base URL) в `internal/core/config`.
-3. Добавить `case` в `factory.NewProvider`.
+3. Добавить `case` в `factory.NewProvider`, обновить setup/выбор провайдера и обе
+   версии документации конфигурации.
 4. Покрыть юнит-тестами на `httptest`.
 
 ## Тесты
 
-Юнит-тесты лежат рядом с проверяемым кодом. Integration-тесты используют build tag
-`integration` и запускаются отдельно. `make check` запускает линтер и весь набор тестов.
+Тесты лежат рядом с кодом. `make check` запускает проверки форматирования, линтер,
+отчёт deadcode приложения, vet и обычные unit-тесты; `make test-race` — отдельно.
+Цели tagged-тестов существуют, но в отслеживаемых тестах пока нет наборов
+`integration`, `e2e` или `manual`. Команды описаны в [DEVELOPMENT.md](DEVELOPMENT.md),
+эксплуатационные ограничения — в [PROJECT.md](../../PROJECT.md).

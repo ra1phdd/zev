@@ -1,11 +1,15 @@
+// Package httpclient provides HTTP clients with headers and bounded retries.
 package httpclient
 
 import (
+	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 )
 
-func New(headers map[string]string) *http.Client {
+// New creates an HTTP client with custom headers and retry handling.
+func New(headers map[string]string, logger ...*slog.Logger) *http.Client {
 	if headers == nil {
 		headers = make(map[string]string)
 	}
@@ -16,13 +20,20 @@ func New(headers map[string]string) *http.Client {
 
 	transport := &headersTransport{
 		headers: headers,
-		base:    http.DefaultTransport,
+		base:    newRetryTransport(http.DefaultTransport, firstLogger(logger), nil),
 	}
 
 	return &http.Client{
 		Transport: transport,
 		Timeout:   30 * time.Second,
 	}
+}
+
+func firstLogger(loggers []*slog.Logger) *slog.Logger {
+	if len(loggers) == 0 {
+		return slog.New(slog.DiscardHandler)
+	}
+	return loggers[0]
 }
 
 type headersTransport struct {
@@ -37,5 +48,12 @@ func (t *headersTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		reqCopy.Header[key] = []string{value}
 	}
 
-	return t.base.RoundTrip(reqCopy)
+	return wrapRoundTripResponse(t.base.RoundTrip(reqCopy))
+}
+
+func wrapRoundTripResponse(resp *http.Response, err error) (*http.Response, error) {
+	if err == nil {
+		return resp, nil
+	}
+	return resp, fmt.Errorf("HTTP round trip: %w", err)
 }

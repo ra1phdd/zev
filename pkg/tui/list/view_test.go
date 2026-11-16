@@ -65,7 +65,7 @@ func TestViewWithWindowSizeMsg(t *testing.T) {
 
 	// Обновляем ширину через WindowSizeMsg
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 24})
-	m = updated.(model)
+	m = requireModel(t, updated)
 
 	if m.width != 120 {
 		t.Errorf("Expected width 120 after WindowSizeMsg, got %d", m.width)

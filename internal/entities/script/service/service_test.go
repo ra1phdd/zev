@@ -1,4 +1,4 @@
-package service_test
+package service
 
 import (
 	"os"
@@ -6,18 +6,17 @@ import (
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/entities/script/repository"
-	"github.com/ra1phdd/zev/internal/entities/script/service"
 )
 
 // newTestService создаёт сервис скриптов с репозиторием во временной директории.
 // t.TempDir() уникален для каждого теста, поэтому тесты изолированы и не
 // разделяют глобальное состояние.
-func newTestService(t *testing.T) (*service.Service, string) {
+func newTestService(t *testing.T) (*Service, string) {
 	t.Helper()
 
 	tmpDir := t.TempDir()
 
-	return service.New(repository.New(tmpDir)), tmpDir
+	return New(repository.New(tmpDir)), tmpDir
 }
 
 func TestServiceCreate(t *testing.T) {
@@ -151,9 +150,7 @@ func TestServiceChooseEditor(t *testing.T) {
 
 			svc, _ := newTestService(t)
 
-			// Используем рефлексию для доступа к приватному методу
-			// (в продакшене это не нужно, но для тестирования полезно)
-			result := svc.ChooseEditorForTest()
+			result := svc.chooseEditor()
 
 			if tt.expectNonEmpty && result == "" {
 				t.Error("Expected non-empty editor, got empty string")

@@ -8,6 +8,12 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
+const (
+	testCommand  = "ls -la"
+	testProvider = "test"
+	testModel    = "test-model"
+)
+
 // mockProvider для тестов.
 type mockProvider struct {
 	name     string
@@ -16,14 +22,14 @@ type mockProvider struct {
 	err      error
 }
 
-func (m *mockProvider) GetOptions(_ context.Context, prompt, _ string) (*domain.OptionsResponse, error) {
+func (m *mockProvider) GetOptions(_ context.Context, _ string, _ string) (*domain.OptionsResponse, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return m.response, nil
 }
 
-func (m *mockProvider) GetOptionsWithHistory(_ context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
+func (m *mockProvider) GetOptionsWithHistory(_ context.Context, _ *domain.ConversationHistory) (*domain.OptionsResponse, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -43,7 +49,7 @@ func TestGetOptions(t *testing.T) {
 	mockResp := &domain.OptionsResponse{
 		Commands: []domain.Command{
 			{
-				Command:          "ls -la",
+				Command:          testCommand,
 				ShortExplanation: "List all files",
 				IsDangerous:      false,
 			},
@@ -52,8 +58,8 @@ func TestGetOptions(t *testing.T) {
 	}
 
 	mock := &mockProvider{
-		name:     "test",
-		model:    "test-model",
+		name:     testProvider,
+		model:    testModel,
 		response: mockResp,
 	}
 
@@ -66,7 +72,7 @@ func TestGetOptions(t *testing.T) {
 	if len(resp.Commands) != 1 {
 		t.Errorf("expected 1 command, got %d", len(resp.Commands))
 	}
-	if resp.Commands[0].Command != "ls -la" {
+	if resp.Commands[0].Command != testCommand {
 		t.Errorf("expected command='ls -la', got %s", resp.Commands[0].Command)
 	}
 }
@@ -74,8 +80,8 @@ func TestGetOptions(t *testing.T) {
 func TestGetOptionsEmptyPrompt(t *testing.T) {
 	t.Parallel()
 	mock := &mockProvider{
-		name:  "test",
-		model: "test-model",
+		name:  testProvider,
+		model: testModel,
 	}
 
 	srv := New(mock)
@@ -88,8 +94,8 @@ func TestGetOptionsEmptyPrompt(t *testing.T) {
 func TestGetEnvContext(t *testing.T) {
 	t.Parallel()
 	mock := &mockProvider{
-		name:  "test",
-		model: "test-model",
+		name:  testProvider,
+		model: testModel,
 	}
 
 	srv := New(mock)

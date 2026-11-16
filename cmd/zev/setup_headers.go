@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"strings"
 
 	"github.com/ra1phdd/zev/internal/core/config"
@@ -28,61 +28,37 @@ Format: "Header-Name:Header-Value" (one per line, empty line to finish)`,
 	}
 }
 
-func runSetupHeaders(_ *cobra.Command, _ []string) error {
+func runSetupHeaders(cmd *cobra.Command, _ []string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	fmt.Fprintln(os.Stdout, "\n📋 Current HTTP headers:")
-	if len(cfg.HTTPHeaders) == 0 {
-		fmt.Fprintln(os.Stdout, "  (none set)")
-	} else {
-		for key, value := range cfg.HTTPHeaders {
-			fmt.Fprintf(os.Stdout, "  %s: %s\n", key, value)
-		}
+	out := cmd.OutOrStdout()
+	if err := showHTTPHeaders(out, "\n📋 Current HTTP headers:", cfg.HTTPHeaders); err != nil {
+		return err
 	}
 
-	fmt.Fprintln(os.Stdout, "\n✏️  Enter headers one per line in format 'Header-Name:Header-Value'")
-	fmt.Fprintln(os.Stdout, "   Press Enter on empty line to finish")
-	fmt.Fprintln(os.Stdout, "   Common headers:")
-	fmt.Fprintln(os.Stdout, "     User-Agent:zev/1.0")
-	fmt.Fprintln(os.Stdout, "     X-Custom-Header:custom-value")
-	fmt.Fprintln(os.Stdout, "     Authorization:Bearer token123")
-	fmt.Fprintln(os.Stdout, "")
+	if _, err := fmt.Fprint(out, `
+✏️  Enter headers one per line in format 'Header-Name:Header-Value'
+   Press Enter on empty line to finish
+   Common headers:
+     User-Agent:zev/1.0
+     X-Custom-Header:custom-value
+     Authorization:Bearer ***
 
-	newHeaders := make(map[string]string)
-	for {
-		line, err := prompt.Input("Header (empty to finish):")
-		if err != nil {
-			return err
-		}
-
-		line = strings.TrimSpace(line)
-		if line == "" {
-			break
-		}
-
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			fmt.Fprintln(os.Stdout, "⚠️  Invalid format. Use 'Header-Name:Header-Value'")
-			continue
-		}
-
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		if key == "" {
-			fmt.Fprintln(os.Stdout, "⚠️  Header name cannot be empty")
-			continue
-		}
-
-		newHeaders[key] = value
-		fmt.Fprintf(os.Stdout, "✅ Added: %s: %s\n", key, value)
+`); err != nil {
+		return fmt.Errorf("write header instructions: %w", err)
 	}
 
+	newHeaders, err := readHTTPHeaders(out)
+	if err != nil {
+		return err
+	}
 	if len(newHeaders) == 0 {
-		fmt.Fprintln(os.Stdout, "\n⚠️  No headers entered. Configuration unchanged.")
+		if _, err := fmt.Fprintln(out, "\n⚠️  No headers entered. Configuration unchanged."); err != nil {
+			return fmt.Errorf("write unchanged header confirmation: %w", err)
+		}
 		return nil
 	}
 	cfg.HTTPHeaders = newHeaders
@@ -91,11 +67,62 @@ func runSetupHeaders(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Fprintln(os.Stdout, "\n✅ HTTP headers updated successfully!")
-	fmt.Fprintln(os.Stdout, "\n📋 New headers:")
-	for key, value := range cfg.HTTPHeaders {
-		fmt.Fprintf(os.Stdout, "  %s: %s\n", key, value)
+	if _, err := fmt.Fprintln(out, "\n✅ HTTP headers updated successfully!"); err != nil {
+		return fmt.Errorf("write header confirmation: %w", err)
 	}
+	return showHTTPHeaders(out, "\n📋 New headers:", cfg.HTTPHeaders)
+}
 
+func showHTTPHeaders(out io.Writer, title string, headers map[string]string) error {
+	if _, err := fmt.Fprintln(out, title); err != nil {
+		return fmt.Errorf("write header list title: %w", err)
+	}
+	if len(headers) == 0 {
+		if _, err := fmt.Fprintln(out, "  (none set)"); err != nil {
+			return fmt.Errorf("write empty header list: %w", err)
+		}
+		return nil
+	}
+	for key, value := range headers {
+		if _, err := fmt.Fprintf(out, "  %s: %s\n", key, value); err != nil {
+			return fmt.Errorf("write HTTP header %q: %w", key, err)
+		}
+	}
 	return nil
+}
+
+func readHTTPHeaders(out io.Writer) (map[string]string, error) {
+	headers := make(map[string]string)
+	for {
+		line, err := prompt.Input("Header (empty to finish):")
+		if err != nil {
+			return nil, fmt.Errorf("read HTTP header: %w", err)
+		}
+
+		line = strings.TrimSpace(line)
+		if line == "" {
+			return headers, nil
+		}
+
+		name, value, ok := strings.Cut(line, ":")
+		if !ok {
+			if _, err := fmt.Fprintln(out, "⚠️  Invalid format. Use 'Header-Name:Header-Value'"); err != nil {
+				return nil, fmt.Errorf("write invalid header warning: %w", err)
+			}
+			continue
+		}
+		name = strings.TrimSpace(name)
+		value = strings.TrimSpace(value)
+		if name == "" {
+			if _, err := fmt.Fprintln(out, "⚠️  Header name cannot be empty"); err != nil {
+				return nil, fmt.Errorf("write empty header warning: %w", err)
+			}
+			continue
+		}
+
+		headers[name] = value
+		if _, err := fmt.Fprintf(out, "✅ Added: %s: %s\n", name, value); err != nil {
+			return nil, fmt.Errorf("write added header confirmation: %w", err)
+		}
+	}
 }

@@ -1,3 +1,4 @@
+// Package prompt provides interactive terminal text input.
 package prompt
 
 import (
@@ -9,7 +10,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Input показывает текстовый промпт и возвращает введённое значение.
+// Input displays promptText and returns the submitted value with whitespace trimmed.
+// It returns an error on cancellation or terminal UI failure.
 func Input(promptText string) (string, error) {
 	ti := textinput.New()
 	ti.Placeholder = promptText
@@ -23,10 +25,13 @@ func Input(promptText string) (string, error) {
 	p := tea.NewProgram(m)
 	result, err := p.Run()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("run input UI: %w", err)
 	}
 
-	finalModel := result.(inputModel)
+	finalModel, ok := result.(inputModel)
+	if !ok {
+		return "", fmt.Errorf("unexpected input model type %T", result)
+	}
 	if finalModel.cancelled {
 		return "", errors.New("cancelled")
 	}
@@ -95,6 +100,8 @@ func (m inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			m.cancelled = true
 			return m, tea.Quit
+		default:
+			// Forward editing keys to the text input below.
 		}
 	}
 

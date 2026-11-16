@@ -6,11 +6,12 @@
 
 # Configuration
 
-Zev reads its configuration from `~/.zevrc` — a plain `KEY=VALUE` file loaded with
+Zev reads its configuration from `~/.zev/config` — a plain `KEY=VALUE` file loaded with
 [godotenv](https://github.com/joho/godotenv) and parsed with
 [caarlos0/env](https://github.com/caarlos0/env/v11).
 
-The file is created and updated by `zev setup`:
+Existing environment variables take precedence over the file; defaults apply
+when neither supplies a value. The file is created and updated by `zev setup`:
 
 ```bash
 zev setup              # interactive wizard
@@ -21,19 +22,19 @@ zev setup headers      # custom HTTP headers
 ## Defaults
 
 Values below are applied by `config.DefaultConfig()` when the corresponding key is
-absent from `~/.zevrc`.
+absent from `~/.zev/config`.
 
 | Key | Default |
 |---|---|
 | `LLM_PROVIDER` | `openai` |
-| `OpenAIModel` | `gpt-5.6-luna` |
+| `OPENAI_MODEL` | `gpt-5.6-luna` |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` |
 | `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com` |
-| `GeminiModel` | `gemini-3.1-flash-lite` |
+| `GEMINI_MODEL` | `gemini-3.1-flash-lite` |
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com/v1` |
-| `AnthropicModel` | `claude-haiku-5.5` |
+| `ANTHROPIC_MODEL` | `claude-haiku-5.5` |
 | `COMMAND_EXECUTION_MODE` | `inject` |
-| `ScriptEditor` | `nano` |
+| `SCRIPT_EDITOR` | `nano` |
 
 ## Variables
 
@@ -78,17 +79,32 @@ absent from `~/.zevrc`.
 
 | Variable | Description |
 |---|---|
-| `COMMAND_EXECUTION_MODE` | `inject` copies the selected command to the clipboard-style prompt; `execute` runs it immediately |
+| `COMMAND_EXECUTION_MODE` | `inject` attempts to insert the command into terminal input; `execute` runs the first suggestion immediately |
 | `SCRIPT_EDITOR` | Editor used by `zev script create` |
 | `HTTP_HEADERS` | Comma-separated `Key:Value` pairs added to every provider request. Key case is preserved |
+| Retry policy | Provider requests retry up to 3 times for HTTP `429` and `5xx` responses. Backoff is exponential (`1s`, `2s`, `4s`); a valid `Retry-After` header can extend the delay, and the delay is capped at 30 seconds. Retries are logged at warning level; the final failure is logged at error level. |
+
+## Provider request retries
+
+All five providers use the same retrying HTTP client for both single queries and
+conversation history. There are at most four attempts: the original request plus
+three retries. The existing 30-second client timeout covers all attempts, backoff
+and response reading, so a timeout or cancellation can stop the operation earlier.
+Other `4xx` responses and malformed successful JSON are not retried. A stream
+that has already returned HTTP `200` is not restarted if it breaks while reading.
+Retry warnings are visible without `-v`; URLs, API keys and payloads are not
+included in retry logs. These defaults require no extra configuration.
 
 ## Command execution mode
 
-`zev setup mode` controls what happens after you pick a suggestion in the selector:
+`zev setup mode` controls how suggestions are handled:
 
-- `inject` (default) — the command is placed in your terminal, you review it and press Enter.
-- `execute` — the command is executed right away. Use it only if you fully trust the
-  suggestions; dangerous commands are flagged with a warning either way.
+- `inject` (default) — select a suggestion, then review the inserted command and press
+  Enter. If terminal injection is unsupported or denied, Zev prints the command instead.
+- `execute` — the **first suggestion** runs immediately, without a selector or
+  confirmation. The danger warning is printed after execution; it is not a safety gate.
+
+Aliases and saved scripts execute directly, independently of this setting.
 
 ## Editor resolution for `zev script create`
 
@@ -96,14 +112,15 @@ absent from `~/.zevrc`.
 2. `$EDITOR`
 3. first available binary from `nano`, `vim`, `vi`
 
-If no editor is found, Zev prints the path of the created file instead of failing.
+If no editor is found, Zev returns an error containing the created file path.
 
 ## Files on disk
 
 | Path | Contents |
 |---|---|
-| `~/.zevrc` | Configuration, `KEY=VALUE` lines |
-| `~/.zevhistory` | Query history, JSONL, rotated at 100 entries |
+| `~/.zev/config` | Configuration, `KEY=VALUE` lines |
+| `~/.zev/history` | Query history, JSONL, rotated at 100 entries |
+| `~/.zev/aliases` | Alias templates, YAML |
 | `~/.zev/scripts` | Script metadata, YAML |
 | `~/.zev/script_files` | Script bodies |
 
