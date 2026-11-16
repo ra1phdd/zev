@@ -307,6 +307,51 @@ func (s *Store) GetConversation(ctx context.Context, id string) (view service.Co
 	return view, nil
 }
 
+// LastUsedCommand returns the newest user-selected command whose delivery was
+// observed as injected, printed, or executed successfully.
+func (s *Store) LastUsedCommand(ctx context.Context) (service.Command, error) {
+	var c service.Command
+	var selected, executed sql.NullString
+	var exit sql.NullInt64
+	err := s.db.QueryRowContext(ctx, `
+SELECT c.id,c.response_id,c.conversation_id,c.ordinal,c.command,c.short_explanation,c.is_dangerous,
+       c.dangerous_explanation,c.selected_at,c.executed_at,c.execution_exit_code,c.execution_error,c.delivery_outcome
+FROM commands c
+JOIN conversations v ON v.id=c.conversation_id
+WHERE v.selected_command_id=c.id AND v.status='completed'
+  AND c.selected_at IS NOT NULL
+  AND trim(c.command, char(9)||char(10)||char(11)||char(12)||char(13)||' ') <> ''
+  AND ((c.delivery_outcome IN ('injected','printed'))
+       OR (c.delivery_outcome='executed' AND COALESCE(c.execution_exit_code,1)=0 AND c.execution_error=''))
+ORDER BY c.selected_at DESC, c.id DESC LIMIT 1`).Scan(
+		&c.ID, &c.ResponseID, &c.ConversationID, &c.Ordinal, &c.Command,
+		&c.ShortExplanation, &c.IsDangerous, &c.DangerousExplanation,
+		&selected, &executed, &exit, &c.ExecutionError, &c.DeliveryOutcome,
+	)
+	if err != nil {
+		return c, missing(err)
+	}
+	if selected.Valid {
+		parsed, parseErr := parseTime(selected.String)
+		if parseErr != nil {
+			return c, historyError(parseErr)
+		}
+		c.SelectedAt = &parsed
+	}
+	if executed.Valid {
+		parsed, parseErr := parseTime(executed.String)
+		if parseErr != nil {
+			return c, historyError(parseErr)
+		}
+		c.ExecutedAt = &parsed
+	}
+	if exit.Valid {
+		value := int(exit.Int64)
+		c.ExecutionExitCode = &value
+	}
+	return c, nil
+}
+
 // ListConversations returns a bounded newest-first page using a timestamp/ID cursor.
 func (s *Store) ListConversations(ctx context.Context, in service.ListRequest) ([]service.Conversation, error) {
 	if in.Limit <= 0 || in.Limit > 1000 {

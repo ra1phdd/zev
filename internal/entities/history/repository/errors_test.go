@@ -47,7 +47,7 @@ func TestClassifyStorageErrorTypedMappings(t *testing.T) {
 		want  error
 		text  string
 	}{
-		{name: "cancelled", input: fmt.Errorf("operation payload: %w", context.Canceled), want: service.ErrCancelled, text: "history operation cancelled"},
+		{name: cancelledFixture, input: fmt.Errorf("operation payload: %w", context.Canceled), want: service.ErrCancelled, text: "history operation cancelled"},
 		{name: "deadline", input: context.DeadlineExceeded, want: service.ErrCancelled, text: "history operation cancelled"},
 		{name: "not found", input: fmt.Errorf("query payload: %w", sql.ErrNoRows), want: service.ErrNotFound, text: "history not found"},
 		{name: "busy", input: busy, want: service.ErrBusy, text: "history storage busy"},

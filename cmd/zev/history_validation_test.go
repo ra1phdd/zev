@@ -78,7 +78,7 @@ func TestHistoryShowEscapesStoredControlsWithoutExecutingCommands(t *testing.T) 
 		t.Fatal(err)
 	}
 	if _, err := store.RecordResponse(t.Context(), service.RecordResponseInput{
-		Message: service.Message{ID: "message-2", Role: "assistant", Kind: "response", Content: historyValidationPayload},
+		Message: service.Message{ID: "message-2", Role: queryAssistantRole, Kind: "response", Content: historyValidationPayload},
 		Response: service.Response{
 			ID: "response-1", ConversationID: historyValidationConversationID, PayloadJSON: historyValidationPayload,
 			IsValid: true, Commands: []service.Command{{ID: "command-1", Command: unsafeText}},

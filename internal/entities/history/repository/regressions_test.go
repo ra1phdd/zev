@@ -110,7 +110,7 @@ func TestRecordSelectionDoesNotRegressExecutedCommand(t *testing.T) {
 	}
 	executed := selected.Add(time.Minute)
 	exitCode := 0
-	if err := s.RecordSelection(t.Context(), service.RecordSelectionInput{ConversationID: conversationFixture, CommandID: commandDocument, SelectedAt: executed, ExecutedAt: &executed, ExecutionExitCode: &exitCode, DeliveryOutcome: "executed"}); err != nil {
+	if err := s.RecordSelection(t.Context(), service.RecordSelectionInput{ConversationID: conversationFixture, CommandID: commandDocument, SelectedAt: executed, ExecutedAt: &executed, ExecutionExitCode: &exitCode, DeliveryOutcome: executedDelivery}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.RecordSelection(t.Context(), service.RecordSelectionInput{ConversationID: conversationFixture, CommandID: commandDocument, SelectedAt: selected, DeliveryOutcome: "selected"}); err != nil {

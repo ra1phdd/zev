@@ -127,7 +127,7 @@ func TestQueryConversationPreservesPromptAndEnvironmentSplit(t *testing.T) {
 	if refined.SystemPrompt != initial.SystemPrompt || len(refined.Messages) != 3 {
 		t.Fatalf("refinement history = %+v; want same system prompt and user/assistant/user", refined)
 	}
-	if refined.Messages[1].Role != "assistant" || refined.Messages[2].Content != queryTestRefinement {
+	if refined.Messages[1].Role != queryAssistantRole || refined.Messages[2].Content != queryTestRefinement {
 		t.Errorf("refined messages = %+v", refined.Messages)
 	}
 	if s.userPrompt != queryTestRefinement {

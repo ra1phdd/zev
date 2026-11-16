@@ -16,6 +16,9 @@ import (
 // Use errors.Is to distinguish absence from storage or template failures.
 var ErrAliasNotFound = errors.New("alias not found")
 
+// ErrAliasExists indicates that Add would overwrite an existing alias.
+var ErrAliasExists = errors.New("alias already exists")
+
 // Service manages command aliases and resolves their argument templates.
 type Service struct {
 	repo *repository.Repository
@@ -30,12 +33,22 @@ func New(repo *repository.Repository) *Service {
 func (s *Service) Add(name, tmpl string) error {
 	if err := s.repo.Update(func(aliases map[string]domain.Alias) error {
 		if _, exists := aliases[name]; exists {
-			return fmt.Errorf("alias %q already exists", name)
+			return fmt.Errorf("%w: %q", ErrAliasExists, name)
 		}
 		aliases[name] = domain.Alias{Name: name, Template: tmpl}
 		return nil
 	}); err != nil {
 		return fmt.Errorf("add alias: %w", err)
+	}
+	return nil
+}
+
+// AddCommand stores a literal command using the existing alias template format.
+// Template delimiters in shell commands are escaped so Resolve preserves them.
+func (s *Service) AddCommand(name, command string) error {
+	literal := strings.NewReplacer("{{", `{{"{{"}}`, "}}", `{{"}}"}}`).Replace(command)
+	if err := s.Add(name, literal); err != nil {
+		return fmt.Errorf("add command alias: %w", err)
 	}
 	return nil
 }

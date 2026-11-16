@@ -33,9 +33,10 @@ import (
 )
 
 const (
-	queryCancelled    = "cancelled"
-	queryUserRole     = "user"
-	queryRefineMarker = "::REFINE_QUERY::"
+	queryCancelled     = "cancelled"
+	queryUserRole      = "user"
+	queryAssistantRole = "assistant"
+	queryRefineMarker  = "::REFINE_QUERY::"
 )
 
 var (
@@ -406,7 +407,7 @@ func (s *querySession) acceptResponse() (bool, error) {
 	if len(s.response.Commands) == 0 {
 		return false, writeQueryOutput(s.cmd.OutOrStdout(), "\n⚠️  No commands found for your query.\n")
 	}
-	s.history.Messages = append(s.history.Messages, domain.Message{Role: "assistant", Content: s.response.CompactJSON()})
+	s.history.Messages = append(s.history.Messages, domain.Message{Role: queryAssistantRole, Content: s.response.CompactJSON()})
 	return true, nil
 }
 

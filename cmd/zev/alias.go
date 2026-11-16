@@ -2,12 +2,16 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/ra1phdd/zev/internal/core/config"
-	"github.com/ra1phdd/zev/internal/entities/alias/repository"
-	"github.com/ra1phdd/zev/internal/entities/alias/service"
+	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
+	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
+	historyrepo "github.com/ra1phdd/zev/internal/entities/history/repository"
+	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +23,7 @@ func newAliasCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newAliasAddCmd())
+	cmd.AddCommand(newAliasLastCmd())
 	cmd.AddCommand(newAliasListCmd())
 	cmd.AddCommand(newAliasRemoveCmd())
 
@@ -42,6 +47,41 @@ Example:
 	}
 }
 
+func newAliasLastCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "last <alias-name>",
+		Short: "Save the last used history command as an alias",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runAliasLast,
+	}
+}
+
+func runAliasLast(cmd *cobra.Command, args []string) (err error) {
+	dir := config.GetZevDir()
+	store, err := historyrepo.Open(cmd.Context(), filepath.Join(dir, "history.db"))
+	if err != nil {
+		return fmt.Errorf("open history: %w", err)
+	}
+	defer func() { err = errors.Join(err, store.Close()) }()
+	last, err := store.LastUsedCommand(cmd.Context())
+	if errors.Is(err, historyservice.ErrNotFound) {
+		return errors.New("no usable selected command found in Zev history")
+	}
+	if err != nil {
+		return fmt.Errorf("read last history command: %w", err)
+	}
+	if err := aliasservice.New(aliasrepo.New(dir)).AddCommand(args[0], last.Command); err != nil {
+		if errors.Is(err, aliasservice.ErrAliasExists) {
+			return fmt.Errorf("alias %q already exists; choose a different name: %w", args[0], err)
+		}
+		return fmt.Errorf("save alias %q: %w", args[0], err)
+	}
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "✓ Saved command %q as alias %q\nRun it with: zev %s\n", last.Command, args[0], args[0]); err != nil {
+		return fmt.Errorf("write alias confirmation: %w", err)
+	}
+	return nil
+}
+
 func newAliasListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
@@ -61,8 +101,8 @@ func newAliasRemoveCmd() *cobra.Command {
 }
 
 func runAliasAdd(cmd *cobra.Command, args []string) error {
-	repo := repository.New(config.GetZevDir())
-	svc := service.New(repo)
+	repo := aliasrepo.New(config.GetZevDir())
+	svc := aliasservice.New(repo)
 
 	name := args[0]
 	template := args[1]
@@ -78,8 +118,8 @@ func runAliasAdd(cmd *cobra.Command, args []string) error {
 }
 
 func runAliasList(cmd *cobra.Command, _ []string) error {
-	repo := repository.New(config.GetZevDir())
-	svc := service.New(repo)
+	repo := aliasrepo.New(config.GetZevDir())
+	svc := aliasservice.New(repo)
 
 	aliases, err := svc.List()
 	if err != nil {
@@ -111,8 +151,8 @@ func runAliasList(cmd *cobra.Command, _ []string) error {
 }
 
 func runAliasRemove(cmd *cobra.Command, args []string) error {
-	repo := repository.New(config.GetZevDir())
-	svc := service.New(repo)
+	repo := aliasrepo.New(config.GetZevDir())
+	svc := aliasservice.New(repo)
 
 	name := args[0]
 

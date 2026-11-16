@@ -94,6 +94,21 @@ Deletion is logical, not forensic erasure of WAL/free pages, exports, backups, l
 archives or remote copies. Back up an active WAL database using a consistent SQLite
 snapshot/backup mechanism, not a copy of only `history.db`.
 
+## Save the last command as an alias
+
+```bash
+zev alias last recent
+zev recent
+```
+
+This local operation uses the conversation's selected command, ordered by selection time,
+not the first model alternative. Only completed conversations with an observed `injected`,
+`printed`, or successful `executed` delivery qualify. Cancelled/failed conversations,
+unselected alternatives and uncertain delivery are skipped. It never executes the command
+or loads LLM/embedding configuration. No network request is made. Empty history and existing
+alias names are errors; existing aliases are not overwritten. The alias is saved through the
+normal YAML store in `~/.zev/aliases`; literal template braces in commands are escaped.
+
 ## Search
 
 Local lexical search is the default and needs no embedding provider:
