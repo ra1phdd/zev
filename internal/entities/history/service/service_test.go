@@ -1,116 +1,115 @@
-package service
+package service_test
 
 import (
-	"os"
+	"errors"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/entities/history/repository"
+	history "github.com/ra1phdd/zev/internal/entities/history/service"
 )
 
-const testProvider = "openai"
+const (
+	historyInitialPromptKind = "initial_prompt"
+	historyListCommand       = "ls -la"
+	historyConversationID    = "conversation-1"
+	historyValidPayload      = `{"isValid":true}`
+	historyUserRole          = "user"
+)
 
-func TestHistorySaveAndLoad(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
-	historyPath := filepath.Join(tmpDir, "test.history")
-
-	// Переопределяем путь для теста
-	srv := &Service{historyPath: historyPath}
-
-	entry := HistoryEntry{
-		Timestamp: time.Now(),
-		Prompt:    "list files",
-		Response: &domain.OptionsResponse{
-			Commands: []domain.Command{
-				{
-					Command:          "ls -la",
-					ShortExplanation: "List all files",
-					IsDangerous:      false,
-				},
-			},
-			IsValid: true,
-		},
-		Provider: testProvider,
-		Model:    "gpt-4-turbo",
-	}
-
-	// Сохраняем
-	if err := srv.Save(entry); err != nil {
-		t.Fatalf("Save failed: %v", err)
-	}
-
-	// Загружаем
-	entries, err := srv.LoadAll()
+func openHistoryStore(t *testing.T) *repository.Store {
+	t.Helper()
+	store, err := repository.Open(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
 	if err != nil {
-		t.Fatalf("LoadAll failed: %v", err)
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("close history store: %v", err)
+		}
+	})
+	return store
+}
+
+func TestLifecycleCanCancelAfterInitialPrompt(t *testing.T) {
+	t.Parallel()
+	store := openHistoryStore(t)
+	lifecycle := history.NewLifecycle(store)
+	if err := lifecycle.Start(t.Context(), "list files", "openai", "model"); err != nil {
+		t.Fatal(err)
+	}
+	if err := lifecycle.Complete(t.Context(), "cancelled"); err != nil {
+		t.Fatal(err)
 	}
 
-	if len(entries) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(entries))
+	conversations, err := store.ListConversations(t.Context(), history.ListRequest{Limit: 10})
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	if entries[0].Prompt != "list files" {
-		t.Errorf("expected prompt='list files', got %s", entries[0].Prompt)
+	if len(conversations) != 1 || conversations[0].Status != "cancelled" {
+		t.Fatalf("conversations = %+v, want one cancelled conversation", conversations)
 	}
-	if entries[0].Provider != testProvider {
-		t.Errorf("expected provider=openai, got %s", entries[0].Provider)
+	view, err := store.GetConversation(t.Context(), conversations[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(view.Messages) != 1 || view.Messages[0].Content != "list files" {
+		t.Fatalf("messages = %+v, want only the initial prompt", view.Messages)
+	}
+	if len(view.Responses) != 0 {
+		t.Fatalf("responses = %+v, want none after cancellation", view.Responses)
 	}
 }
 
-func TestHistoryRotation(t *testing.T) {
+func TestLifecyclePersistsRefinementBeforeResponse(t *testing.T) {
 	t.Parallel()
-	tmpDir := t.TempDir()
-	historyPath := filepath.Join(tmpDir, "test.history")
-
-	srv := &Service{historyPath: historyPath}
-
-	// Создаём больше maxHistoryEntries записей
-	for i := range maxHistoryEntries + 10 {
-		entry := HistoryEntry{
-			Timestamp: time.Now(),
-			Prompt:    "test prompt",
-			Response: &domain.OptionsResponse{
-				Commands: []domain.Command{
-					{Command: "echo test", ShortExplanation: "test", IsDangerous: false},
-				},
-				IsValid: true,
-			},
-			Provider: testProvider,
-			Model:    "gpt-4",
-		}
-		if err := srv.Save(entry); err != nil {
-			t.Fatalf("Save failed at iteration %d: %v", i, err)
-		}
+	store := openHistoryStore(t)
+	lifecycle := history.NewLifecycle(store)
+	if err := lifecycle.Start(t.Context(), "list files", "openai", "model"); err != nil {
+		t.Fatal(err)
+	}
+	if err := lifecycle.Refine(t.Context(), "include hidden files"); err != nil {
+		t.Fatal(err)
+	}
+	response := &domain.OptionsResponse{
+		IsValid: true,
+		Commands: []domain.Command{{
+			Command:          historyListCommand,
+			ShortExplanation: "List files",
+		}},
+	}
+	if err := lifecycle.Response(t.Context(), response); err != nil {
+		t.Fatal(err)
 	}
 
-	// Проверяем, что осталось ровно maxHistoryEntries
-	entries, err := srv.LoadAll()
+	conversations, err := store.ListConversations(t.Context(), history.ListRequest{Limit: 10})
 	if err != nil {
-		t.Fatalf("LoadAll failed: %v", err)
+		t.Fatal(err)
 	}
-
-	if len(entries) != maxHistoryEntries {
-		t.Errorf("expected %d entries after rotation, got %d", maxHistoryEntries, len(entries))
+	view, err := store.GetConversation(t.Context(), conversations[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(view.Messages) != 3 {
+		t.Fatalf("messages = %+v, want initial, refinement, and response", view.Messages)
+	}
+	if view.Messages[0].Kind != historyInitialPromptKind || view.Messages[1].Kind != "refinement" || view.Messages[1].Content != "include hidden files" {
+		t.Fatalf("message order/content = %+v", view.Messages)
+	}
+	if len(view.Responses) != 1 || len(view.Responses[0].Commands) != 1 || view.Responses[0].Commands[0].Command != historyListCommand {
+		t.Fatalf("responses = %+v", view.Responses)
 	}
 }
 
-func TestHistoryLoadEmpty(t *testing.T) {
+func TestLifecycleRejectsSelectionBeforeResponse(t *testing.T) {
 	t.Parallel()
-	tmpDir := t.TempDir()
-	historyPath := filepath.Join(tmpDir, "nonexistent.history")
-
-	srv := &Service{historyPath: historyPath}
-
-	entries, err := srv.LoadAll()
-	if err == nil {
-		t.Error("expected error when loading nonexistent file")
+	store := openHistoryStore(t)
+	lifecycle := history.NewLifecycle(store)
+	if err := lifecycle.Start(t.Context(), "list files", "openai", "model"); err != nil {
+		t.Fatal(err)
 	}
-	if !os.IsNotExist(err) {
-		t.Errorf("expected os.IsNotExist error, got %v", err)
-	}
-	if entries != nil {
-		t.Errorf("expected nil entries, got %v", entries)
+	if err := lifecycle.Select(t.Context(), history.SelectionOutcome{Index: 0}); !errors.Is(err, history.ErrInvalid) {
+		t.Fatalf("Select error = %v, want history.ErrInvalid", err)
 	}
 }

@@ -26,7 +26,12 @@
 - Command aliases with positional argument substitution — `zev dps my-service` runs your
   saved long command.
 - Bash scripts with metadata, created straight in `$EDITOR` from the CLI.
-- Query history (last 100 requests) available offline in `~/.zev/history`.
+- Persistent query history available offline in `~/.zev/history.db`, with no automatic
+  count limit.
+- Local lexical search with Russian/English stemming, bounded typo tolerance and
+  exact-command filters.
+- Semantic/hybrid history service support (CLI integration pending); embeddings are
+  opt-in and limited to user requests/refinements.
 - Verbosity control with `-v`, `-vv`, `-vvv`.
 
 ## Quick start
@@ -98,9 +103,33 @@ The default comes from `COMMAND_EXECUTION_MODE` and can be changed with `zev set
 
 ### History
 
+> SQLite history is Unreleased. The [History guide](docs/en/HISTORY.md) covers
+> automatic migration, opt-in semantic search and explicit index maintenance.
+
 ```bash
-zev history          # browse previous queries
+zev history
+zev history search "large files" --limit 20
+zev history search "network error" --mode hybrid --json
+zev history search --exact-command 'git status --short'
+zev history show <conversation-id>
+zev history index status --json
+zev history index rebuild --fts
+zev history export --format json
+zev history delete <conversation-id>
+zev history clear --yes
 ```
+
+History is stored in SQLite at `~/.zev/history.db` with incremental conversation
+records and no automatic count-based rotation. Enabled queries and explicit history
+commands automatically import and archive old `~/.zev/history` JSONL after verification.
+`--no-history` and `HISTORY_ENABLED=false` skip storage opening and migration for the
+current query. Search defaults to local lexical mode; semantic/hybrid uses separately
+configured, opt-in embeddings and explicitly built user-message vectors. Vector rebuild
+requires `--vectors --yes` consent; no vectors or RAG context are generated automatically.
+JSON search results include coverage, truncation and `nextCursor` for `--cursor`
+continuation. Deletion does not remove legacy archives, backups or external copies.
+See the [History guide](docs/en/HISTORY.md) for migration, search modes, privacy and
+embedding configuration.
 
 ### Aliases
 
@@ -159,6 +188,7 @@ export OLLAMA_MODEL=qwen2.5-coder
 
 - [Configuration](docs/en/CONFIGURATION.md) — `~/.zev/config`, environment variables, execution
   modes, files on disk
+- [History](docs/en/HISTORY.md) — persistent SQLite history, migration, search and semantic opt-in
 - [Architecture](docs/en/ARCHITECTURE.md) — package map, query flow, provider contracts
 - [Development](docs/en/DEVELOPMENT.md) — make targets, TDD workflow, conventions
 - [Contributing](docs/en/CONTRIBUTING.md) — how to propose and land a change

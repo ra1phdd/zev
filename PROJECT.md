@@ -3,6 +3,11 @@
 Подтверждённые сведения о репозитории; общие правила работы находятся в
 [AGENTS.md](AGENTS.md). Этот профиль описывает фактический код, а не целевую архитектуру.
 
+SQLite history — Unreleased. Query lifecycle, автоматическая JSONL-миграция, CLI-поиск
+с opt-in embeddings, `history index` и `--cursor` подключены. Ниже отражены фактические
+ограничения; наличие исходников или отдельных зелёных проверок не означает прохождения
+всех release gates или native-проверки Windows.
+
 ## Назначение и границы
 
 - **Zev** — локальная CLI-утилита, которая превращает запросы на естественном языке
@@ -14,7 +19,9 @@
 - Текущая релизная версия в [VERSION](VERSION) и существующем теге — **1.0.0**.
   Изменения после `v1.0.0` относятся к `Unreleased`, а не к новому релизу.
 - Это клиентское приложение, не сервер: в отслеживаемом коде нет собственного
-  HTTP/gRPC API, БД, миграций, health endpoint, метрик или tracing.
+  HTTP/gRPC API, health endpoint, метрик или tracing. История использует локальную SQLite
+  БД и schema migrations; отдельный OpenAI-compatible HTTP endpoint нужен только для
+  явно включённых embeddings.
   Качество и доступность ответов зависят от настроенной модели и её API.
 
 ## Архитектура и путь выполнения
@@ -36,7 +43,10 @@
 | `internal/entities/query/repository` | Общие промпты, извлечение JSON, преобразование сетевых ошибок |
 | `internal/entities/query/repository/{openai,gemini,anthropic,ollama,opencode}` | Адаптеры пяти LLM-провайдеров |
 | `internal/entities/query/repository/factory` | Выбор адаптера по `LLM_PROVIDER` |
-| `internal/entities/history/service` | Чтение и перезапись JSONL-истории, ротация до 100 записей |
+| `internal/entities/history/service` | Жизненный цикл диалога, consumer-side storage/embedding ports, оркестрация поиска |
+| `internal/entities/history/repository` | SQLite, версии схемы, транзакции, FTS-документы, пагинация и удаление |
+| `internal/entities/history/lexical` | Версионируемая нормализация, русский/английский stemmer, bounded typo primitives |
+| `internal/entities/history/client` | Opt-in OpenAI-compatible embedding-клиент только для user-сообщений |
 | `internal/entities/alias/{service,repository}` | Подстановка аргументов и YAML-хранилище алиасов |
 | `internal/entities/script/{service,repository}` | Метаданные, файлы, редактор и выполнение bash-скриптов |
 | `internal/entities/setup/service` | Интерактивный выбор провайдера и сохранение настроек |
@@ -48,16 +58,20 @@
 1. Ручной разбор флагов сохраняет возможность передавать флаги алиасам.
 2. Загрузка конфигурации; поиск алиаса, затем скрипта по первому слову запроса.
    Найденные алиас или скрипт выполняются напрямую, без обращения к LLM.
-3. Если совпадений нет, создаются HTTP-клиент и провайдер. Сервис запроса собирает
-   контекст окружения; CLI формирует первое сообщение и вызывает
-   `InferenceProvider.GetOptionsWithHistory`.
+3. Если совпадений нет, создаются HTTP-клиент и провайдер. При включённой истории
+   composition root открывает SQLite store и lifecycle записывает первоначальный user message
+   до вызова провайдера; сервис запроса собирает контекст окружения, CLI формирует первое
+   сообщение и вызывает `InferenceProvider.GetOptionsWithHistory`.
 4. В режиме `inject` CLI показывает варианты и позволяет уточнять запрос с
    сохранением диалога в памяти. В режиме `execute` сразу выбирается первый вариант.
-5. Команда вставляется в терминал либо выполняется; результат выбора сохраняется
-   в истории. Сбой сохранения истории выводится как предупреждение.
+5. Команда вставляется в терминал либо выполняется; выбор и результат сохраняются в
+   текущем SQLite-диалоге. Ответы и варианты команд сохраняются отдельными записями;
+   каждое уточнение — отдельным user message до следующего вызова провайдера. Сбой
+   открытия/сохранения истории выводится как предупреждение, не останавливая query.
 
-Структура следует vertical slices + ports/adapters, но оркестрация диалога, выбор,
-выполнение и запись истории **пока находятся в CLI**, не в `query/service`.
+Структура следует vertical slices + ports/adapters. Оркестрация диалога, выбор и
+выполнение находятся в CLI, не в `query/service`; CLI делегирует постоянную историю
+`history/service`, который получает persistence port от composition root.
 Системный промпт встроен через `go:embed` из
 `internal/entities/query/repository/system_prompt.txt`; пользовательское сообщение —
 исходный запрос (`UserPromptTemplate = "%s"`), отдельный файл не встраивается.
@@ -78,6 +92,10 @@
   OpenCode — HTTP/SSE с накоплением потокового ответа.
 - `godotenv v1.5.1` и `caarlos0/env/v11 v11.4.1` — конфигурация;
   `yaml.v3 v3.0.1` — алиасы и метаданные скриптов; `x/term` — терминал.
+- `modernc.org/sqlite v1.62.0` — SQLite-драйвер истории; `kljensen/snowball v0.10.0`
+  и `x/text v0.43.0` — локальный русско-английский lexical-профиль.
+  `CGO_ENABLED=0 make build-all` проверяет кросс-компиляцию четырёх Make-целей,
+  но не native-поведение целевых ОС или полную матрицу GoReleaser.
 
 Для реального запроса нужны доступный endpoint и настройки выбранного провайдера;
 для Ollama — работающий локальный/удалённый совместимый endpoint.
@@ -104,7 +122,10 @@
   временная копия очищается.
 - `HISTORY_ENABLED` и `CONTEXT_ENABLED` по умолчанию `true`; флаги `--no-history`
   и `--no-context` отключают соответствующее поведение для одного запроса.
-  Отключение истории не удаляет записи и не отключает диалог в памяти.
+  `HISTORY_SEMANTIC_ENABLED` по умолчанию `false`; при включении требуется отдельный
+  `openai-compatible` provider, base URL, model, positive dimensions, API key (если нужен)
+  и `HISTORY_EMBEDDING_MAX_BYTES` (default `32768`). Отключение истории не удаляет записи,
+  не открывает SQLite и не отключает диалог в памяти.
 
 | Путь | Формат и назначение |
 | --- | --- |
@@ -112,12 +133,37 @@
 | `~/.zev/aliases` | YAML-отображение имени алиаса в шаблон команды |
 | `~/.zev/scripts` | YAML-метаданные: имя, файл и описание скрипта |
 | `~/.zev/script_files/*.sh` | Тела bash-скриптов; при создании режим `0700` |
-| `~/.zev/history` | JSONL с запросом, ответом, временем, провайдером, моделью и выбранной командой; последние 100 записей |
+| `~/.zev/history.db` | SQLite с постоянными диалогами, сообщениями, ответами, командами и индексами; без лимита количества |
+| `~/.zev/history` | Legacy JSONL: автоматически импортируется/архивируется при открытии repository из query или команд истории |
+| `~/.zev/history.migrated.*.jsonl` | Архив исходного JSONL для ручного восстановления/audit |
 
-История — не постоянное хранилище диалогов: уточнения передаются провайдеру в рамках
-текущего процесса. YAML/JSONL — файловые контракты, встроенной миграции нет.
-Конфигурация, алиасы и история используют атомарную замену через временный файл
-в том же каталоге; кооперативная блокировка охватывает чтение–изменение–запись.
+Query recorder сохраняет первоначальный запрос, каждое уточнение, ответы, варианты
+команд, выбор и наблюдаемый результат. Выбор/вставка не означают выполнение; аварийный
+выход может оставить `started` и неизвестный outcome. При открытии repository автоматически
+импортирует legacy JSONL под lock: проверяет fingerprint и количество, архивирует в
+`history.migrated.<sha256-prefix>.<UTC-timestamp>.<UUID>.jsonl`, затем завершает ledger.
+Миграция не использует сеть; невалидная строка блокирует активацию, ошибки не печатают
+payload. Этот путь используют и query с историей, и explicit history commands.
+Конфигурация и алиасы используют атомарную замену; SQLite — WAL-транзакции.
+Семантика выключена по умолчанию; при включении CLI подключает отдельно настроенный
+embedding-клиент к semantic/hybrid search и явному vector rebuild. Отключённые embeddings
+или ошибка векторизации query дают видимый lexical fallback; пустое покрытие не создаёт
+векторы автоматически. Для embeddings допустимы только user initial/refinement, не
+команды, assistant/system text или metadata. Query не создаёт векторы, не делает backfill
+и не использует историю как RAG. Snowball даёт ограниченный stemming, не связывает
+go/went/gone. Lexical сохраняет quality tiers и all-term matching; typo-only ранжируется
+по проверенной близости с преобразованием в RRF, hybrid отдельно объединяет списки.
+Фильтры документов применяются до FTS top-K: 5000 документов на FTS-список, 256 typo-
+кандидатов на lookup/expansion path, 1000 результатов каждого hybrid-списка. Semantic
+сканирует актуальные совместимые векторы за O(N × dimensions), удерживая страницу
+с lookahead. `truncated` отражает обнаруженные ограничения, не гарантирует полный
+recall; `nextCursor` передаётся через `--cursor` с тем же запросом/лимитом/фильтрами.
+Изменения данных/индексов инвалидируют курсор. Remote embeddings раскрывают user text;
+localhost может быть forwarding proxy. `history index status --json` показывает покрытие;
+`history index rebuild` требует ровно один из `--fts` или `--vectors`. Vector rebuild
+показывает provider/model/общее eligible count и требует явный `--yes`; failed повторяются
+только с `--retry-failed`. Локальный FTS rebuild не отправляет embedding-запросов.
+Удаление логическое, не гарантирует forensic erase WAL/free pages, backup или JSONL-архива.
 Каталоги создаются с `0700`, файлы данных — `0600` на Unix. Постоянные `*.lock`
 нельзя удалять или заменять: они задают идентичность межпроцессного lock.
 Повреждённые данные вызывают ошибку, а не тихую перезапись пустым хранилищем.
@@ -132,7 +178,7 @@ Symlink вместо `~/.zev` или файла данных отклоняет�
 После rename ошибка fsync каталога возвращает `ErrCommitted`: новая версия уже
 видна, но сохранность после аварии неизвестна. Для классификации используется
 `errors.Is` с `filestore.ErrCommitted` либо `ErrCommitted` репозитория скриптов;
-повтор неидемпотентной операции без проверки может дублировать запись истории.
+повтор неидемпотентной файловой операции без проверки может повторить её эффект.
 Ошибки очистки тоже могут сопровождать выполненное изменение. Создание/удаление
 скрипта сериализует метаданные и тело, с попыткой отката до фиксации, но не даёт
 crash-atomic транзакции над двумя файлами. На Windows directory-fsync не выполняется;
@@ -158,6 +204,8 @@ make clean
 ```
 
 - `make test` запускает `go vet ./...` и `go test ./...`; race-проверка — отдельная цель.
+  Тесты lifecycle, migration/archive, транзакций, lexical/vector search, CLI и embedding
+  client находятся рядом с кодом; их наличие не заменяет запуск или release gates.
 - `make lint` сначала проверяет форматирование, затем запускает
   `golangci-lint run --fix` и `deadcode -test $(APP)`. Линтер может менять исходники;
   отчёт deadcode требует анализа и сам по себе не разрешает удаление функций.
@@ -239,8 +287,11 @@ GoReleaser уже использует `-s -w` и `-trimpath`.
   произвольный блокирующий I/O вызывающей стороны не ограничен очисткой pipe.
   Это не sandbox. Windows-реализация требует native runtime-проверки;
   кросс-компиляция её не доказывает. Некоторые файловые API без контекста
-  сохраняют ожидание lock без deadline. История по-прежнему целиком перезаписывает
-  JSONL с ротацией до 100 записей, создавая отсутствующий каталог при необходимости.
+  сохраняют ожидание lock без deadline.
+- История использует SQLite WAL и append/update-транзакции без count-based rotation.
+  Disabled query history не открывает БД. CLI semantic composition, index maintenance
+  и cursor input доступны; детали — в [Истории](docs/ru/HISTORY.md). Полный cosine scan
+  имеет сложность O(N × dimensions), постоянная задержка не гарантирована.
 - Тексты CLI/TUI находятся в исходниках; пакета `internal/core/i18n` нет.
 
 Это описание существующих ограничений, а не разрешение ослаблять проверки или
@@ -251,10 +302,14 @@ GoReleaser уже использует `-s -w` и `-trimpath`.
 
 - [README.ru.md](README.ru.md) / [README.md](README.md) — использование и установка.
 - [Конфигурация](docs/ru/CONFIGURATION.md) — параметры и файлы данных.
+- [История](docs/ru/HISTORY.md) — постоянное хранилище, миграция, поиск и semantic opt-in.
 - [Архитектура](docs/ru/ARCHITECTURE.md) — пакеты и порт провайдера.
 - [Разработка](docs/ru/DEVELOPMENT.md) и [участие](docs/ru/CONTRIBUTING.md) — команды и правила.
 - [CHANGELOG.md](CHANGELOG.md) — пользовательские изменения по существующим релизам.
 - [DELICIOUS.md](DELICIOUS.md) — индекс ADR; сейчас список решений пуст.
 - Go-контракт провайдера — [domain/provider.go](internal/core/domain/provider.go),
-  JSON ответа — [domain/command.go](internal/core/domain/command.go),
-  JSONL истории — [history/service.go](internal/entities/history/service/service.go).
+  JSON ответа — [domain/command.go](internal/core/domain/command.go).
+- Контракт истории — [history/service/types.go](internal/entities/history/service/types.go),
+  SQLite — [history/repository/store.go](internal/entities/history/repository/store.go),
+  lexical — [history/lexical/lexical.go](internal/entities/history/lexical/lexical.go),
+  embedding client — [history/client/client.go](internal/entities/history/client/client.go).

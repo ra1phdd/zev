@@ -36,11 +36,16 @@ absent from `~/.zev/config`.
 | `COMMAND_EXECUTION_MODE` | `inject` |
 | `SCRIPT_EDITOR` | `nano` |
 | `HISTORY_ENABLED` | `true` |
+| `HISTORY_SEMANTIC_ENABLED` | `false` |
+| `HISTORY_EMBEDDING_MAX_BYTES` | `32768` |
 | `CONTEXT_ENABLED` | `true` |
 
 ## Privacy controls
 
-`HISTORY_ENABLED=false` prevents completed queries from being written to `~/.zev/history`.
+`HISTORY_ENABLED=false` prevents this query from opening `~/.zev/history.db`, storing
+messages or running JSONL migration. Ordinary queries never generate background
+embeddings, even with history enabled. See [History](HISTORY.md) for the incremental
+lifecycle, absence of count-based rotation and search/privacy limits.
 `CONTEXT_ENABLED=false` prevents local OS, shell, user, home and working-directory details
 from being sent to the provider. The command-line overrides `--no-history` and
 `--no-context` disable the corresponding behavior for one query. Disabling history
@@ -93,6 +98,34 @@ matching SHA-256 entry and the computed digest matches it.
 |---|---|
 | `OLLAMA_BASE_URL` | Local Ollama endpoint, e.g. `http://localhost:11434/v1` |
 | `OLLAMA_MODEL` | Model name |
+
+### History embeddings (explicit opt-in)
+
+| Variable | Default / requirement |
+|---|---|
+| `HISTORY_SEMANTIC_ENABLED` | `false`; explicitly enable semantic history search |
+| `HISTORY_EMBEDDING_PROVIDER` | Empty; when enabled, must be `openai-compatible` |
+| `HISTORY_EMBEDDING_BASE_URL` | Empty; required HTTP(S) API root, e.g. `https://embedding.example/v1` |
+| `HISTORY_EMBEDDING_MODEL` | Empty; required embedding model |
+| `HISTORY_EMBEDDING_DIMENSIONS` | `0`; must be positive when enabled and match the model |
+| `HISTORY_EMBEDDING_API_KEY` | Empty; separate credential, optional for endpoints without authentication |
+| `HISTORY_EMBEDDING_MAX_BYTES` | `32768`; positive UTF-8 input byte limit, not a token count |
+
+These settings are independent from the command LLM; command credentials and headers
+are not implicitly inherited. Provider requirements are validated only when semantic search
+is enabled; environment values must still parse into their declared types. The client
+appends `/embeddings` to the API root and rejects credentials in the URL, query strings
+and fragments. Oversized input is rejected, never silently truncated.
+
+Only initial/refinement user messages are eligible. Remote embedding requests disclose
+that text, and semantic/hybrid search also sends the search query. A local proxy can forward
+it externally. Enabling the setting does not automatically backfill old messages or add
+retrieved history to LLM prompts. When enabled, the CLI uses the configured client for
+semantic/hybrid search and explicit vector rebuilding; ordinary queries do not generate
+vectors. `zev history index rebuild --vectors --yes` shows provider/model and the total
+eligible-message count and requires explicit transmission consent. Use `--retry-failed`
+to retry failures; `zev history index rebuild --fts` rebuilds local indexes without
+embedding requests. See [History](HISTORY.md) for commands, coverage and candidate limits.
 
 ### Behaviour
 
@@ -174,7 +207,9 @@ persistent recovery file. `SKIP_EDITOR=1` skips opening the editor.
 | Path | Contents |
 |---|---|
 | `~/.zev/config` | Configuration, `KEY=VALUE` lines |
-| `~/.zev/history` | Query history, JSONL, rotated at 100 entries |
+| `~/.zev/history.db` | Persistent SQLite conversation history without count-based rotation |
+| `~/.zev/history` | Legacy JSONL source; automatically imported/archived when queries or history commands open the repository |
+| `~/.zev/history.migrated.*.jsonl` | Preserved legacy archive; not the active store |
 | `~/.zev/aliases` | Alias templates, YAML |
 | `~/.zev/scripts` | Script metadata, YAML |
 | `~/.zev/script_files` | Script bodies |
@@ -184,10 +219,11 @@ and a directory with the same name cannot coexist.
 
 ### Storage safety and recovery boundaries
 
-Configuration, aliases and history use same-directory temporary files followed by
-replacement, with cooperative locks covering read-modify-write operations. Files
-are written with mode `0600`, new application directories with `0700`, and new
-script bodies with `0700` on Unix. These permissions do not encrypt API keys or
+Configuration and aliases use same-directory temporary files followed by replacement,
+with cooperative locks covering read-modify-write operations. SQLite history uses WAL
+transactions instead of rewriting JSONL. Files are written with mode `0600`, new
+application directories with `0700`, and new script bodies with `0700` on Unix. These
+permissions do not encrypt API keys or
 history; Windows ACL behavior is not proven by Unix mode bits.
 
 Persistent `*.lock` sidecars identify cross-process locks: **do not delete or replace
@@ -195,8 +231,10 @@ them**, even when idle. Data-file symlinks and a symlink at `~/.zev` are rejecte
 lock sidecars must be regular singly linked files. Trusted ancestor aliases (such
 as a symlink in the home-directory path) are allowed. This cooperative protocol is
 not a sandbox against hostile same-user processes or writers that ignore locks.
-Malformed existing storage is reported, not silently reset; corrupt history blocks
-an append rather than discarding earlier entries.
+Malformed existing storage is reported, not silently reset. A corrupt legacy history
+source blocks migration activation instead of discarding earlier entries. Logical deletion
+does not erase copies in WAL/free pages, exports, backups or the JSONL archive. Back up an
+active WAL database with a consistent SQLite snapshot, not a copy of only `history.db`.
 
 Script metadata paths must remain relative beneath `script_files`: absolute paths,
 traversal, symlinked application-owned components and multiply linked script files
@@ -209,7 +247,7 @@ For an atomic replacement, a failure before rename leaves the previous destinati
 unchanged. A directory-sync error after rename means the new file is already visible
 but crash durability is uncertain; it is not evidence that nothing changed. Go callers
 can classify this with `errors.Is(err, filestore.ErrCommitted)` or the script
-repository's `ErrCommitted`. Inspect the current state before retrying, especially
-for history appends. Cleanup errors can also accompany a completed change. Windows
+repository's `ErrCommitted`. Inspect the current state before retrying a file change.
+Cleanup errors can also accompany a completed change. Windows
 has no portable directory-fsync step here, and its crash durability/runtime behavior
 must not be inferred from a successful cross-build.

@@ -7,16 +7,20 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/filestore"
 	"github.com/ra1phdd/zev/internal/core/httpclient"
 	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
 	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
-	"github.com/ra1phdd/zev/internal/entities/history/service"
+	historyrepo "github.com/ra1phdd/zev/internal/entities/history/repository"
+	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/ra1phdd/zev/internal/entities/query/repository"
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
 	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
@@ -159,7 +163,7 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logger) error {
+func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logger) (resultErr error) {
 	args := flags.Args
 	cfg, err := config.Load()
 	if err != nil {
@@ -191,6 +195,9 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	}
 	logger.Debug("Provider created", "name", provider.Name(), "model", provider.Model())
 	s := newQuerySession(queryservice.New(provider), cmd, userPrompt)
+	s.provider, s.model = provider.Name(), provider.Model()
+	s.prepareHistory(cfg.HistoryEnabled)
+	defer s.closeHistory(cmd.Context(), &resultErr)
 	if !cfg.ContextEnabled {
 		s.history.SystemPrompt = fmt.Sprintf(repository.SystemPrompt, "Local environment context is disabled.")
 	}
@@ -206,24 +213,34 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	if err != nil || selected == nil {
 		return err
 	}
-	if err := deliverQueryCommand(cmd.Context(), queryDelivery{
-		command: selected, mode: mode, out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger,
-	}); err != nil {
-		return err
+	outcome := historyservice.SelectionOutcome{Index: index, DeliveryOutcome: "selected"}
+	if s.persistence != nil {
+		s.warnHistory(s.persistence.Select(cmd.Context(), outcome))
 	}
-	if !cfg.HistoryEnabled {
-		return nil
+	err = deliverQueryCommand(cmd.Context(), queryDelivery{
+		command: selected, mode: mode, out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger, outcome: &outcome,
+	})
+	if s.persistence != nil {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(cmd.Context()), 5*time.Second)
+		s.warnHistory(s.persistence.Select(ctx, outcome))
+		cancel()
 	}
-	entry := service.HistoryEntry{
-		Timestamp: time.Now(), Prompt: s.userPrompt, Response: s.response,
-		Provider: provider.Name(), Model: provider.Model(),
-		SelectedCommand: selected.Command, SelectedIndex: index,
+	return err
+}
+
+func openQueryHistory(ctx context.Context) (*historyrepo.Store, error) {
+	dir := config.GetZevDir()
+	if err := filestore.ValidateDirectory(dir); err != nil {
+		return nil, fmt.Errorf("validate history directory: %w", err)
 	}
-	if err := service.New().Save(entry); err != nil {
-		return writeQueryOutput(cmd.ErrOrStderr(), "Warning: failed to save to history: %v\n", err)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, fmt.Errorf("create history directory: %w", err)
 	}
-	logger.Info("Saved to history")
-	return nil
+	store, err := historyrepo.Open(ctx, filepath.Join(dir, "history.db"))
+	if err != nil {
+		return nil, fmt.Errorf("open history database: %w", err)
+	}
+	return store, nil
 }
 
 func executeNamedQuery(ctx context.Context, userPrompt string, logger *slog.Logger) (bool, error) {
@@ -254,13 +271,16 @@ func executeNamedQuery(ctx context.Context, userPrompt string, logger *slog.Logg
 // querySession owns only the active conversation and its interactive UI seams.
 // Provider metadata and command execution stay in the composition root.
 type querySession struct {
-	svc        *queryservice.Service
-	cmd        *cobra.Command
-	history    *domain.ConversationHistory
-	userPrompt string
-	response   *domain.OptionsResponse
-	input      func(string) (string, error)
-	selectItem func(list.SelectOptions) (list.Item, error)
+	persistence     *historyservice.Lifecycle
+	historyStore    *historyrepo.Store
+	provider, model string
+	svc             *queryservice.Service
+	cmd             *cobra.Command
+	history         *domain.ConversationHistory
+	userPrompt      string
+	response        *domain.OptionsResponse
+	input           func(string) (string, error)
+	selectItem      func(list.SelectOptions) (list.Item, error)
 }
 
 func newQuerySession(svc *queryservice.Service, cmd *cobra.Command, userPrompt string) *querySession {
@@ -290,6 +310,47 @@ func readQueryInput(input func(string) (string, error), title string) (string, e
 	return value, nil
 }
 
+func (s *querySession) prepareHistory(enabled bool) {
+	if !enabled {
+		return
+	}
+	store, err := openQueryHistory(s.cmd.Context())
+	if err != nil {
+		s.warnHistory(err)
+		return
+	}
+	s.persistence = historyservice.NewLifecycle(store)
+	s.historyStore = store
+}
+
+func (s *querySession) closeHistory(ctx context.Context, resultErr *error) {
+	if s.historyStore == nil {
+		return
+	}
+	s.finishHistory(ctx, s.historyStore, resultErr)
+}
+
+func (s *querySession) finishHistory(ctx context.Context, store *historyrepo.Store, resultErr *error) {
+	status := "completed"
+	if errors.Is(*resultErr, errQueryCancelled) || errors.Is(*resultErr, context.Canceled) {
+		status = "cancelled"
+	} else if *resultErr != nil {
+		status = historyStatusFailed
+	}
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	s.warnHistory(s.persistence.Complete(cleanupCtx, status))
+	s.warnHistory(store.Close())
+}
+
+func (s *querySession) warnHistory(err error) {
+	if err != nil {
+		if _, writeErr := fmt.Fprintf(s.cmd.ErrOrStderr(), "Warning: failed to save to history: %v\n", err); writeErr != nil {
+			return
+		}
+	}
+}
+
 func (s *querySession) fetch(ctx context.Context) error {
 	if err := writeQueryOutput(s.cmd.OutOrStdout(), "Fetching suggestions...\n"); err != nil {
 		return err
@@ -299,10 +360,16 @@ func (s *querySession) fetch(ctx context.Context) error {
 		return fmt.Errorf("get command suggestions: %w", err)
 	}
 	s.response = response
+	if s.persistence != nil {
+		s.warnHistory(s.persistence.Response(ctx, response))
+	}
 	return nil
 }
 
 func (s *querySession) start(ctx context.Context) error {
+	if s.persistence != nil {
+		s.warnHistory(s.persistence.Start(ctx, s.userPrompt, s.provider, s.model))
+	}
 	err := s.fetch(ctx)
 	if !errors.Is(err, domain.ErrNoResponse) {
 		return err
@@ -318,6 +385,9 @@ func (s *querySession) start(ctx context.Context) error {
 		return errors.New("the request cannot be empty")
 	}
 	s.addRefinement(refined)
+	if s.persistence != nil {
+		s.warnHistory(s.persistence.Refine(ctx, refined))
+	}
 	return s.fetch(ctx)
 }
 
@@ -401,6 +471,9 @@ func (s *querySession) refine(ctx context.Context) (bool, error) {
 		return true, writeQueryOutput(s.cmd.ErrOrStderr(), "The request cannot be empty.\n")
 	}
 	s.addRefinement(refined)
+	if s.persistence != nil {
+		s.warnHistory(s.persistence.Refine(ctx, refined))
+	}
 	err = s.fetch(ctx)
 	if errors.Is(err, domain.ErrNoResponse) {
 		return true, writeQueryOutput(s.cmd.ErrOrStderr(), "\n⚠️  The AI did not provide a response. Please try rephrasing your request.\n")
@@ -417,9 +490,15 @@ type queryDelivery struct {
 	out     io.Writer
 	errOut  io.Writer
 	logger  *slog.Logger
+	outcome *historyservice.SelectionOutcome
 }
 
 func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
+	outcome := delivery.outcome
+	if outcome == nil {
+		outcome = &historyservice.SelectionOutcome{}
+	}
+	outcome.DeliveryOutcome = "selected"
 	selected := delivery.command
 	if selected == nil {
 		return fmt.Errorf("%w: selected command is nil", domain.ErrInvalidOptionsResponse)
@@ -429,24 +508,42 @@ func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
 		return fmt.Errorf("validate selected command: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
+		outcome.DeliveryOutcome = "unknown"
+		outcome.ExecutionError = err.Error()
 		return fmt.Errorf("deliver selected command: %w", err)
 	}
 	if delivery.mode == executionModeExecute {
 		if err := terminal.Execute(ctx, selected.Command); err != nil {
+			outcome.DeliveryOutcome = "unknown"
+			outcome.ExecutionError = err.Error()
+			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+				code := exitErr.ExitCode()
+				outcome.DeliveryOutcome = "failed"
+				outcome.ExecutionExitCode = &code
+			}
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
+		now := time.Now()
+		code := 0
+		outcome.DeliveryOutcome = "executed"
+		outcome.ExecutedAt = &now
+		outcome.ExecutionExitCode = &code
 		return writeQueryWarning(delivery.errOut, selected)
 	}
 	if err := terminal.Inject(selected.Command); err != nil {
 		delivery.logger.Debug("Failed to inject command into terminal", "error", err)
 		if err := writeQueryOutput(delivery.out, "\n✓ Selected command:\n\n  %s\n\n", selected.Command); err != nil {
+			outcome.DeliveryOutcome = "failed"
+			outcome.ExecutionError = err.Error()
 			return err
 		}
+		outcome.DeliveryOutcome = "printed"
 		if selected.IsDangerous {
 			return writeQueryOutput(delivery.out, "⚠️  WARNING: %s\n\n", selected.DangerousExplanation)
 		}
 		return nil
 	}
+	outcome.DeliveryOutcome = "injected"
 	return writeQueryWarning(delivery.errOut, selected)
 }
 

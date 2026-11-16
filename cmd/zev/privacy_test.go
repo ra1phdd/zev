@@ -102,8 +102,10 @@ func TestQueryPrivacyControls(t *testing.T) {
 			if payload.Messages[1].Content != "private-prompt-marker" {
 				t.Errorf("user prompt changed: %q", payload.Messages[1].Content)
 			}
-			if _, err := os.Stat(filepath.Join(home, ".zev", "history")); !os.IsNotExist(err) {
-				t.Fatalf("disabled history created a file: %v", err)
+			for _, name := range []string{historyRootCommand, "history.db", "history.db-wal", "history.db-shm", "history.lock"} {
+				if _, err := os.Stat(filepath.Join(home, ".zev", name)); !os.IsNotExist(err) {
+					t.Fatalf("disabled history created %s: %v", name, err)
+				}
 			}
 			if diagnostics.Len() != 0 {
 				t.Errorf("unexpected diagnostics: %s", &diagnostics)

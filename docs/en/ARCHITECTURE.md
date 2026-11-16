@@ -24,7 +24,10 @@ internal/entities/
     repository/opencode/        OpenCode (SSE streaming, tool calls)
     repository/factory/         provider selection from config
     repository/prompt.go          embeds system_prompt.txt; user template is "%s"
-  history/service/              JSONL history, 100 entries, automatic rotation
+  history/service/              lifecycle rules, consumer ports, lexical/vector orchestration
+  history/repository/           SQLite transactions, schema migrations and derived indexes
+  history/client/               opt-in OpenAI-compatible embedding HTTP adapter
+  history/lexical/              local normalization, Snowball stemming and typo primitives
   alias/{service,repository}/   argument substitution and YAML persistence
   script/{service,repository}/  bash scripts, metadata, editor and execution
   setup/service/                interactive TUI setup wizard
@@ -52,16 +55,21 @@ pkg/terminal/                   shell execution and platform-specific input inje
 6. `execute` runs the first suggestion without selection or confirmation. The selected
    command is validated again before delivery; its danger warning is printed after
    execution, not used as a safety gate.
-7. When history is enabled, the CLI saves the response and selected command to
-   `~/.zev/history`.
+7. When history is enabled, the CLI opens `~/.zev/history.db` and gives the store to
+   the history lifecycle service. Initial input is recorded before the provider call;
+   responses, command selection, execution results and final status are recorded as
+   the interaction progresses. Every refinement is recorded separately before its provider
+   call. History-write failures warn without preventing the command-provider request.
 
-Conversation orchestration, selection, execution and history saving currently live
-in the CLI, not in `query/service`. The root `signal.NotifyContext` cancellation
+Conversation orchestration, selection and execution live in the CLI, not in
+`query/service`; persistent recording is delegated to `history/service`.
+The root `signal.NotifyContext` cancellation
 context is passed through provider/HTTP calls, retries, TUI, and command/editor
 execution. `CONTEXT_ENABLED=false` / `--no-context` omits automatically added environment
 context, not the user's query. The active conversation stays in memory even with
-`HISTORY_ENABLED=false` / `--no-history`; only the query result is persisted to JSONL
-history when history is enabled.
+`HISTORY_ENABLED=false` / `--no-history`; these switches skip opening history storage
+and therefore also skip migration and embeddings for the query. Persistent history does
+not automatically become context for a new model request.
 
 ## Ports and adapters
 
@@ -77,8 +85,46 @@ type InferenceProvider interface {
 ```
 
 The factory imports concrete provider adapters. Alias and script services currently
-use concrete repositories. History handles
-file persistence inside its service rather than in a separate repository adapter.
+use concrete repositories. History declares its persistence and embedding ports on the
+consumer/service side. The composition root owns opening and closing the repository;
+CLI handlers do not assemble SQL.
+
+## History boundaries and limits
+
+- `history/repository` owns SQLite, related-record transactions, versioned schema
+  migrations, foreign keys, WAL, the import ledger and local derived indexes. The active
+  store has no last-N rotation. Opening the repository imports legacy JSONL from a verified
+  snapshot, then archives it by rename before activation; migration sends no network data.
+  Both enabled queries and explicit history commands use this migration path.
+- `history/service` owns conversation lifecycle and search orchestration. Full responses
+  and alternatives are atomic; selected does not mean executed, and a completed
+  interaction is not proof that terminal input ran. A failed history write warns the
+  user but must not repeat an already executed command.
+- `history/lexical` applies the same versioned normalization and Russian/English Snowball
+  profile to indexed text and queries. It is bounded stemming, not irregular-form
+  lemmatization. The repository ranks surface matches before morphology and typo-only
+  results, using RRF inside tiers. The service separately fuses lexical/vector lists
+  through RRF; hybrid ordering does not retain those lexical tiers.
+- `history/client` is a separate opt-in embedding adapter, not the command provider.
+  Only initial/refinement user messages are eligible. No command, assistant or system
+  text is embedded. Model, dimensions, profile and content hash control compatibility.
+
+Semantic search is disabled by default, does not backfill old history automatically and
+does not inject matches into new prompts. Full cosine search is O(N × dimensions), not
+an ANN index or a constant-latency guarantee. Literal substring search may scan canonical
+text. Deletion is logical rather than forensic erasure of WAL, backups or legacy archives.
+
+The CLI loads history configuration and supplies the opt-in embedding client to the
+search service. `history index status` reports coverage; `history index rebuild --fts`
+rebuilds local indexes, while `--vectors` shows provider/model/eligible count and requires
+explicit `--yes` transmission consent. Ordinary queries do not generate vectors.
+`history search --cursor` continues request/profile/revision-bound pages. Document
+filters precede FTS top-K limits; bounded lexical/typo lists and hybrid rank windows
+report observed truncation, not unrestricted recall. Semantic/hybrid search falls back
+visibly to lexical when embeddings are disabled or query embedding fails.
+See [History](HISTORY.md) for exact limits and recovery/privacy boundaries.
+Cross-compilation does not validate native Windows runtime or ACL behavior, and this
+description does not claim all release gates passed.
 
 ## Provider specifics
 

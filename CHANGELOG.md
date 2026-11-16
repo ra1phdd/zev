@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add persistent SQLite history with incremental conversation lifecycle records and
+  no automatic count-based retention.
+- Add automatic repository-level legacy JSONL import and verified archival, local lexical
+  search with morphology and bounded typo tolerance, and CLI semantic/hybrid search
+  whose vector component is limited to user messages and refinements.
+- Add history inspection/export/deletion commands, request-bound `--cursor` pagination,
+  index status and explicit lexical/vector rebuilds; vector transmission displays
+  provider/model/eligible count and requires `--yes` consent.
+- Add bilingual user documentation for history storage, search, migration, privacy
+  and embedding configuration.
 - Add a demo animation to the English and Russian READMEs.
 - Document the repository's actual architecture, configuration, storage, release
   workflow and operational limitations in `PROJECT.md`.
@@ -17,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Add opt-in `HISTORY_SEMANTIC_ENABLED=false` and separate OpenAI-compatible embedding
+  settings, including the 32768-byte input limit and remote-text disclosure. Both query
+  recording and explicit history commands use automatic legacy migration. No automatic
+  vector backfill or history-to-prompt RAG is enabled.
+- Synchronize bilingual project, architecture, configuration and README documentation
+  with usable SQLite history commands and verified implementation limits.
 - Add opt-out privacy controls for provider context and query history, mask setup
   secrets and custom header values, and redact them from setup output.
 - Make Unix and PowerShell release installers fail closed when SHA-256 metadata or
@@ -34,13 +50,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve immutable creation retries, observed execution outcomes, command timestamps
+  during FTS rebuilds, and pagination after semantic fallback; protect existing SQLite
+  sidecars and migration archives with private POSIX permissions or Windows DACLs.
+- Apply history document filters before bounded FTS candidate limits, preserve source
+  UUIDs in search hits, require all query terms across morphology/typo expansion, and
+  retain exact-match priority with deterministic ranking and derived-index cleanup.
 - Validate provider responses and persisted history before command selection or
   delivery, with fixed byte/count limits and bounded provider response bodies;
   reject terminal control characters before injecting any input.
-- Serialize configuration, alias and history read-modify-write operations with
-  cooperative cross-process locks and atomic file replacement; preserve malformed
-  existing data and distinguish post-replacement durability errors from failures
-  before commit.
+- Serialize configuration and alias read-modify-write operations with cooperative
+  cross-process locks and atomic file replacement; use SQLite WAL transactions for
+  history. Preserve malformed existing data and distinguish post-replacement durability
+  errors from failures before commit.
 - Confine saved-script paths, reject unsafe links, execute pinned script files and
   edit private temporary copies; atomically replace edited files and reject stale
   editor saves rather than overwriting a newer cooperating edit. Serialize script
@@ -51,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   child exit errors. Detached Unix children and externally brokered processes are
   outside the ownership boundary; native Windows runtime validation remains needed.
 - Correct the README HTML header layout and Russian language switcher, and
-  document the history location as `~/.zev/history`.
+  document the legacy JSONL location as `~/.zev/history` (SQLite uses `~/.zev/history.db`).
 - Complete the Makefile migration to `GO`, `APP` and `BIN`: repair run/setup and
   cross-platform build paths, honor overrides consistently, support forwarded CLI
   arguments, restore target help and phony declarations, and validate cleanup paths.

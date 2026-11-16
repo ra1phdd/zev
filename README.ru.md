@@ -26,7 +26,12 @@
 - Алиасы команд с подстановкой позиционных аргументов — `zev dps my-service` выполнит вашу
   длинную сохранённую команду.
 - Bash-скрипты с метаданными, создаются прямо из CLI в `$EDITOR`.
-- История запросов (последние 100) доступна офлайн в `~/.zev/history`.
+- Постоянная история запросов доступна офлайн в `~/.zev/history.db`, без автоматического
+  ограничения количества записей.
+- Локальный lexical-поиск с русским/английским stemming, ограниченными опечатками и
+  exact-command-фильтрами.
+- Semantic/hybrid-поиск в сервисе (CLI-интеграция ещё не завершена); embeddings включаются
+  явно и применяются только к пользовательским запросам и уточнениям.
 - Уровень логирования через `-v`, `-vv`, `-vvv`.
 
 ## Быстрый старт
@@ -100,9 +105,32 @@ zev --execute "перезапустить nginx"   # выполнить сраз
 
 ### История
 
+> SQLite-история — Unreleased. Автоматическая миграция, opt-in семантический поиск
+> и явное обслуживание индексов описаны в [гайде по истории](docs/ru/HISTORY.md).
+
 ```bash
-zev history          # посмотреть предыдущие запросы
+zev history
+zev history search "большие файлы" --limit 20
+zev history search "network error" --mode hybrid --json
+zev history search --exact-command 'git status --short'
+zev history show <conversation-id>
+zev history index status --json
+zev history index rebuild --fts
+zev history export --format json
+zev history delete <conversation-id>
+zev history clear --yes
 ```
+
+История хранится в SQLite в `~/.zev/history.db`: диалог записывается по мере работы,
+автоматической ротации по количеству нет. Query с историей и явные команды истории
+автоматически импортируют и архивируют старый `~/.zev/history` JSONL после проверки.
+`--no-history` и `HISTORY_ENABLED=false` не открывают хранилище и не запускают миграцию
+для текущего запроса. По умолчанию поиск локальный лексический; semantic/hybrid
+использует отдельно настроенные opt-in embeddings и явно построенные векторы
+user-сообщений. Vector rebuild требует согласия `--vectors --yes`; векторы и RAG-контекст
+не создаются автоматически. JSON-поиск включает покрытие, усечение и `nextCursor` для
+продолжения через `--cursor`. Удаление не стирает legacy-архивы, backup и внешние копии. См.
+[гайд по истории](docs/ru/HISTORY.md): миграция, режимы поиска, приватность и embeddings.
 
 ### Алиасы
 
@@ -161,6 +189,7 @@ export OLLAMA_MODEL=qwen2.5-coder
 
 - [Конфигурация](docs/ru/CONFIGURATION.md) — `~/.zev/config`, переменные окружения, режимы
   выполнения, файлы на диске
+- [История](docs/ru/HISTORY.md) — постоянная SQLite-история, миграция, поиск и semantic opt-in
 - [Архитектура](docs/ru/ARCHITECTURE.md) — карта пакетов, путь запроса, контракты
   провайдеров
 - [Разработка](docs/ru/DEVELOPMENT.md) — make-цели, TDD, соглашения проекта

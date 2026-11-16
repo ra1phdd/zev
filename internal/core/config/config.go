@@ -38,6 +38,14 @@ type Config struct {
 	ScriptEditor         string `env:"SCRIPT_EDITOR"`
 	HistoryEnabled       bool   `env:"HISTORY_ENABLED"`
 	ContextEnabled       bool   `env:"CONTEXT_ENABLED"`
+
+	HistorySemanticEnabled     bool   `env:"HISTORY_SEMANTIC_ENABLED"`
+	HistoryEmbeddingProvider   string `env:"HISTORY_EMBEDDING_PROVIDER"`
+	HistoryEmbeddingBaseURL    string `env:"HISTORY_EMBEDDING_BASE_URL"`
+	HistoryEmbeddingModel      string `env:"HISTORY_EMBEDDING_MODEL"`
+	HistoryEmbeddingDimensions int    `env:"HISTORY_EMBEDDING_DIMENSIONS"`
+	HistoryEmbeddingAPIKey     string `env:"HISTORY_EMBEDDING_API_KEY"`
+	HistoryEmbeddingMaxBytes   int    `env:"HISTORY_EMBEDDING_MAX_BYTES"`
 }
 
 // DefaultConfig returns a new configuration with default provider and CLI settings.
@@ -47,16 +55,17 @@ func DefaultConfig() *Config {
 		HTTPHeaders: map[string]string{
 			"User-Agent": "zev/1.0",
 		},
-		OpenAIModel:          "gpt-5.6-luna",
-		OpenAIBaseURL:        "https://api.openai.com/v1",
-		GeminiModel:          "gemini-3.1-flash-lite",
-		GeminiBaseURL:        "https://generativelanguage.googleapis.com",
-		AnthropicModel:       "claude-haiku-5.5",
-		AnthropicBaseURL:     "https://api.anthropic.com/v1",
-		CommandExecutionMode: "inject",
-		ScriptEditor:         "nano",
-		HistoryEnabled:       true,
-		ContextEnabled:       true,
+		OpenAIModel:              "gpt-5.6-luna",
+		OpenAIBaseURL:            "https://api.openai.com/v1",
+		GeminiModel:              "gemini-3.1-flash-lite",
+		GeminiBaseURL:            "https://generativelanguage.googleapis.com",
+		AnthropicModel:           "claude-haiku-5.5",
+		AnthropicBaseURL:         "https://api.anthropic.com/v1",
+		CommandExecutionMode:     "inject",
+		ScriptEditor:             "nano",
+		HistoryEnabled:           true,
+		ContextEnabled:           true,
+		HistoryEmbeddingMaxBytes: 32768,
 	}
 }
 
@@ -120,7 +129,34 @@ func parseValues(values map[string]string) (*Config, error) {
 	if headers, ok := values["HTTP_HEADERS"]; ok {
 		cfg.HTTPHeaders = parseHTTPHeaders(headers)
 	}
+	if err := cfg.Validate(); err != nil {
+		return nil, configError{message: "invalid history embedding settings", cause: err}
+	}
 	return cfg, nil
+}
+
+// Validate checks the opt-in history embedding settings. Disabled semantic
+// search deliberately ignores the other embedding fields.
+func (c *Config) Validate() error {
+	if c == nil || !c.HistorySemanticEnabled {
+		return nil
+	}
+	if c.HistoryEmbeddingProvider != "openai-compatible" {
+		return errors.New("unsupported history embedding provider")
+	}
+	if strings.TrimSpace(c.HistoryEmbeddingBaseURL) == "" {
+		return errors.New("history embedding base URL is required")
+	}
+	if strings.TrimSpace(c.HistoryEmbeddingModel) == "" {
+		return errors.New("history embedding model is required")
+	}
+	if c.HistoryEmbeddingDimensions <= 0 {
+		return errors.New("history embedding dimensions must be positive")
+	}
+	if c.HistoryEmbeddingMaxBytes <= 0 {
+		return errors.New("history embedding max bytes must be positive")
+	}
+	return nil
 }
 
 // Save atomically replaces the config file with the nonzero fields of cfg.
@@ -173,6 +209,9 @@ func Update(change func(*Config) error) error {
 func save(configPath string, cfg *Config) error {
 	if cfg == nil {
 		return errors.New("config must not be nil")
+	}
+	if err := cfg.Validate(); err != nil {
+		return configError{message: "invalid history embedding settings", cause: err}
 	}
 	values := make(map[string]string)
 	v := reflect.ValueOf(*cfg)

@@ -3,99 +3,119 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/ra1phdd/zev/internal/core/domain"
-	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
+	"github.com/ra1phdd/zev/internal/entities/history/repository"
+	"github.com/ra1phdd/zev/internal/entities/history/service"
+	"github.com/spf13/cobra"
 )
 
-func TestHistoryRejectsMalformedCommandsBeforeSelection(t *testing.T) {
-	tests := []struct {
-		name string
-		edit func(*historyservice.HistoryEntry)
-	}{
-		{name: "empty command", edit: func(e *historyservice.HistoryEntry) { e.Response.Commands[0].Command = "" }},
-		{name: "whitespace command", edit: func(e *historyservice.HistoryEntry) { e.Response.Commands[0].Command = "   " }},
-		{name: "NUL command", edit: func(e *historyservice.HistoryEntry) { e.Response.Commands[0].Command = "echo \x00" }},
-		{name: "ESC command", edit: func(e *historyservice.HistoryEntry) { e.Response.Commands[0].Command = "echo \x1b[2J" }},
-		{name: "explanation control", edit: func(e *historyservice.HistoryEntry) { e.Response.Commands[0].ShortExplanation = "\x1b[2J" }},
-		{name: "oversized command", edit: func(e *historyservice.HistoryEntry) {
-			e.Response.Commands[0].Command = strings.Repeat("x", domain.MaxCommandLength+1)
-		}},
-		{name: "too many commands", edit: func(e *historyservice.HistoryEntry) {
-			e.Response.Commands = []domain.Command{{Command: "ls"}, {Command: "pwd"}, {Command: "date"}, {Command: "whoami"}}
-		}},
-		{name: "invalid response with commands", edit: func(e *historyservice.HistoryEntry) { e.Response.IsValid = false }},
-		{name: "empty valid response", edit: func(e *historyservice.HistoryEntry) { e.Response.Commands = nil }},
-		{name: "selected command control", edit: func(e *historyservice.HistoryEntry) { e.SelectedCommand = "echo \x1b[2J" }},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			entry := historyservice.HistoryEntry{
-				Response: &domain.OptionsResponse{IsValid: true, Commands: []domain.Command{{Command: "echo safe"}}},
-			}
-			tt.edit(&entry)
-			ctx, cancel := context.WithCancel(t.Context())
-			cancel()
-			var out bytes.Buffer
-			if err := showHistoryDetails(ctx, &entry, &out); !errors.Is(err, domain.ErrInvalidOptionsResponse) {
-				t.Errorf("showHistoryDetails() error = %v, want validation before selection", err)
-			}
-			if out.Len() != 0 {
-				t.Errorf("malformed entry produced output: %q", out.String())
-			}
+const (
+	historyValidationConversationID = "conversation-1"
+	historyValidationInitialKind    = "initial_prompt"
+	historyValidationPayload        = `{"isValid":true}`
+)
 
-			home := t.TempDir()
-			t.Setenv("HOME", home)
-			t.Setenv("USERPROFILE", home)
-			dir := filepath.Join(home, ".zev")
-			if err := os.MkdirAll(dir, 0o700); err != nil {
-				t.Fatal(err)
-			}
-			data, err := json.Marshal(entry)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(dir, "history"), append(data, '\n'), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			cmd := newHistoryCmd()
-			cmd.SetContext(ctx)
-			cmd.SetOut(io.Discard)
-			if err := runHistory(cmd, nil); !errors.Is(err, domain.ErrInvalidOptionsResponse) {
-				t.Errorf("runHistory() error = %v, want validation before history selection", err)
-			}
-		})
+type unsafeHistoryFake struct {
+	view          service.ConversationView
+	conversations []service.Conversation
+	getCalls      int
+	messageCalls  int
+}
+
+func (f *unsafeHistoryFake) GetConversation(context.Context, string) (service.ConversationView, error) {
+	f.getCalls++
+	return f.view, nil
+}
+
+func (f *unsafeHistoryFake) GetMessage(context.Context, string) (service.Message, error) {
+	f.messageCalls++
+	return service.Message{}, nil
+}
+
+func (f *unsafeHistoryFake) ListConversations(context.Context, service.ListRequest) ([]service.Conversation, error) {
+	return f.conversations, nil
+}
+func (f *unsafeHistoryFake) DeleteConversation(context.Context, string) error { return nil }
+func (f *unsafeHistoryFake) Search(context.Context, service.SearchRequest) (service.SearchResult, error) {
+	return service.SearchResult{}, nil
+}
+func (f *unsafeHistoryFake) Clear(context.Context) error { return nil }
+
+type unsafeHistoryCloser struct{}
+
+func (unsafeHistoryCloser) Close() error { return nil }
+
+func historyTestCommandFromOpener(fake historyOperations, out io.Writer) *cobra.Command {
+	cmd := &cobra.Command{Use: historyRootCommand, SilenceErrors: true, SilenceUsage: true}
+	cmd.AddCommand(newHistoryCommands(func(context.Context) (historyOperations, io.Closer, error) {
+		return fake, unsafeHistoryCloser{}, nil
+	})...)
+	cmd.SetOut(out)
+	cmd.SetErr(io.Discard)
+	return cmd
+}
+
+func TestHistoryShowEscapesStoredControlsWithoutExecutingCommands(t *testing.T) {
+	t.Parallel()
+	unsafeText := "echo first\x1b[2J\necho second"
+	store, err := repository.Open(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := store.Close(); err != nil {
+			t.Errorf("close history store: %v", err)
+		}
+	})
+	if _, err := store.StartConversation(t.Context(), service.StartConversationInput{
+		Conversation:   service.Conversation{ID: historyValidationConversationID},
+		InitialMessage: service.Message{ID: "message-1", Role: "user", Kind: historyValidationInitialKind, Content: unsafeText},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.RecordResponse(t.Context(), service.RecordResponseInput{
+		Message: service.Message{ID: "message-2", Role: "assistant", Kind: "response", Content: historyValidationPayload},
+		Response: service.Response{
+			ID: "response-1", ConversationID: historyValidationConversationID, PayloadJSON: historyValidationPayload,
+			IsValid: true, Commands: []service.Command{{ID: "command-1", Command: unsafeText}},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	cmd := historyTestCommandFromOpener(&historyAdapter{Store: store, search: service.NewSearch(store, nil)}, &out)
+	cmd.SetArgs([]string{"show", historyValidationConversationID})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), unsafeText) {
+		t.Fatalf("stored control text was emitted raw: %q", out.String())
+	}
+	if !strings.Contains(out.String(), `\u001b`) {
+		t.Fatalf("stored control text was not JSON-escaped: %q", out.String())
 	}
 }
 
-func TestHistoryPreservesSafeLegacyEmptyEntries(t *testing.T) {
+func TestHistoryBrowserDoesNotOpenStoredDetailsBeforeSelection(t *testing.T) {
 	t.Parallel()
-	for _, response := range []*domain.OptionsResponse{nil, {IsValid: false, ExplanationIfNotValid: "unsupported request"}} {
-		var out bytes.Buffer
-		if err := showHistoryDetails(t.Context(), &historyservice.HistoryEntry{Response: response}, &out); err != nil {
-			t.Fatal(err)
-		}
-		if out.String() != "No commands in this entry\n" {
-			t.Errorf("legacy output = %q", out.String())
-		}
-	}
-}
-
-func TestHistoryAllowsMultilineResponseBeforeInjection(t *testing.T) {
-	t.Parallel()
+	fake := &unsafeHistoryFake{conversations: []service.Conversation{{ID: historyValidationConversationID}}}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	entry := historyservice.HistoryEntry{Response: &domain.OptionsResponse{
-		IsValid: true, Commands: []domain.Command{{Command: "echo first\necho second"}},
-	}}
-	if err := showHistoryDetails(ctx, &entry, io.Discard); !errors.Is(err, context.Canceled) {
-		t.Fatalf("showHistoryDetails() error = %v, want selection cancellation, not domain rejection", err)
+	cmd := &cobra.Command{Use: historyRootCommand, SilenceErrors: true, SilenceUsage: true}
+	cmd.SetContext(ctx)
+	cmd.SetOut(io.Discard)
+	opener := func(context.Context) (historyOperations, io.Closer, error) {
+		return fake, unsafeHistoryCloser{}, nil
+	}
+	cmd.RunE = historyBrowse(opener)
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("cancelled browser unexpectedly succeeded")
+	}
+	if fake.getCalls != 0 {
+		t.Fatalf("browser fetched details before selection: %d calls", fake.getCalls)
 	}
 }
