@@ -42,8 +42,8 @@ func TestHistoryMigrationRespectsLocalAndPrivacyModes(t *testing.T) {
 			cmd := cliCommand(t, home, tc.args...)
 			setCLIEnv(cmd, map[string]string{
 				envHistoryEnabled: strconv.FormatBool(tc.enabled), envProvider: providerOpenAI,
-				envBaseURL: server.URL, envModel: "fixture-model",
-				envAPIKey: "fixture-only", "SHELL": "/bin/sh",
+				envBaseURL: server.URL, envModel: fixtureModel,
+				envAPIKey: fixtureOnly, "SHELL": "/bin/sh",
 			})
 			if output, err := cmd.CombinedOutput(); err != nil {
 				t.Fatalf("CLI failed: %v; output: %s", err, output)

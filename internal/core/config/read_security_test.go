@@ -35,6 +35,9 @@ func TestConfigRejectsUnsafeRead(t *testing.T) {
 			if _, err := Load(); err == nil {
 				t.Error("Load accepted unsafe file")
 			}
+			if _, err := LoadUILanguage(); err == nil {
+				t.Error("LoadUILanguage accepted unsafe file")
+			}
 			called := false
 			if err := Update(func(*Config) error { called = true; return nil }); err == nil || called {
 				t.Errorf("Update accepted unsafe file: error = %v, callback = %v", err, called)
@@ -72,6 +75,9 @@ func TestConfigRejectsUnsafeDirectory(t *testing.T) {
 			t.Cleanup(func() { SetConfigPathForTests(previous) })
 			if _, err := Load(); err == nil {
 				t.Error("Load accepted unsafe directory")
+			}
+			if _, err := LoadUILanguage(); err == nil {
+				t.Error("LoadUILanguage accepted unsafe directory")
 			}
 			if err := Save(DefaultConfig()); err == nil {
 				t.Error("Save accepted unsafe directory")

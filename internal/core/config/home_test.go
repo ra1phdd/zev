@@ -35,8 +35,9 @@ func TestConfigRejectsUntrustedHomeBeforeIO(t *testing.T) {
 				}
 				called := false
 				operations := map[string]func() error{
-					"load": func() error { _, err := Load(); return err },
-					"save": func() error { return Save(DefaultConfig()) },
+					"load":             func() error { _, err := Load(); return err },
+					"load UI language": func() error { _, err := LoadUILanguage(); return err },
+					"save":             func() error { return Save(DefaultConfig()) },
 					"update": func() error {
 						return Update(func(*Config) error { called = true; return nil })
 					},

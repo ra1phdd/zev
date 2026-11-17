@@ -68,7 +68,7 @@ func TestHistoryMigrationConcurrentCLIQueries(t *testing.T) {
 		cmd := cliCommand(t, home, "--json", "--no-context", prompt)
 		setCLIEnv(cmd, map[string]string{
 			envHistoryEnabled: "true", envProvider: providerOpenAI,
-			envBaseURL: server.URL, envModel: "fixture-model",
+			envBaseURL: server.URL, envModel: fixtureModel,
 			envAPIKey: "migration-secret-marker",
 		})
 		cmd.Stdout, cmd.Stderr = &outputs[i], &diagnostics[i]
@@ -177,7 +177,7 @@ func seedLegacyHistory(t *testing.T) string {
 	if err := os.Mkdir(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "history"), []byte(legacyLine), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "history"), []byte(legacyLine), 0o644); err != nil { //nolint:gosec // Exercise automatic repair of historical wide file modes.
 		t.Fatal(err)
 	}
 	return home

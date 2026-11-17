@@ -14,7 +14,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -244,8 +243,8 @@ func fingerprintLegacy(ctx context.Context, file *os.File) (legacySnapshot, erro
 	if !before.Mode().IsRegular() {
 		return snapshot, fmt.Errorf("%w: legacy source is not regular", service.ErrInvalid)
 	}
-	if runtime.GOOS != "windows" && before.Mode().Perm()&0o077 != 0 {
-		return snapshot, fmt.Errorf("%w: legacy source permissions are wider than 0600", service.ErrInvalid)
+	if err := secureLegacyFile(file); err != nil {
+		return snapshot, err
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return snapshot, fmt.Errorf("rewind legacy history: %w", err)
@@ -284,11 +283,17 @@ func verifyLegacyIdentity(file *os.File, path string) error {
 	if err != nil {
 		return fmt.Errorf("stat open legacy history: %w", err)
 	}
+	if err := validateLegacyFileInfo(opened); err != nil {
+		return err
+	}
 	named, err := os.Lstat(path)
 	if err != nil {
 		return fmt.Errorf("stat legacy history path: %w", err)
 	}
-	if !named.Mode().IsRegular() || !os.SameFile(opened, named) {
+	if err := validateLegacyFileInfo(named); err != nil {
+		return err
+	}
+	if !os.SameFile(opened, named) {
 		return fmt.Errorf("%w: legacy source changed; retry migration", service.ErrConflict)
 	}
 	return nil
@@ -530,7 +535,7 @@ func (m *migrator) completeLegacyRun(ctx context.Context, run legacyRun) (err er
 	if err := verifyLegacyIdentity(archive, run.Metadata.ArchivedPath); err != nil {
 		return fmt.Errorf("verify migration archive identity: %w", err)
 	}
-	if err := secureLegacyPath(run.Metadata.ArchivedPath); err != nil {
+	if err := secureLegacyFile(archive); err != nil {
 		return fmt.Errorf("secure migration archive: %w", err)
 	}
 	snapshot, err := fingerprintLegacy(ctx, archive)

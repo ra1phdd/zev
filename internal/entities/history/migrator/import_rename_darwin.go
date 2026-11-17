@@ -18,24 +18,27 @@ func renameExclusive(oldPath, newPath string) error {
 }
 
 func openLegacySource(path string) (*os.File, error) {
-	info, err := os.Lstat(path)
+	named, err := os.Lstat(path)
 	if err != nil {
 		return nil, fmt.Errorf("inspect legacy source: %w", err)
 	}
-	if !info.Mode().IsRegular() {
-		return nil, errors.New("legacy source must be a regular file")
+	if err := validateLegacyFileInfo(named); err != nil {
+		return nil, err
 	}
 	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, fmt.Errorf("inspect legacy source: %w", err)
 	}
 	file := os.NewFile(uintptr(fd), path)
-	info, statErr := file.Stat()
+	opened, statErr := file.Stat()
 	if statErr != nil {
 		return nil, errors.Join(fmt.Errorf("stat legacy source: %w", statErr), file.Close())
 	}
-	if !info.Mode().IsRegular() {
-		return nil, errors.Join(errors.New("legacy source must be a regular file"), file.Close())
+	if !os.SameFile(named, opened) {
+		return nil, errors.Join(errors.New("legacy source changed during open"), file.Close())
+	}
+	if err := validateLegacyFileInfo(opened); err != nil {
+		return nil, errors.Join(err, file.Close())
 	}
 	return file, nil
 }

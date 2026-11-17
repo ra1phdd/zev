@@ -44,6 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Detect query UI language locally with `ZEV_LANG=auto` (Russian or English fallback),
+  with persistent `ZEV_LANG=ru|en` overrides and unchanged machine output.
+- Repair legacy history permissions silently before import and archive recovery;
+  fail only when repair or subsequent validation cannot complete.
+- Stop treating pipeline/chain separators alone as dangerous; retain operation checks
+  inside every stage and inspect nested `find -exec` actions.
 - Keep `cmd/zev` as a thin launcher and move CLI routing/presentation into `internal/cli`.
 - Use named localization keys instead of English source strings; preserve existing
   translations and machine-readable output.

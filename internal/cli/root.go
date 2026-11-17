@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/locale"
 	"github.com/spf13/cobra"
 )
@@ -20,6 +21,9 @@ var verbosityLevel int
 // NewRootCommand creates the command tree for the supplied build version.
 func NewRootCommand(buildVersion string) *cobra.Command {
 	version = buildVersion
+	if configured, err := config.LoadUILanguage(); err == nil {
+		defer locale.SetLanguage(configured, "")()
+	}
 	rootCmd := &cobra.Command{
 		Use:                "zev [query]",
 		Short:              locale.Text(locale.KeyQueryNaturalLanguageTerminalCommandSuggestions),
@@ -51,6 +55,9 @@ func NewRootCommand(buildVersion string) *cobra.Command {
 
 // Execute runs a configured command tree and returns its process exit code.
 func Execute(ctx context.Context, root *cobra.Command) int {
+	if configured, err := config.LoadUILanguage(); err == nil {
+		defer locale.SetLanguage(configured, "")()
+	}
 	err := root.ExecuteContext(ctx)
 	if err == nil {
 		return 0

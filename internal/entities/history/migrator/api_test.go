@@ -63,6 +63,9 @@ func TestMigrateRecoversArchivedLedgerWithoutSource(t *testing.T) {
 	if err := renameExclusive(source, run.Metadata.ArchivedPath); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Chmod(run.Metadata.ArchivedPath, 0o644); err != nil { //nolint:gosec // The fixture deliberately starts with a legacy-wide archive mode.
+		t.Fatal(err)
+	}
 	if err := Migrate(t.Context(), path); err != nil {
 		t.Fatal(err)
 	}
@@ -72,5 +75,12 @@ func TestMigrateRecoversArchivedLedgerWithoutSource(t *testing.T) {
 	}
 	if status != "completed" {
 		t.Fatalf("ledger status=%s", status)
+	}
+	info, err := os.Stat(run.Metadata.ArchivedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("archive mode = %o, want 600", info.Mode().Perm())
 	}
 }

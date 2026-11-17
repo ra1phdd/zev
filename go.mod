@@ -4,6 +4,7 @@ go 1.27.2
 
 require (
 	github.com/BurntSushi/toml v1.6.0
+	github.com/abadojack/whatlanggo v1.0.1
 	github.com/atotto/clipboard v0.1.4
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/charmbracelet/bubbles v1.0.0

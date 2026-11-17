@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -110,6 +111,16 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 		closeContinuationStore(store, logger)
 		return errors.New(locale.Text(locale.KeyQueryContinuationRequiresHistoryEnabledTrue))
 	}
+	languageRequest := strings.Join(flags.Args, " ")
+	if strings.TrimSpace(languageRequest) == "" {
+		for _, message := range slices.Backward(seed) {
+			if message.Role == queryUserRole && (message.Kind == "" || message.Kind == "initial_prompt" || message.Kind == "refinement") {
+				languageRequest = message.Content
+				break
+			}
+		}
+	}
+	defer locale.SetLanguage(cfg.UILanguage, languageRequest)()
 	interactive := !flags.Print && !flags.JSON && len(flags.Args) == 0
 	inputs, err := collectContinuationInputsWithLog(func(title string) (string, error) {
 		return prompt.InputContext(cmd.Context(), title)
@@ -133,6 +144,9 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 		closeContinuationStore(store, logger)
 		return errors.New(locale.Text(locale.KeyQueryContinuationRequiresContextFilesCommandLogClarificat))
 	}
+	if strings.TrimSpace(clarification) != "" {
+		locale.UpdateRequestLanguage(clarification)
+	}
 	promptText := clarification
 	if strings.TrimSpace(promptText) == "" {
 		promptText = locale.Text(locale.KeyQueryContinueUsingSuppliedContext)
@@ -154,6 +168,7 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	}
 	s := newQuerySession(queryservice.New(provider), cmd, promptText)
 	s.machine = flags.Print || flags.JSON
+	s.updateLanguage = locale.UpdateRequestLanguage
 	s.historyStore, s.persistence = store, historyservice.NewLifecycle(store)
 	s.provider, s.model = provider.Name(), provider.Model()
 	s.startHistory = append([]domain.Message(nil), seed...)

@@ -26,6 +26,7 @@ absent from `~/.zev/config`.
 
 | Key | Default |
 |---|---|
+| `ZEV_LANG` | `auto` |
 | `LLM_PROVIDER` | `openai` |
 | `OPENAI_MODEL` | `gpt-5.6-luna` |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` |
@@ -324,14 +325,35 @@ sandbox or a guarantee that a suggested command is safe.
 ## Interface language
 
 The CLI and interactive prompts support English and Russian via `go-i18n`.
-Set `ZEV_LANG=en` or `ZEV_LANG=ru` for an explicit override. Otherwise the first
-nonempty `LC_ALL`, `LC_MESSAGES`, or `LANG` value is used (including POSIX values
-such as `ru_RU.UTF-8`); unsupported languages fall back to English.
+`ZEV_LANG=auto` (default) detects the request language locally with `whatlanggo`: Russian
+uses Russian UI; other or unidentified languages use English, regardless of system locale.
+Detection examines at most 4096 runes and is statistical: very short, mixed or similar-language
+texts can be misclassified. No extra network/model request is made. Refinements update the
+UI language; continuation without new clarification uses the latest restored user prompt,
+not attached files or command logs.
+
+Set `ZEV_LANG=en` or `ZEV_LANG=ru` in `~/.zev/config` to fix the interface language regardless
+of the request. A nonempty environment `ZEV_LANG` overrides the file; `auto` re-enables detection.
+Without a request (help/setup and the initial input prompt), auto uses the first nonempty
+`LC_ALL`, `LC_MESSAGES`, or `LANG` (including `ru_RU.UTF-8`); unsupported locales use English.
+Invalid configured language values are rejected when loading the full configuration.
 
 ```bash
+ZEV_LANG=auto zev query "Покажи самые большие файлы"
 ZEV_LANG=ru zev query "list files"
 ZEV_LANG=en zev alias list
 ```
+
+To pin the UI persistently, add one line to `~/.zev/config`:
+
+```dotenv
+ZEV_LANG=ru
+```
+
+Safety checks inspect operations inside pipelines/chains; separators such as `|`, `&&`
+or `;` alone do not mark a command dangerous. Warnings for destructive operations,
+shell execution from pipeline input, substitutions and output redirection remain;
+provider-supplied warnings are preserved. Absence of a warning is not a safety guarantee.
 
 Translations live in root `locale/*.toml` and are embedded into the binary. No locale
 files are needed beside the installed executable. Add translations to the matching

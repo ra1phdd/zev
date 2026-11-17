@@ -10,6 +10,38 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+func secureLegacyFile(file *os.File) error {
+	info, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("inspect opened legacy file: %w", err)
+	}
+	if err := validateOpenedLegacyFile(file, info); err != nil {
+		return err
+	}
+	return secureLegacyPath(file.Name())
+}
+
+func validateLegacyFileInfo(info os.FileInfo) error {
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return fmt.Errorf("%w: unexpected legacy path type", service.ErrInvalid)
+	}
+	return nil
+}
+
+func validateOpenedLegacyFile(file *os.File, info os.FileInfo) error {
+	if err := validateLegacyFileInfo(info); err != nil {
+		return err
+	}
+	var handleInfo windows.ByHandleFileInformation
+	if err := windows.GetFileInformationByHandle(windows.Handle(file.Fd()), &handleInfo); err != nil {
+		return fmt.Errorf("inspect legacy file handle: %w", err)
+	}
+	if handleInfo.NumberOfLinks != 1 || handleInfo.FileAttributes&(windows.FILE_ATTRIBUTE_REPARSE_POINT|windows.FILE_ATTRIBUTE_DIRECTORY) != 0 {
+		return fmt.Errorf("%w: legacy file must be a singly linked regular file without reparse points", service.ErrInvalid)
+	}
+	return nil
+}
+
 func secureLegacyPath(path string) error {
 	info, err := os.Lstat(path)
 	if err != nil {

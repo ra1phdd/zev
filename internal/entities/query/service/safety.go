@@ -34,11 +34,8 @@ func ValidateCommand(command string) CommandAssessment {
 	if syntax.commandSubstitution {
 		return dangerousAssessment("Command substitution can execute a nested command.")
 	}
-	if syntax.remoteShellPipeline {
-		return dangerousAssessment("Remote content is being piped directly to a shell.")
-	}
-	if syntax.chain {
-		return dangerousAssessment("Shell chaining can execute multiple commands.")
+	if syntax.shellPipeline {
+		return dangerousAssessment("Piping content to a shell can execute arbitrary commands.")
 	}
 	if syntax.outputRedirect {
 		return dangerousAssessment("Output redirection can overwrite files or devices.")
@@ -72,10 +69,9 @@ type safetyToken struct {
 }
 
 type syntaxAssessment struct {
-	chain               bool
 	commandSubstitution bool
 	outputRedirect      bool
-	remoteShellPipeline bool
+	shellPipeline       bool
 }
 
 type commandTokenizer struct {
@@ -176,7 +172,6 @@ func (t *commandTokenizer) consumeUnquoted(runes []rune, index *int) {
 func (t *commandTokenizer) addChainOperator(operator string) {
 	t.flushWord()
 	t.tokens = append(t.tokens, safetyToken{operator: true, text: operator})
-	t.syntax.chain = true
 }
 
 func (t *commandTokenizer) consumeAmpersand(runes []rune, index *int) {
@@ -240,7 +235,7 @@ func tokenizeCommand(command string) ([]safetyToken, syntaxAssessment) {
 		index++
 	}
 	tokenizer.flushWord()
-	tokenizer.syntax.remoteShellPipeline = hasRemoteShellPipeline(tokenizer.tokens)
+	tokenizer.syntax.shellPipeline = hasShellPipeline(tokenizer.tokens)
 	return tokenizer.tokens, tokenizer.syntax
 }
 
@@ -297,7 +292,7 @@ func assessCommandSegment(words []string) (CommandAssessment, bool) {
 		}
 	case "find":
 		if findDestructive(args) {
-			return dangerousAssessment("This find operation can delete files through an action expression."), true
+			return dangerousAssessment("This find action can execute a dangerous command or delete files."), true
 		}
 	case "git":
 		if gitDestructive(args) {
@@ -461,33 +456,24 @@ func kubectlDestructive(args []string) bool {
 }
 
 func findDestructive(args []string) bool {
-	for i, arg := range args {
-		lower := strings.ToLower(arg)
+	for i := 0; i < len(args); i++ {
+		lower := strings.ToLower(args[i])
 		if lower == "-delete" || lower == "--delete" {
 			return true
 		}
 		if lower != "-exec" && lower != "-execdir" {
 			continue
 		}
-		for _, action := range args[i+1:] {
-			if action == ";" || action == "+" {
-				break
-			}
-			if isRemovalExecutable(action) {
-				return true
-			}
+		end := i + 1
+		for end < len(args) && args[end] != ";" && args[end] != "+" {
+			end++
 		}
+		if _, dangerous := assessCommandSegment(args[i+1 : end]); dangerous {
+			return true
+		}
+		i = end
 	}
 	return false
-}
-
-func isRemovalExecutable(word string) bool {
-	switch executableName(word) {
-	case "rm", "rmdir", safetyDeleteCommand, "erase", "rd", "remove-item":
-		return true
-	default:
-		return false
-	}
 }
 
 func readsSensitiveFile(args []string) bool {
@@ -514,38 +500,29 @@ func shellInterpreter(executable string, args []string) bool {
 	return false
 }
 
-func hasRemoteShellPipeline(tokens []safetyToken) bool {
+func hasShellPipeline(tokens []safetyToken) bool {
 	for i, token := range tokens {
 		if !token.operator || token.text != "|" {
 			continue
 		}
-		left := pipelineCommandName(tokens, i, -1)
-		right := pipelineCommandName(tokens, i, 1)
-		if (left == "curl" || left == "wget" || left == "invoke-webrequest") && isShellName(right) {
+		right := pipelineCommandName(tokens, i)
+		if isShellName(right) {
 			return true
 		}
 	}
 	return false
 }
 
-func pipelineCommandName(tokens []safetyToken, pipeIndex, direction int) string {
-	if direction < 0 {
-		start := pipeIndex - 1
-		for start >= 0 && !isCommandBoundary(tokens[start]) {
-			start--
-		}
-		for index := start + 1; index < pipeIndex; index++ {
-			if !tokens[index].operator {
-				return executableName(tokens[index].text)
-			}
-		}
-		return ""
-	}
-
+func pipelineCommandName(tokens []safetyToken, pipeIndex int) string {
+	var words []string
 	for index := pipeIndex + 1; index < len(tokens) && !isCommandBoundary(tokens[index]); index++ {
 		if !tokens[index].operator {
-			return executableName(tokens[index].text)
+			words = append(words, tokens[index].text)
 		}
+	}
+	start := commandStart(words)
+	if start < len(words) {
+		return executableName(words[start])
 	}
 	return ""
 }

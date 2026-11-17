@@ -75,7 +75,8 @@ A source differing from an already completed import is a conflict, not an automa
 Keep the source/archive for recovery; do not manually delete it to bypass an error. Stop
 old JSONL-writing clients before upgrading and do not restart them after cutover: there
 is no dual-write mode. The archive is not the active store and is not removed by `clear`.
-Legacy files must be regular files with private permissions (no wider than `0600` on Unix).
+Legacy files must be regular files. Migration silently repairs Unix permissions to `0600`; it fails only
+if the repair or subsequent validation cannot complete.
 
 ## Browse, inspect and manage
 

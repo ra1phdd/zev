@@ -67,10 +67,27 @@ func newSourceKeys() map[string]Key {
 	return keys
 }
 
-// Language returns the configured language. ZEV_LANG takes precedence over
-// LC_ALL, LC_MESSAGES and LANG. Unsupported languages fall back to English.
+// Language returns the process-wide UI language. An explicit ru/en ZEV_LANG
+// overrides SetLanguage. Without a selection it preserves environment precedence:
+// ZEV_LANG, LC_ALL, LC_MESSAGES, LANG, with unsupported values using English.
 func Language() string {
-	for _, value := range []string{os.Getenv("ZEV_LANG"), os.Getenv("LC_ALL"), os.Getenv("LC_MESSAGES"), os.Getenv("LANG")} {
+	if selected := selectedLanguage.Load(); selected != nil {
+		if override := strings.ToLower(strings.TrimSpace(os.Getenv("ZEV_LANG"))); override == "ru" || override == "en" {
+			return override
+		}
+		if selected.configured == "ru" || selected.configured == "en" {
+			return selected.configured
+		}
+		if selected.language != "" {
+			return selected.language
+		}
+		return environmentLanguage(os.Getenv("LC_ALL"), os.Getenv("LC_MESSAGES"), os.Getenv("LANG"))
+	}
+	return environmentLanguage(os.Getenv("ZEV_LANG"), os.Getenv("LC_ALL"), os.Getenv("LC_MESSAGES"), os.Getenv("LANG"))
+}
+
+func environmentLanguage(values ...string) string {
+	for _, value := range values {
 		value = strings.ToLower(strings.TrimSpace(value))
 		if value == "" {
 			continue

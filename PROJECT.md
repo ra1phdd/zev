@@ -107,6 +107,9 @@ SQLite history — Unreleased. Query lifecycle, автоматическая JSO
 Файл имеет dotenv-формат `KEY=VALUE`, а не YAML/JSON. Его создаёт `zev setup`;
 `zev setup mode` и `zev setup headers` меняют соответствующие настройки.
 
+- `ZEV_LANG`: `auto` по умолчанию; локальный классификатор выбирает русский для русского
+  запроса и английский для остальных. `ru`/`en` фиксируют язык UI; непустое окружение
+  приоритетнее файла. Без запроса auto использует системную локаль.
 - `LLM_PROVIDER`: `openai` (default), `gemini`, `anthropic`, `ollama`, `opencode`.
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` используются также OpenCode.
 - Для Gemini и Anthropic предусмотрены собственные `*_API_KEY`, `*_MODEL`, `*_BASE_URL`;

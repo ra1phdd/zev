@@ -18,6 +18,7 @@ import (
 
 // Config contains provider, HTTP, and command execution settings.
 type Config struct {
+	UILanguage  string            `env:"ZEV_LANG"`
 	LLMProvider string            `env:"LLM_PROVIDER"`
 	HTTPHeaders map[string]string `env:"HTTP_HEADERS" envSeparator:","`
 
@@ -54,6 +55,7 @@ type Config struct {
 // DefaultConfig returns a new configuration with default provider and CLI settings.
 func DefaultConfig() *Config {
 	return &Config{
+		UILanguage:  uiLanguageAuto,
 		LLMProvider: "openai",
 		HTTPHeaders: map[string]string{
 			"User-Agent": "zev/1.0",
@@ -101,7 +103,11 @@ func load(configPath string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	maps.Copy(values, env.ToMap(os.Environ()))
+	environment := env.ToMap(os.Environ())
+	if strings.TrimSpace(environment["ZEV_LANG"]) == "" {
+		delete(environment, "ZEV_LANG")
+	}
+	maps.Copy(values, environment)
 	return parseValues(values)
 }
 
@@ -130,12 +136,18 @@ func readValues(path string) (map[string]string, error) {
 	return values, nil
 }
 
-var errInvalidToolPolicy = errors.New("invalid tool policy")
+var (
+	errInvalidToolPolicy = errors.New("invalid tool policy")
+	errInvalidUILanguage = errors.New("invalid UI language: must be auto, en, or ru")
+)
 
 func validationConfigError(err error) configError {
 	message := "invalid history embedding settings"
 	if errors.Is(err, errInvalidToolPolicy) {
 		message = "invalid tool policy"
+	}
+	if errors.Is(err, errInvalidUILanguage) {
+		message = "invalid UI language: must be auto, en, or ru"
 	}
 	return configError{message: message, cause: err}
 }
@@ -145,6 +157,7 @@ func parseValues(values map[string]string) (*Config, error) {
 	if err := env.ParseWithOptions(cfg, env.Options{Environment: values}); err != nil {
 		return nil, configError{message: "failed to parse config settings", cause: err}
 	}
+	cfg.UILanguage = normalizeUILanguage(cfg.UILanguage)
 	if headers, ok := values["HTTP_HEADERS"]; ok {
 		cfg.HTTPHeaders = parseHTTPHeaders(headers)
 	}
@@ -157,11 +170,16 @@ func parseValues(values map[string]string) (*Config, error) {
 	return cfg, nil
 }
 
-// Validate checks tool policy and opt-in history embedding settings. Disabled
-// semantic search deliberately ignores the other embedding fields.
+// Validate checks UI language, tool policy, and opt-in history embedding settings.
+// Empty UI language means auto. Disabled semantic search deliberately ignores the
+// other embedding fields. Invalid UI language errors never include its value.
 func (c *Config) Validate() error {
 	if c == nil {
 		return nil
+	}
+	c.UILanguage = normalizeUILanguage(c.UILanguage)
+	if err := validateUILanguage(c.UILanguage); err != nil {
+		return err
 	}
 	if c.ToolApprovalMode != "manual" && c.ToolApprovalMode != "auto" && c.ToolApprovalMode != "bypass" {
 		return fmt.Errorf("%w: approval mode must be manual, auto, or bypass", errInvalidToolPolicy)
@@ -246,6 +264,9 @@ func save(configPath string, cfg *Config) error {
 	if cfg == nil {
 		return errors.New("config must not be nil")
 	}
+	normalized := *cfg
+	normalized.UILanguage = normalizeUILanguage(cfg.UILanguage)
+	cfg = &normalized
 	if err := cfg.Validate(); err != nil {
 		return validationConfigError(err)
 	}

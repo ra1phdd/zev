@@ -243,6 +243,11 @@ func parseArgsFlags(args []string) parsedFlags {
 
 func runQuery(cmd *cobra.Command, args []string) error {
 	parsed := parseArgsFlags(args)
+	configured, err := config.LoadUILanguage()
+	if err != nil {
+		configured = "auto"
+	}
+	defer locale.SetLanguage(configured, strings.Join(parsed.Args, " "))()
 	parsed.NoHistory = parsed.NoHistory || noHistoryFlag
 	parsed.NoContext = parsed.NoContext || noContextFlag
 	if parsed.Help {
@@ -270,7 +275,7 @@ func runQuery(cmd *cobra.Command, args []string) error {
 		}
 		return runMachineConfigured(cmd, parsed, logger)
 	}
-	err := runConfiguredQuery(cmd, parsed, logger)
+	err = runConfiguredQuery(cmd, parsed, logger)
 	if errors.Is(err, errQueryCancelled) {
 		return nil
 	}
@@ -307,6 +312,7 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	if strings.TrimSpace(userPrompt) == "" {
 		return errors.New(locale.Text(locale.KeyQueryPromptCannotEmpty))
 	}
+	locale.UpdateRequestLanguage(userPrompt)
 	if handled, err := executeNamedQuery(cmd.Context(), userPrompt, logger); handled {
 		return err
 	}
@@ -323,6 +329,7 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	logger.Debug("Provider created", "name", provider.Name(), "model", provider.Model())
 	s := newQuerySessionWithProjectContext(queryservice.New(provider), cmd, userPrompt, projectContext)
 	s.provider, s.model = provider.Name(), provider.Model()
+	s.updateLanguage = locale.UpdateRequestLanguage
 	s.prepareHistory(cfg.HistoryEnabled)
 	defer s.closeHistory(cmd.Context(), &resultErr)
 	if !cfg.ContextEnabled {
@@ -423,6 +430,7 @@ type querySession struct {
 	response             *domain.OptionsResponse
 	input                func(string) (string, error)
 	selectItem           func(list.SelectOptions) (list.Item, error)
+	updateLanguage       func(string)
 }
 
 func newQuerySessionWithProjectContext(svc *queryservice.Service, cmd *cobra.Command, userPrompt, projectContext string) *querySession {
@@ -557,6 +565,9 @@ func (s *querySession) start(ctx context.Context) error {
 }
 
 func (s *querySession) addRefinement(value string) {
+	if s.updateLanguage != nil {
+		s.updateLanguage(value)
+	}
 	s.userPrompt = value
 	s.history.Messages = append(s.history.Messages, domain.Message{Role: queryUserRole, Content: value})
 }

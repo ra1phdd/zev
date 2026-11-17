@@ -27,6 +27,13 @@ func renameExclusive(oldPath, newPath string) error {
 }
 
 func openLegacySource(path string) (*os.File, error) {
+	namedInfo, err := os.Lstat(path)
+	if err != nil {
+		return nil, fmt.Errorf("inspect legacy source: %w", err)
+	}
+	if err := validateLegacyFileInfo(namedInfo); err != nil {
+		return nil, err
+	}
 	name, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		return nil, fmt.Errorf("encode source path: %w", err)
@@ -40,8 +47,11 @@ func openLegacySource(path string) (*os.File, error) {
 	if statErr != nil {
 		return nil, errors.Join(fmt.Errorf("stat legacy source: %w", statErr), file.Close())
 	}
-	if !info.Mode().IsRegular() {
-		return nil, errors.Join(errors.New("legacy source must be a regular file"), file.Close())
+	if !os.SameFile(namedInfo, info) {
+		return nil, errors.Join(errors.New("legacy source changed during open"), file.Close())
+	}
+	if err := validateOpenedLegacyFile(file, info); err != nil {
+		return nil, errors.Join(err, file.Close())
 	}
 	return file, nil
 }
