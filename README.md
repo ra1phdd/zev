@@ -189,6 +189,7 @@ export OLLAMA_MODEL=qwen2.5-coder
 - [Configuration](docs/en/CONFIGURATION.md) — `~/.zev/config`, environment variables, execution
   modes, files on disk
 - [History](docs/en/HISTORY.md) — persistent SQLite history, migration, search and semantic opt-in
+- [Aliases and scripts specification](docs/en/ALIASES-SCRIPTS-SPEC.md) — planned metadata, CLI, migration and argument contracts
 - [Architecture](docs/en/ARCHITECTURE.md) — package map, query flow, provider contracts
 - [Development](docs/en/DEVELOPMENT.md) — make targets, TDD workflow, conventions
 - [Contributing](docs/en/CONTRIBUTING.md) — how to propose and land a change

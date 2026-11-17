@@ -8,7 +8,7 @@
     <img src="https://img.shields.io/badge/license-MIT-green" alt="Лицензия">
 </p>
 
-<img src="assets/zev.gif" width="346" alt="Zev в действии">
+<img src="assets/zev.ru.gif" width="346" alt="Zev в действии">
 
 [English](README.md) | **Русский**
 </div>
@@ -190,6 +190,7 @@ export OLLAMA_MODEL=qwen2.5-coder
 - [Конфигурация](docs/ru/CONFIGURATION.md) — `~/.zev/config`, переменные окружения, режимы
   выполнения, файлы на диске
 - [История](docs/ru/HISTORY.md) — постоянная SQLite-история, миграция, поиск и semantic opt-in
+- [Спецификация алиасов и скриптов](docs/ru/ALIASES-SCRIPTS-SPEC.md) — планируемые метаданные, CLI, миграция и контракт аргументов
 - [Архитектура](docs/ru/ARCHITECTURE.md) — карта пакетов, путь запроса, контракты
   провайдеров
 - [Разработка](docs/ru/DEVELOPMENT.md) — make-цели, TDD, соглашения проекта

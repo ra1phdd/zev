@@ -316,6 +316,7 @@ GoReleaser уже использует `-s -w` и `-trimpath`.
 - [README.ru.md](README.ru.md) / [README.md](README.md) — использование и установка.
 - [Конфигурация](docs/ru/CONFIGURATION.md) — параметры и файлы данных.
 - [История](docs/ru/HISTORY.md) — постоянное хранилище, миграция, поиск и semantic opt-in.
+- [Спецификация алиасов и скриптов](docs/ru/ALIASES-SCRIPTS-SPEC.md) — draft-контракт метаданных, CLI и миграции.
 - [Архитектура](docs/ru/ARCHITECTURE.md) — пакеты и порт провайдера.
 - [Разработка](docs/ru/DEVELOPMENT.md) и [участие](docs/ru/CONTRIBUTING.md) — команды и правила.
 - [CHANGELOG.md](CHANGELOG.md) — пользовательские изменения по существующим релизам.

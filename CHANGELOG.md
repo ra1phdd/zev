@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Refresh the README demos with separate English and Russian GIFs, unified JetBrains Mono Bold
+  typography (16 pt commands and 14 pt secondary text), macOS-style window controls,
+  non-overlapping command prompts and full command-description selection.
 - Detect query UI language locally with `ZEV_LANG=auto` (Russian or English fallback),
   with persistent `ZEV_LANG=ru|en` overrides and unchanged machine output.
 - Repair legacy history permissions silently before import and archive recovery;

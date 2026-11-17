@@ -6,6 +6,9 @@ vendor/
 coverage.txt
 coverage.html
 
+# Local README demo generation
+/tools/zev-demo-gif/
+
 # Build artifacts
 bin/
 build/
