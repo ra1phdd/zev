@@ -10,6 +10,7 @@ import (
 
 const (
 	lastCommandFixture = "echo latest"
+	lastCommandEarlier = "earlier"
 	lastCommandLatest  = "latest"
 	executedDelivery   = "executed"
 	cancelledFixture   = "cancelled"
@@ -30,20 +31,20 @@ func TestLastUsedCommand(t *testing.T) {
 		{name: executedDelivery, status: completedStatus, outcome: executedDelivery, command: lastCommandFixture, selected: true, exit: new(0), wantLatest: true},
 		{name: cancelledFixture, status: cancelledFixture, outcome: printedDelivery, command: lastCommandFixture, selected: true},
 		{name: "failed conversation", status: failedStatus, outcome: printedDelivery, command: lastCommandFixture, selected: true},
-		{name: "started", status: startedStatus, outcome: printedDelivery, command: lastCommandFixture, selected: true},
+		{name: startedStatus, status: startedStatus, outcome: printedDelivery, command: lastCommandFixture, selected: true},
 		{name: "unselected", status: completedStatus, command: lastCommandFixture},
 		{name: "selected only", status: completedStatus, outcome: selectedOutcome, command: lastCommandFixture, selected: true},
 		{name: "unknown", status: completedStatus, outcome: unknownOutcome, command: lastCommandFixture, selected: true},
 		{name: "failed delivery", status: completedStatus, outcome: failedStatus, command: lastCommandFixture, selected: true, exit: new(1)},
 		{name: "nonzero execution", status: completedStatus, outcome: executedDelivery, command: lastCommandFixture, selected: true, exit: new(1)},
-		{name: "execution error", status: completedStatus, outcome: executedDelivery, command: lastCommandFixture, selected: true, exit: new(0), executionError: "failed"},
+		{name: "execution error", status: completedStatus, outcome: executedDelivery, command: lastCommandFixture, selected: true, exit: new(0), executionError: failedStatus},
 		{name: "empty command", status: completedStatus, outcome: printedDelivery, command: " \t\n", selected: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			s := regressionStore(t)
 			at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-			for _, id := range []string{"earlier", lastCommandLatest} {
+			for _, id := range []string{lastCommandEarlier, lastCommandLatest} {
 				// Creation order differs from selection order.
 				created := at.Add(time.Hour)
 				if id == lastCommandLatest {

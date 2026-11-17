@@ -33,6 +33,7 @@ func main() {
 	rootCmd.PersistentFlags().CountVarP(&verbosityLevel, "verbose", "v", "Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)")
 
 	rootCmd.AddCommand(newQueryCmd())
+	rootCmd.AddCommand(newContinueCmd())
 	rootCmd.AddCommand(newHistoryCmd())
 	rootCmd.AddCommand(newSetupCmd())
 	rootCmd.AddCommand(newDoctorCmd())

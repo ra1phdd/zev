@@ -33,10 +33,14 @@ import (
 )
 
 const (
-	queryCancelled     = "cancelled"
-	queryUserRole      = "user"
-	queryAssistantRole = "assistant"
-	queryRefineMarker  = "::REFINE_QUERY::"
+	queryCancelled            = "cancelled"
+	queryUserRole             = "user"
+	queryAssistantRole        = "assistant"
+	queryRefineMarker         = "::REFINE_QUERY::"
+	continueQueryFlag         = "--continue"
+	queryLocalContextDisabled = "Local environment context is disabled."
+	queryDeliverySelected     = "selected"
+	queryDeliveryPrinted      = "printed"
 )
 
 var (
@@ -56,6 +60,7 @@ type parsedFlags struct {
 	Inject                bool
 	NoHistory             bool
 	NoContext             bool
+	Continue              bool
 	AllowSensitiveContext bool
 	ContextFiles          []string
 	Print                 bool
@@ -83,6 +88,18 @@ func setupLogger(verbosity int) *slog.Logger {
 	}
 	opts := &slog.HandlerOptions{Level: level, AddSource: addSource}
 	return slog.New(slog.NewTextHandler(os.Stderr, opts))
+}
+
+func newContinueCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:                "continue [clarification]",
+		Short:              "Continue the latest usable conversation",
+		Args:               cobra.ArbitraryArgs,
+		DisableFlagParsing: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runQuery(cmd, append([]string{"--continue"}, args...))
+		},
+	}
 }
 
 func newQueryCmd() *cobra.Command {
@@ -149,6 +166,8 @@ func parseArgsFlags(args []string) parsedFlags {
 			result.NoHistory = true
 		case arg == "--no-context":
 			result.NoContext = true
+		case arg == "--continue":
+			result.Continue = true
 		case arg == "--allow-sensitive-context":
 			result.AllowSensitiveContext = true
 		case arg == "--context-file", arg == "-cf":
@@ -221,6 +240,9 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	logger := setupLogger(verbosityLevel)
 	if parsed.Print || parsed.JSON {
 		logger = slog.New(slog.NewTextHandler(cmd.ErrOrStderr(), &slog.HandlerOptions{Level: slog.LevelWarn}))
+		if parsed.Continue {
+			return runContinuationQuery(cmd, parsed, logger)
+		}
 		return runMachineConfigured(cmd, parsed, logger)
 	}
 	err := runConfiguredQuery(cmd, parsed, logger)
@@ -230,7 +252,11 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	return err
 }
 
+//nolint:gocognit // Existing query orchestration owns configuration, provider setup, history, and delivery.
 func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logger) (resultErr error) {
+	if flags.Continue {
+		return runContinuationQuery(cmd, flags, logger)
+	}
 	args := flags.Args
 	projectContext, err := loadProjectContext(flags.ContextFiles, flags.AllowSensitiveContext)
 	if err != nil {
@@ -270,7 +296,7 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	s.prepareHistory(cfg.HistoryEnabled)
 	defer s.closeHistory(cmd.Context(), &resultErr)
 	if !cfg.ContextEnabled {
-		contextPrompt := "Local environment context is disabled."
+		contextPrompt := queryLocalContextDisabled
 		if projectContext != "" {
 			contextPrompt += "\n\n" + projectContextSection(projectContext)
 		}
@@ -288,7 +314,7 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	if err != nil || selected == nil {
 		return err
 	}
-	outcome := historyservice.SelectionOutcome{Index: index, DeliveryOutcome: "selected"}
+	outcome := historyservice.SelectionOutcome{Index: index, DeliveryOutcome: queryDeliverySelected}
 	if s.persistence != nil {
 		s.warnHistory(s.persistence.Select(cmd.Context(), outcome))
 	}
@@ -346,18 +372,20 @@ func executeNamedQuery(ctx context.Context, userPrompt string, logger *slog.Logg
 // querySession owns only the active conversation and its interactive UI seams.
 // Provider metadata and command execution stay in the composition root.
 type querySession struct {
-	machine         bool
-	persistence     *historyservice.Lifecycle
-	historyStore    *historyrepo.Store
-	provider, model string
-	svc             *queryservice.Service
-	cmd             *cobra.Command
-	history         *domain.ConversationHistory
-	userPrompt      string
-	projectContext  string
-	response        *domain.OptionsResponse
-	input           func(string) (string, error)
-	selectItem      func(list.SelectOptions) (list.Item, error)
+	machine              bool
+	persistence          *historyservice.Lifecycle
+	historyStore         *historyrepo.Store
+	provider, model      string
+	svc                  *queryservice.Service
+	cmd                  *cobra.Command
+	history              *domain.ConversationHistory
+	startHistory         []domain.Message
+	continuationMessages []domain.Message
+	userPrompt           string
+	projectContext       string
+	response             *domain.OptionsResponse
+	input                func(string) (string, error)
+	selectItem           func(list.SelectOptions) (list.Item, error)
 }
 
 func newQuerySessionWithProjectContext(svc *queryservice.Service, cmd *cobra.Command, userPrompt, projectContext string) *querySession {
@@ -457,7 +485,18 @@ func (s *querySession) fetch(ctx context.Context) error {
 
 func (s *querySession) start(ctx context.Context) error {
 	if s.persistence != nil {
-		s.warnHistory(s.persistence.Start(ctx, s.userPrompt, s.provider, s.model))
+		if len(s.startHistory) > 0 {
+			prompt := s.userPrompt
+			if len(s.continuationMessages) > 0 {
+				prompt = ""
+			}
+			s.warnHistory(s.persistence.StartWithHistory(ctx, historyservice.StartHistoryInput{Prompt: prompt, Provider: s.provider, Model: s.model, ConversationHistory: s.startHistory}))
+			for _, message := range s.continuationMessages {
+				s.warnHistory(s.persistence.Append(ctx, message.Content, message.Kind))
+			}
+		} else {
+			s.warnHistory(s.persistence.Start(ctx, s.userPrompt, s.provider, s.model))
+		}
 	}
 	err := s.fetch(ctx)
 	if !errors.Is(err, domain.ErrNoResponse) {
@@ -596,7 +635,7 @@ func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
 	if outcome == nil {
 		outcome = &historyservice.SelectionOutcome{}
 	}
-	outcome.DeliveryOutcome = "selected"
+	outcome.DeliveryOutcome = queryDeliverySelected
 	selected := delivery.command
 	if selected == nil {
 		return fmt.Errorf("%w: selected command is nil", domain.ErrInvalidOptionsResponse)
@@ -635,7 +674,7 @@ func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
 			outcome.ExecutionError = err.Error()
 			return err
 		}
-		outcome.DeliveryOutcome = "printed"
+		outcome.DeliveryOutcome = queryDeliveryPrinted
 		if selected.IsDangerous {
 			return writeQueryOutput(delivery.out, "⚠️  WARNING: %s\n\n", selected.DangerousExplanation)
 		}

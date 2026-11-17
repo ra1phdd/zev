@@ -59,6 +59,14 @@ func newTestQuerySession(t *testing.T, provider *queryFlowProvider) *querySessio
 	return newQuerySession(queryservice.New(provider), cmd, queryTestPrompt)
 }
 
+func TestParseArgsFlagsContinue(t *testing.T) {
+	t.Parallel()
+	got := parseArgsFlags([]string{continueQueryFlag, "clarify", "request"})
+	if !got.Continue || strings.Join(got.Args, " ") != "clarify request" {
+		t.Fatalf("parsed continue = %+v", got)
+	}
+}
+
 func TestQueryRefinementUsesCommandContext(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())

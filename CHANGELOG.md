@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `zev continue` and `zev query --continue` to restore the latest usable conversation with optional project context and command-error input.
 - Add `zev alias edit`, `zev script edit`, and safe `zev script show` commands using the shared editor resolver.
 - Add repeated `--context-file`/`-cf` query inputs with bounded, sectioned project context,
   fail-closed path and sensitive-file checks, and machine-mode stdout preservation.

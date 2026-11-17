@@ -446,7 +446,7 @@ func (s *SearchService) RebuildVectors(ctx context.Context, retryFailed bool, li
 func (s *SearchService) rebuildPage(ctx context.Context, messages []Message, input embeddingInput) (RebuildResult, error) {
 	var result RebuildResult
 	for _, message := range messages {
-		if message.Role != typeUser || (message.Kind != "initial_prompt" && message.Kind != "refinement") {
+		if message.Role != typeUser || (message.Kind != initialPromptKind && message.Kind != refinementKind) {
 			continue
 		}
 		input.message = message
@@ -515,7 +515,7 @@ func validateSearch(request *SearchRequest) error {
 		return fmt.Errorf("%w: fuzzy mode", ErrInvalid)
 	}
 	switch request.Type {
-	case "", typeUser, "assistant", typeCommand, typeExplanation:
+	case "", typeUser, assistantRole, typeCommand, typeExplanation:
 	default:
 		return fmt.Errorf("%w: document type", ErrInvalid)
 	}

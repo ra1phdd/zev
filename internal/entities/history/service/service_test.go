@@ -12,10 +12,21 @@ import (
 
 const (
 	historyInitialPromptKind = "initial_prompt"
-	historyListCommand       = "ls -la"
-	historyConversationID    = "conversation-1"
-	historyValidPayload      = `{"isValid":true}`
+	historyRefinementKind    = "refinement"
+	historyIncludeHidden     = " include hidden "
+	historyAssistantRole     = "assistant"
+	historySystemRole        = "system"
 	historyUserRole          = "user"
+	historyModel             = "model"
+	historyListFiles         = "list files"
+	historyRequest           = "request"
+	historyChosen            = "chosen"
+	historyFileContents      = "file contents"
+	historyCommandError      = "command_error"
+	historyExitStatus        = "exit status 1"
+	historyConversationID    = "conversation-1"
+	historyListCommand       = "ls -la"
+	historyValidPayload      = `{"isValid":true}`
 )
 
 func openHistoryStore(t *testing.T) *repository.Store {
@@ -36,7 +47,7 @@ func TestLifecycleCanCancelAfterInitialPrompt(t *testing.T) {
 	t.Parallel()
 	store := openHistoryStore(t)
 	lifecycle := history.NewLifecycle(store)
-	if err := lifecycle.Start(t.Context(), "list files", "openai", "model"); err != nil {
+	if err := lifecycle.Start(t.Context(), historyListFiles, "openai", "model"); err != nil {
 		t.Fatal(err)
 	}
 	if err := lifecycle.Complete(t.Context(), "cancelled"); err != nil {
@@ -54,7 +65,7 @@ func TestLifecycleCanCancelAfterInitialPrompt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(view.Messages) != 1 || view.Messages[0].Content != "list files" {
+	if len(view.Messages) != 1 || view.Messages[0].Content != historyListFiles {
 		t.Fatalf("messages = %+v, want only the initial prompt", view.Messages)
 	}
 	if len(view.Responses) != 0 {
@@ -66,7 +77,7 @@ func TestLifecyclePersistsRefinementBeforeResponse(t *testing.T) {
 	t.Parallel()
 	store := openHistoryStore(t)
 	lifecycle := history.NewLifecycle(store)
-	if err := lifecycle.Start(t.Context(), "list files", "openai", "model"); err != nil {
+	if err := lifecycle.Start(t.Context(), historyListFiles, "openai", "model"); err != nil {
 		t.Fatal(err)
 	}
 	if err := lifecycle.Refine(t.Context(), "include hidden files"); err != nil {
@@ -106,7 +117,7 @@ func TestLifecycleRejectsSelectionBeforeResponse(t *testing.T) {
 	t.Parallel()
 	store := openHistoryStore(t)
 	lifecycle := history.NewLifecycle(store)
-	if err := lifecycle.Start(t.Context(), "list files", "openai", "model"); err != nil {
+	if err := lifecycle.Start(t.Context(), historyListFiles, "openai", "model"); err != nil {
 		t.Fatal(err)
 	}
 	if err := lifecycle.Select(t.Context(), history.SelectionOutcome{Index: 0}); !errors.Is(err, history.ErrInvalid) {

@@ -182,7 +182,22 @@ Use `--allow-sensitive-context` only when a specific sensitive file is intention
 selected; symlinks remain rejected. A context-file failure returns before network access,
 and machine modes keep stdout reserved for their existing command/JSON contracts.
 
-## Editing aliases and scripts
+## Continue after a failed query
+
+```bash
+zev continue
+zev query --continue
+zev query --continue --print "retry after fixing the command"
+```
+
+`zev continue` is syntax sugar for `zev query --continue`. It restores the newest
+completed or failed query that is eligible for continuation and preserves the complete
+ordered transcript, not only the last prompt. In interactive mode Zev asks in order for
+project context files, command/error log, and a clarification. Enter skips each step.
+At least one file, log, or clarification is required. Machine modes use the same restored
+history without opening the TUI; the existing stdout contracts remain unchanged.
+
+
 
 ```bash
 zev alias edit <name>

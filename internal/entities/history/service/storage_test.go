@@ -14,7 +14,7 @@ func TestSQLiteLifecycleOperationsAreIdempotent(t *testing.T) {
 	ctx := t.Context()
 	start := service.StartConversationInput{
 		Conversation:   service.Conversation{ID: historyConversationID, Kind: "query", Provider: "openai", Model: "model"},
-		InitialMessage: service.Message{ID: "message-1", Role: historyUserRole, Kind: historyInitialPromptKind, Content: "list files"},
+		InitialMessage: service.Message{ID: "message-1", Role: historyUserRole, Kind: historyInitialPromptKind, Content: historyListFiles},
 	}
 	if _, err := store.StartConversation(ctx, start); err != nil {
 		t.Fatal(err)
@@ -37,7 +37,7 @@ func TestSQLiteLifecycleOperationsAreIdempotent(t *testing.T) {
 	}
 
 	response := service.RecordResponseInput{
-		Message: service.Message{ID: "message-3", Role: "assistant", Kind: "response", Content: historyValidPayload},
+		Message: service.Message{ID: "message-3", Role: "assistant", Kind: historyResponseKind, Content: historyValidPayload},
 		Response: service.Response{
 			ID: "response-1", ConversationID: historyConversationID, Provider: "openai", Model: "model",
 			PayloadJSON: historyValidPayload, IsValid: true,
@@ -109,7 +109,7 @@ func TestSQLiteLifecycleRejectsCrossConversationSelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := store.RecordResponse(ctx, service.RecordResponseInput{
-		Message: service.Message{ID: "assistant-2", Role: "assistant", Kind: "response", Content: historyValidPayload},
+		Message: service.Message{ID: "assistant-2", Role: "assistant", Kind: historyResponseKind, Content: historyValidPayload},
 		Response: service.Response{
 			ID: "response-2", ConversationID: "conversation-2", PayloadJSON: historyValidPayload, IsValid: true,
 			Commands: []service.Command{{ID: "command-2", Command: "pwd"}},

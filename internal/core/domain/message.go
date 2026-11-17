@@ -4,6 +4,7 @@ package domain
 type Message struct {
 	Role    string `json:"role"`    // "system", "user", "assistant"
 	Content string `json:"content"` // Message text.
+	Kind    string `json:"kind,omitempty"`
 }
 
 // ConversationHistory contains the system prompt and subsequent conversation turns.

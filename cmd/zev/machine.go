@@ -163,7 +163,7 @@ func runMachineConfigured(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	}
 	contextFn := queryservice.New(provider).GetEnvContextChecked
 	if !cfg.ContextEnabled || flags.NoContext {
-		contextFn = func() (string, error) { return "Local environment context is disabled.", nil }
+		contextFn = func() (string, error) { return queryLocalContextDisabled, nil }
 	}
 	return runMachineProvider(cmd, flags, machineProviderParams{Context: contextFn, Provider: provider, Prompt: prompt, ProjectContext: projectContext, History: cfg.HistoryEnabled && !flags.NoHistory, Logger: logger})
 }
@@ -206,7 +206,7 @@ func runMachineProvider(cmd *cobra.Command, flags parsedFlags, params machinePro
 		return err
 	}
 	if s.persistence != nil {
-		s.warnHistory(s.persistence.Select(cmd.Context(), historyservice.SelectionOutcome{Index: flags.Option - 1, DeliveryOutcome: "printed"}))
+		s.warnHistory(s.persistence.Select(cmd.Context(), historyservice.SelectionOutcome{Index: flags.Option - 1, DeliveryOutcome: queryDeliveryPrinted}))
 	}
 	return nil
 }

@@ -109,6 +109,14 @@ or loads LLM/embedding configuration. No network request is made. Empty history 
 alias names are errors; existing aliases are not overwritten. The alias is saved through the
 normal YAML store in `~/.zev/aliases`; literal template braces in commands are escaped.
 
+## Continue a previous conversation
+
+Use `zev continue` (or `zev query --continue`) to restore the newest completed or failed
+query with its full ordered transcript. Interactive continuation collects optional project
+files, a multiline command log, and a clarification in that order; at least one input is
+required. The restored transcript is saved in an optional `conversation_history` metadata
+field so older records without it remain readable.
+
 ## Search
 
 Local lexical search is the default and needs no embedding provider:
