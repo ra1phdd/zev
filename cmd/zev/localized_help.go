@@ -12,7 +12,7 @@ func localizeCommandHelp(root *cobra.Command) {
 		return
 	}
 	template := root.UsageTemplate()
-	for _, heading := range []string{"Usage:", "Aliases:", "Examples:", "Available Commands:", "Additional Commands:", "Flags:", "Global Flags:", "Additional help topics:"} {
+	for _, heading := range []string{"Global Flags:", "Usage:", "Aliases:", "Examples:", "Available Commands:", "Additional Commands:", "Flags:", "Additional help topics:"} {
 		template = strings.ReplaceAll(template, heading, locale.Text(heading))
 	}
 	template = strings.ReplaceAll(template, `Use "{{.CommandPath}} [command] --help" for more information about a command.`, locale.Text(`Use "{{.CommandPath}} [command] --help" for more information about a command.`))
