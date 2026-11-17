@@ -7,14 +7,15 @@ import (
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/entities/script/repository"
 	"github.com/ra1phdd/zev/internal/entities/script/service"
+	"github.com/ra1phdd/zev/locale"
 	"github.com/spf13/cobra"
 )
 
 func newScriptCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "script",
-		Short: "Manage bash scripts",
-		Long:  "Create, list, and remove bash scripts",
+		Short: locale.Text("Manage bash scripts"),
+		Long:  locale.Text("Create, list, and remove bash scripts"),
 	}
 
 	cmd.AddCommand(newScriptCreateCmd())
@@ -29,11 +30,11 @@ func newScriptCmd() *cobra.Command {
 func newScriptCreateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "create <name> [description]",
-		Short: "Create a new script and open it in $EDITOR",
-		Long: `Create a new bash script in ~/.zev/scripts/ and open it in $EDITOR.
+		Short: locale.Text("Create a new script and open it in $EDITOR"),
+		Long: locale.Text(`Create a new bash script in ~/.zev/scripts/ and open it in $EDITOR.
 
 Example:
-  zev script create deploy "Deploy application to production"`,
+  zev script create deploy "Deploy application to production"`),
 		Args: cobra.RangeArgs(1, 2),
 		RunE: runScriptCreate,
 	}
@@ -42,7 +43,7 @@ Example:
 func newScriptListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List all scripts",
+		Short: locale.Text("List all scripts"),
 		RunE:  runScriptList,
 	}
 }
@@ -50,7 +51,7 @@ func newScriptListCmd() *cobra.Command {
 func newScriptShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <name>",
-		Short: "Show a script body",
+		Short: locale.Text("Show a script body"),
 		Args:  cobra.ExactArgs(1),
 		RunE:  runScriptShow,
 	}
@@ -62,7 +63,7 @@ func runScriptShow(cmd *cobra.Command, args []string) error {
 
 	name := args[0]
 	if err := svc.Show(cmd.Context(), name, cmd.OutOrStdout()); err != nil {
-		return fmt.Errorf("show script %q: %w", name, err)
+		return fmt.Errorf(locale.Text("show script %q: %w"), name, err)
 	}
 	return nil
 }
@@ -70,7 +71,7 @@ func runScriptShow(cmd *cobra.Command, args []string) error {
 func newScriptEditCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "edit <name>",
-		Short: "Edit a bash script in the configured editor",
+		Short: locale.Text("Edit a bash script in the configured editor"),
 		Args:  cobra.ExactArgs(1),
 		RunE:  runScriptEdit,
 	}
@@ -78,9 +79,9 @@ func newScriptEditCmd() *cobra.Command {
 
 func runScriptEdit(cmd *cobra.Command, args []string) error {
 	if err := service.New(repository.New(config.GetZevDir())).OpenEditor(cmd.Context(), args[0]); err != nil {
-		return fmt.Errorf("edit script %q: %w", args[0], err)
+		return fmt.Errorf(locale.Text("edit script %q: %w"), args[0], err)
 	}
-	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "✓ Script %q updated successfully\n", args[0]); err != nil {
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text("✓ Script %q updated successfully\n"), args[0]); err != nil {
 		return fmt.Errorf("write script confirmation: %w", err)
 	}
 	return nil
@@ -90,7 +91,7 @@ func newScriptRemoveCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "remove <name>",
 		Aliases: []string{"rm"},
-		Short:   "Remove a script",
+		Short:   locale.Text("Remove a script"),
 		Args:    cobra.ExactArgs(1),
 		RunE:    runScriptRemove,
 	}
@@ -107,10 +108,10 @@ func runScriptCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	if err := svc.CreateContext(cmd.Context(), name, description); err != nil {
-		return fmt.Errorf("create script %q: %w", name, err)
+		return fmt.Errorf(locale.Text("create script %q: %w"), name, err)
 	}
 
-	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "✓ Script %q created successfully\n", name); err != nil {
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text("✓ Script %q created successfully\n"), name); err != nil {
 		return fmt.Errorf("write script confirmation: %w", err)
 	}
 	return nil
@@ -122,23 +123,23 @@ func runScriptList(cmd *cobra.Command, _ []string) error {
 
 	scripts, err := svc.List()
 	if err != nil {
-		return fmt.Errorf("list scripts: %w", err)
+		return fmt.Errorf(locale.Text("list scripts: %w"), err)
 	}
 
 	if len(scripts) == 0 {
-		if _, err := fmt.Fprintln(cmd.OutOrStdout(), "No scripts configured"); err != nil {
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), locale.Text("No scripts configured")); err != nil {
 			return fmt.Errorf("write empty script list: %w", err)
 		}
 		return nil
 	}
 
 	w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-	if _, err := fmt.Fprintln(w, "NAME	FILE	DESCRIPTION"); err != nil {
+	if _, err := fmt.Fprintln(w, locale.Text("NAME	FILE	DESCRIPTION")); err != nil {
 		return fmt.Errorf("write script table header: %w", err)
 	}
 
 	for _, script := range scripts {
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", script.Name, script.ScriptFile, script.Description); err != nil {
+		if _, err := fmt.Fprintf(w, "%s	%s	%s\n", script.Name, script.ScriptFile, script.Description); err != nil {
 			return fmt.Errorf("write script %q: %w", script.Name, err)
 		}
 	}
@@ -156,10 +157,10 @@ func runScriptRemove(cmd *cobra.Command, args []string) error {
 	name := args[0]
 
 	if err := svc.Remove(name); err != nil {
-		return fmt.Errorf("remove script %q: %w", name, err)
+		return fmt.Errorf(locale.Text("remove script %q: %w"), name, err)
 	}
 
-	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "✓ Script %q removed successfully\n", name); err != nil {
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text("✓ Script %q removed successfully\n"), name); err != nil {
 		return fmt.Errorf("write script confirmation: %w", err)
 	}
 	return nil

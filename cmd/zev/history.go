@@ -1,11 +1,14 @@
 package main
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/ra1phdd/zev/locale"
+	"github.com/spf13/cobra"
+)
 
 func newHistoryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "history",
-		Short: "Show query history",
+		Short: locale.Text("Show query history"),
 		Args:  cobra.NoArgs,
 		RunE:  historyBrowse(openHistory),
 	}

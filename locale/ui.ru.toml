@@ -1,0 +1,59 @@
+["(Press Enter to confirm, Esc to cancel)"]
+other = "(Нажмите Enter для подтверждения, Esc для отмены)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["(Enter: newline, Ctrl+D: submit or skip, Esc/Ctrl+C: cancel; 64 KiB / 10000 lines maximum)"]
+other = "(Enter: новая строка, Ctrl+D: отправить или пропустить, Esc/Ctrl+C: отмена; максимум 64 КиБ / 10000 строк)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["%s (current: %s, press Enter to keep or type 'default' for %s):"]
+other = "%s (текущее: %s, нажмите Enter, чтобы сохранить, или введите 'default' для %s):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["%s (current: %s, press Enter to keep):"]
+other = "%s (текущее: %s, нажмите Enter, чтобы сохранить):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["%s (default: %s):"]
+other = "%s (по умолчанию: %s):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Which LLM provider would you like to use?"]
+other = "Какого LLM-провайдера вы хотите использовать?"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n✓ Configuration saved successfully!"]
+other = "\n✓ Настройки успешно сохранены!"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Enter the model to use"]
+other = "Введите модель для использования"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Enter custom base URL"]
+other = "Введите свой базовый URL"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Enter Ollama base URL"]
+other = "Введите базовый URL Ollama"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Enter your %s API key"]
+other = "Введите ваш API-ключ %s"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+[" (current: %s, press Enter to keep)"]
+other = " (текущее: %s, нажмите Enter, чтобы сохранить)"
+leftDelim = "[[["
+rightDelim = "]]]"

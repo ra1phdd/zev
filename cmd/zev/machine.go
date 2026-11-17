@@ -17,6 +17,7 @@ import (
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
 	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
 	scriptrepo "github.com/ra1phdd/zev/internal/entities/script/repository"
+	"github.com/ra1phdd/zev/locale"
 	"github.com/spf13/cobra"
 )
 
@@ -57,16 +58,16 @@ func validateMachineFlags(flags parsedFlags) error {
 		return machineError(exitArguments, errors.New(flags.ParseError))
 	}
 	if flags.Print && flags.JSON {
-		return machineError(exitArguments, errors.New("--print and --json cannot be used together"))
+		return machineError(exitArguments, errors.New(locale.Text("--print and --json cannot be used together")))
 	}
 	if flags.Option < 1 {
-		return machineError(exitArguments, errors.New("--option must be a positive number"))
+		return machineError(exitArguments, errors.New(locale.Text("--option must be a positive number")))
 	}
 	if flags.OptionSet && !flags.Print && !flags.JSON {
-		return machineError(exitArguments, errors.New("--option requires --print or --json"))
+		return machineError(exitArguments, errors.New(locale.Text("--option requires --print or --json")))
 	}
 	if (flags.Print || flags.JSON) && (flags.Execute || flags.Inject) {
-		return machineError(exitArguments, errors.New("machine output cannot be combined with --execute or --inject"))
+		return machineError(exitArguments, errors.New(locale.Text("machine output cannot be combined with --execute or --inject")))
 	}
 	return nil
 }
@@ -83,14 +84,14 @@ func writeMachineResult(cmd *cobra.Command, flags parsedFlags, response *domain.
 		return machineError(exitInvalidResponse, err)
 	}
 	if !response.IsValid {
-		return machineError(exitInvalidResponse, fmt.Errorf("provider returned no command options: %s", response.ExplanationIfNotValid))
+		return machineError(exitInvalidResponse, fmt.Errorf(locale.Text("provider returned no command options: %s"), response.ExplanationIfNotValid))
 	}
 	option := flags.Option
 	if option == 0 {
 		option = 1
 	}
 	if option > len(response.Commands) {
-		return machineError(exitArguments, fmt.Errorf("option %d is not available; provider returned %d option(s)", option, len(response.Commands)))
+		return machineError(exitArguments, fmt.Errorf(locale.Text("option %d is not available; provider returned %d option(s)"), option, len(response.Commands)))
 	}
 	selected := response.Commands[option-1]
 	if selected.IsDangerous {
@@ -129,14 +130,14 @@ func machineNamedQuery(cmd *cobra.Command, flags parsedFlags) (bool, error) {
 		return true, writeMachineResult(cmd, flags, response)
 	}
 	if err != nil && !errors.Is(err, aliasservice.ErrAliasNotFound) {
-		return true, fmt.Errorf("resolve alias: %w", err)
+		return true, fmt.Errorf(locale.Text("resolve alias: %w"), err)
 	}
 	scripts, err := scriptrepo.New(config.GetZevDir()).LoadAllContext(cmd.Context())
 	if err != nil {
-		return true, fmt.Errorf("read script metadata: %w", err)
+		return true, fmt.Errorf(locale.Text("read script metadata: %w"), err)
 	}
 	if _, ok := scripts[name]; ok {
-		return true, machineError(exitArguments, fmt.Errorf("script %q cannot be printed automatically; use `zev script show %s`", name, name))
+		return true, machineError(exitArguments, fmt.Errorf(locale.Text("script %q cannot be printed automatically; use `zev script show %s`"), name, name))
 	}
 	return false, nil
 }
@@ -144,7 +145,7 @@ func machineNamedQuery(cmd *cobra.Command, flags parsedFlags) (bool, error) {
 func runMachineConfigured(cmd *cobra.Command, flags parsedFlags, logger *slog.Logger) error {
 	prompt := strings.Join(flags.Args, " ")
 	if strings.TrimSpace(prompt) == "" {
-		return machineError(exitArguments, errors.New("machine output requires a nonempty query"))
+		return machineError(exitArguments, errors.New(locale.Text("machine output requires a nonempty query")))
 	}
 	projectContext, err := loadProjectContext(flags.ContextFiles, flags.AllowSensitiveContext)
 	if err != nil {
@@ -155,7 +156,7 @@ func runMachineConfigured(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	}
 	cfg, err := config.Load()
 	if err != nil {
-		return machineError(exitProvider, fmt.Errorf("load provider configuration: %w", err))
+		return machineError(exitProvider, fmt.Errorf(locale.Text("load provider configuration: %w"), err))
 	}
 	provider, err := factory.NewProvider(cfg, httpclient.New(cfg.HTTPHeaders, logger))
 	if err != nil {
@@ -180,7 +181,7 @@ type machineProviderParams struct {
 func runMachineProvider(cmd *cobra.Command, flags parsedFlags, params machineProviderParams) (resultErr error) {
 	env, err := params.Context()
 	if err != nil {
-		return machineError(exitContext, fmt.Errorf("read local context: %w", err))
+		return machineError(exitContext, fmt.Errorf(locale.Text("read local context: %w"), err))
 	}
 	projectPrompt := env
 	if params.ProjectContext != "" {

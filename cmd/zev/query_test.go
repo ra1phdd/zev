@@ -131,7 +131,7 @@ func TestParseArgsFlags(t *testing.T) {
 
 func TestParseArgsFlagsSupportsRepeatedContextFiles(t *testing.T) {
 	t.Parallel()
-	got := parseArgsFlags([]string{"query", "--context-file", "a.txt", "-cf", "b.txt", "--context-file=c.txt"})
+	got := parseArgsFlags([]string{historyValidationQuery, "--context-file", "a.txt", "-cf", "b.txt", "--context-file=c.txt"})
 	want := []string{"a.txt", "b.txt", "c.txt"}
 	if fmt.Sprint(got.ContextFiles) != fmt.Sprint(want) {
 		t.Fatalf("context files = %v, want %v", got.ContextFiles, want)

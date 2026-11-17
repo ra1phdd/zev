@@ -19,6 +19,7 @@ import (
 	"github.com/ra1phdd/zev/internal/entities/history/repository"
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
 	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
+	"github.com/ra1phdd/zev/locale"
 	"github.com/ra1phdd/zev/pkg/tui/list"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -67,15 +68,15 @@ func newDoctorCmd() *cobra.Command {
 	var options doctorOptions
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "Diagnose local configuration and provider readiness",
+		Short: locale.Text("Diagnose local configuration and provider readiness"),
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runDoctor(cmd, options, defaultDoctorDeps())
 		},
 	}
-	cmd.Flags().BoolVar(&options.JSON, "json", false, "Output a stable JSON report")
-	cmd.Flags().BoolVar(&options.Print, "print", false, "Print a human-readable report without prompting")
-	cmd.Flags().BoolVar(&options.Confirm, "confirm", false, "Send one real provider request without prompting")
+	cmd.Flags().BoolVar(&options.JSON, "json", false, locale.Text("Output a stable JSON report"))
+	cmd.Flags().BoolVar(&options.Print, "print", false, locale.Text("Print a human-readable report without prompting"))
+	cmd.Flags().BoolVar(&options.Confirm, "confirm", false, locale.Text("Send one real provider request without prompting"))
 	return cmd
 }
 
@@ -103,16 +104,16 @@ func defaultDoctorDeps() doctorDeps {
 				return false, nil
 			}
 			selected, err := list.SelectContext(ctx, list.SelectOptions{
-				Title: "Send one real request to the configured provider?",
+				Title: locale.Text("Send one real request to the configured provider?"),
 				Items: []list.Item{
-					list.NewSimpleItem("No", "Keep this diagnosis local"),
-					list.NewSimpleItem("Yes", "Send one provider request"),
+					list.NewSimpleItem(locale.Text("No"), locale.Text("Keep this diagnosis local")),
+					list.NewSimpleItem(locale.Text("Yes"), locale.Text("Send one provider request")),
 				},
 			})
 			if err != nil {
 				return false, fmt.Errorf("confirmation input: %w", err)
 			}
-			return strings.EqualFold(selected.Title(), "yes"), nil
+			return selected.Title() == locale.Text("Yes"), nil
 		},
 	}
 }
@@ -139,17 +140,17 @@ func runDoctor(cmd *cobra.Command, options doctorOptions, deps doctorDeps) error
 		return err
 	}
 	if report.Status == doctorStatusError {
-		return errors.New("doctor found failing checks")
+		return errors.New(locale.Text("doctor found failing checks"))
 	}
 	return nil
 }
 
 func writeDoctorNetworkResult(cmd *cobra.Command, report doctorReport) error {
 	check := report.Checks[len(report.Checks)-1]
-	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s: %s (action: %s)\n", check.Status, check.Name, check.Message, check.ActionableMessage); err != nil {
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text("[%s] %s: %s (action: %s)\n"), check.Status, check.Name, locale.Text(check.Message), locale.Text(check.ActionableMessage)); err != nil {
 		return fmt.Errorf("write doctor network result: %w", err)
 	}
-	if _, err := fmt.Fprintln(cmd.OutOrStdout(), report.ActionableMessage); err != nil {
+	if _, err := fmt.Fprintln(cmd.OutOrStdout(), locale.Text(report.ActionableMessage)); err != nil {
 		return fmt.Errorf("write doctor summary: %w", err)
 	}
 	return nil
@@ -373,11 +374,11 @@ func writeDoctorReport(cmd *cobra.Command, report doctorReport, options doctorOp
 		return json.NewEncoder(cmd.OutOrStdout()).Encode(report) //nolint:wrapcheck // Cobra owns the output writer boundary.
 	}
 	for _, check := range report.Checks {
-		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "[%s] %s: %s (action: %s)\n", check.Status, check.Name, check.Message, check.ActionableMessage); err != nil {
+		if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text("[%s] %s: %s (action: %s)\n"), check.Status, check.Name, locale.Text(check.Message), locale.Text(check.ActionableMessage)); err != nil {
 			return fmt.Errorf("write doctor report: %w", err)
 		}
 	}
-	_, err := fmt.Fprintln(cmd.OutOrStdout(), report.ActionableMessage)
+	_, err := fmt.Fprintln(cmd.OutOrStdout(), locale.Text(report.ActionableMessage))
 	if err != nil {
 		return fmt.Errorf("write doctor summary: %w", err)
 	}

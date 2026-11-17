@@ -9,6 +9,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/ra1phdd/zev/locale"
 )
 
 // Input displays promptText and returns the submitted value with whitespace trimmed.
@@ -84,14 +86,14 @@ type inputModel struct {
 	prompt    string
 	value     string
 	cancelled bool
-	width     int // ширина терминала
+	width     int // Terminal width.
 }
 
 func (m inputModel) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-// wrapText переносит текст на несколько строк с учётом максимальной ширины.
+// wrapText wraps text to the given maximum width.
 func wrapText(text string, maxWidth int) string {
 	if len(text) <= maxWidth {
 		return text
@@ -106,15 +108,15 @@ func wrapText(text string, maxWidth int) string {
 			break
 		}
 
-		// Разрыв по последнему пробелу
+		// Break at the last space.
 		breakPoint := strings.LastIndex(remaining[:maxWidth], " ")
 		if breakPoint == -1 {
-			// Нет пробелов — режем по ширине
+			// Without spaces, split at the width limit.
 			breakPoint = maxWidth
 			lines = append(lines, remaining[:breakPoint])
 			remaining = remaining[breakPoint:]
 		} else {
-			// Есть пробел — режем по нему
+			// Split at the space.
 			lines = append(lines, remaining[:breakPoint])
 			remaining = strings.TrimSpace(remaining[breakPoint:])
 		}
@@ -129,7 +131,7 @@ func (m inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
-		m.textInput.Width = msg.Width - 4 // учитываем промежуток
+		m.textInput.Width = msg.Width - 4 // Account for spacing.
 		return m, nil
 
 	case tea.KeyMsg:
@@ -157,8 +159,9 @@ func (m inputModel) View() string {
 
 	wrappedPrompt := wrapText(m.prompt, maxWidth)
 
-	return fmt.Sprintf("%s\n\n%s\n\n(Press Enter to confirm, Esc to cancel)",
+	return fmt.Sprintf("%s\n\n%s\n\n%s",
 		wrappedPrompt,
 		m.textInput.View(),
+		locale.Text("(Press Enter to confirm, Esc to cancel)"),
 	)
 }

@@ -164,6 +164,24 @@ fallback or executed in `execute` mode. Validation is not shell sanitization, a
 sandbox or a guarantee that a suggested command is safe.
 
 
+## Interface language
+
+The CLI and interactive prompts support English and Russian via `go-i18n`.
+Set `ZEV_LANG=en` or `ZEV_LANG=ru` for an explicit override. Otherwise the first
+nonempty `LC_ALL`, `LC_MESSAGES`, or `LANG` value is used (including POSIX values
+such as `ru_RU.UTF-8`); unsupported languages fall back to English.
+
+```bash
+ZEV_LANG=ru zev query "list files"
+ZEV_LANG=en zev alias list
+```
+
+Translations live in root `locale/*.toml` and are embedded into the binary. No locale
+files are needed beside the installed executable. Add translations to the matching
+English/Russian catalogs, keeping message IDs, printf placeholders, and CLI tokens intact.
+Machine JSON keys/statuses, suggested commands, script contents, provider responses, and
+saved history are not translated. Lower-level system/library errors may remain English.
+
 ## Explicit project context files
 
 A query may attach one or more bounded files to the model request:

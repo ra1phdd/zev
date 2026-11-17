@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/ra1phdd/zev/locale"
 	"github.com/spf13/cobra"
 )
 
@@ -20,8 +21,8 @@ var verbosityLevel int
 func main() {
 	rootCmd := &cobra.Command{
 		Use:                "zev [query]",
-		Short:              "Natural language terminal command suggestions",
-		Long:               "Zev helps you remember terminal commands by describing what you want to do in natural language.",
+		Short:              locale.Text("Natural language terminal command suggestions"),
+		Long:               locale.Text("Zev helps you remember terminal commands by describing what you want to do in natural language."),
 		Args:               cobra.ArbitraryArgs,
 		RunE:               runQuery,
 		SilenceUsage:       true,
@@ -30,7 +31,7 @@ func main() {
 	}
 	rootCmd.TraverseChildren = true
 
-	rootCmd.PersistentFlags().CountVarP(&verbosityLevel, "verbose", "v", "Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)")
+	rootCmd.PersistentFlags().CountVarP(&verbosityLevel, "verbose", "v", locale.Text("Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)"))
 
 	rootCmd.AddCommand(newQueryCmd())
 	rootCmd.AddCommand(newContinueCmd())
@@ -40,6 +41,7 @@ func main() {
 	rootCmd.AddCommand(newAliasCmd())
 	rootCmd.AddCommand(newScriptCmd())
 	rootCmd.AddCommand(newVersionCmd())
+	localizeCommandHelp(rootCmd)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	err := rootCmd.ExecuteContext(ctx)
@@ -47,7 +49,7 @@ func main() {
 	//nolint:nestif // Exit handling must preserve machine and child-process status codes.
 	if err != nil {
 		if machineErr, ok := errors.AsType[*machineExitError](err); ok {
-			if _, writeErr := fmt.Fprintf(os.Stderr, "Error: %v\n", err); writeErr != nil {
+			if _, writeErr := fmt.Fprintf(os.Stderr, locale.Text("Error: %v\n"), err); writeErr != nil {
 				slog.Error("Failed to write command error", "error", writeErr)
 			}
 			os.Exit(machineErr.code)
@@ -56,7 +58,7 @@ func main() {
 		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			os.Exit(exitErr.ExitCode())
 		}
-		if _, writeErr := fmt.Fprintf(os.Stderr, "Error: %v\n", err); writeErr != nil {
+		if _, writeErr := fmt.Fprintf(os.Stderr, locale.Text("Error: %v\n"), err); writeErr != nil {
 			slog.Error("Failed to write command error", "error", writeErr)
 		}
 		os.Exit(1)
@@ -66,9 +68,9 @@ func main() {
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Show zev version",
+		Short: locale.Text("Show zev version"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "zev version %s\n", version); err != nil {
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text("zev version %s\n"), version); err != nil {
 				return fmt.Errorf("write version: %w", err)
 			}
 			return nil

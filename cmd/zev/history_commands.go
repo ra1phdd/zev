@@ -16,6 +16,7 @@ import (
 	"github.com/ra1phdd/zev/internal/core/filestore"
 	"github.com/ra1phdd/zev/internal/entities/history/repository"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
+	"github.com/ra1phdd/zev/locale"
 	"github.com/spf13/cobra"
 )
 
@@ -64,14 +65,14 @@ func (a *historyAdapter) Search(ctx context.Context, req service.SearchRequest) 
 func (a *historyAdapter) IndexStatus(ctx context.Context, profile string) (service.IndexStatus, error) {
 	status, err := a.historyStore().IndexStatus(ctx, profile)
 	if err != nil {
-		return service.IndexStatus{}, fmt.Errorf("read history index status: %w", err)
+		return service.IndexStatus{}, fmt.Errorf(locale.Text("read history index status: %w"), err)
 	}
 	return status, nil
 }
 
 func (a *historyAdapter) RebuildFTS(ctx context.Context) error {
 	if err := a.historyStore().RebuildFTS(ctx); err != nil {
-		return fmt.Errorf("rebuild FTS indexes: %w", err)
+		return fmt.Errorf(locale.Text("rebuild FTS indexes: %w"), err)
 	}
 	return nil
 }
@@ -124,7 +125,7 @@ func openHistory(ctx context.Context) (historyOperations, io.Closer, error) {
 	}
 	repo, err := repository.Open(ctx, filepath.Join(dir, "history.db"))
 	if err != nil {
-		return nil, nil, fmt.Errorf("open history: %w", err)
+		return nil, nil, fmt.Errorf(locale.Text("open history: %w"), err)
 	}
 	embedder, err := newHistoryEmbedder(cfg)
 	if errors.Is(err, errHistorySemanticDisabled) {
@@ -171,11 +172,11 @@ func newHistoryCommands(open historyOpener) []*cobra.Command {
 }
 
 func newHistoryShowCmd(open historyOpener) *cobra.Command {
-	show := &cobra.Command{Use: "show [conversation-id]", Short: "Show a conversation or message", Args: cobra.MaximumNArgs(1)}
+	show := &cobra.Command{Use: "show [conversation-id]", Short: locale.Text("Show a conversation or message"), Args: cobra.MaximumNArgs(1)}
 	var message string
 	var jsonOutput bool
-	show.Flags().StringVar(&message, "message", "", "Show a message by full ID")
-	show.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON")
+	show.Flags().StringVar(&message, "message", "", locale.Text("Show a message by full ID"))
+	show.Flags().BoolVar(&jsonOutput, "json", false, locale.Text("Output JSON"))
 	show.RunE = func(cmd *cobra.Command, args []string) error {
 		id, showMessage, err := historyShowTarget(args, message)
 		if err != nil {
@@ -186,7 +187,7 @@ func newHistoryShowCmd(open historyOpener) *cobra.Command {
 			if showMessage {
 				v, err := s.GetMessage(cmd.Context(), id)
 				if err != nil {
-					return fmt.Errorf("get message: %w", err)
+					return fmt.Errorf(locale.Text("get message: %w"), err)
 				}
 				if err := json.NewEncoder(cmd.OutOrStdout()).Encode(v); err != nil {
 					return fmt.Errorf("encode message: %w", err)
@@ -195,7 +196,7 @@ func newHistoryShowCmd(open historyOpener) *cobra.Command {
 			}
 			v, err := s.GetConversation(cmd.Context(), id)
 			if err != nil {
-				return fmt.Errorf("get conversation: %w", err)
+				return fmt.Errorf(locale.Text("get conversation: %w"), err)
 			}
 			if err := json.NewEncoder(cmd.OutOrStdout()).Encode(v); err != nil {
 				return fmt.Errorf("encode conversation: %w", err)
@@ -208,7 +209,7 @@ func newHistoryShowCmd(open historyOpener) *cobra.Command {
 
 func historyShowTarget(args []string, message string) (string, bool, error) {
 	if (len(args) == 1) == (message != "") {
-		return "", false, errors.New("provide exactly one conversation ID or --message ID")
+		return "", false, errors.New(locale.Text("provide exactly one conversation ID or --message ID"))
 	}
 	id := message
 	showMessage := message != ""
@@ -216,18 +217,18 @@ func historyShowTarget(args []string, message string) (string, bool, error) {
 		id = args[0]
 	}
 	if strings.TrimSpace(id) == "" {
-		return "", false, errors.New("ID must not be empty")
+		return "", false, errors.New(locale.Text("ID must not be empty"))
 	}
 	return id, showMessage, nil
 }
 
 func newHistoryExportCmd(open historyOpener) *cobra.Command {
 	var format string
-	export := &cobra.Command{Use: "export", Short: "Export complete history", Args: cobra.NoArgs}
-	export.Flags().StringVar(&format, "format", historyExportJSON, "Output format: json or jsonl")
+	export := &cobra.Command{Use: "export", Short: locale.Text("Export complete history"), Args: cobra.NoArgs}
+	export.Flags().StringVar(&format, "format", historyExportJSON, locale.Text("Output format: json or jsonl"))
 	export.RunE = func(cmd *cobra.Command, _ []string) error {
 		if format != historyExportJSON && format != historyExportJSONL {
-			return errors.New("format must be json or jsonl")
+			return errors.New(locale.Text("format must be json or jsonl"))
 		}
 		return withHistory(cmd, open, func(s historyOperations) error {
 			return streamHistoryExport(cmd.Context(), s, format, cmd.OutOrStdout())
@@ -248,7 +249,7 @@ func streamHistoryExport(ctx context.Context, store historyOperations, format st
 	for {
 		page, err := store.ListConversations(ctx, req)
 		if err != nil {
-			return fmt.Errorf("list history: %w", err)
+			return fmt.Errorf(locale.Text("list history: %w"), err)
 		}
 		first, err = writeHistoryExportPage(ctx, store, format, out, encoder, page, first)
 		if err != nil {
@@ -275,7 +276,7 @@ func writeHistoryExportPage(ctx context.Context, store historyOperations, format
 	for _, conversation := range page {
 		view, err := store.GetConversation(ctx, conversation.ID)
 		if err != nil {
-			return first, fmt.Errorf("get conversation: %w", err)
+			return first, fmt.Errorf(locale.Text("get conversation: %w"), err)
 		}
 		if format == historyExportJSON && !first {
 			if _, err := io.WriteString(out, ",\n"); err != nil {
@@ -291,13 +292,13 @@ func writeHistoryExportPage(ctx context.Context, store historyOperations, format
 }
 
 func newHistoryDeleteCmd(open historyOpener) *cobra.Command {
-	return &cobra.Command{Use: "delete <id>", Short: "Delete one conversation", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "delete <id>", Short: locale.Text("Delete one conversation"), Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if strings.TrimSpace(args[0]) == "" {
-			return errors.New("ID must not be empty")
+			return errors.New(locale.Text("ID must not be empty"))
 		}
 		return withHistory(cmd, open, func(s historyOperations) error {
 			if err := s.DeleteConversation(cmd.Context(), args[0]); err != nil {
-				return fmt.Errorf("delete conversation: %w", err)
+				return fmt.Errorf(locale.Text("delete conversation: %w"), err)
 			}
 			return nil
 		})
@@ -306,18 +307,18 @@ func newHistoryDeleteCmd(open historyOpener) *cobra.Command {
 
 func newHistoryClearCmd(open historyOpener) *cobra.Command {
 	var yes bool
-	clearCmd := &cobra.Command{Use: "clear", Short: "Delete all conversations", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	clearCmd := &cobra.Command{Use: "clear", Short: locale.Text("Delete all conversations"), Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		if !yes {
-			return errors.New("clear requires explicit --yes")
+			return errors.New(locale.Text("clear requires explicit --yes"))
 		}
 		return withHistory(cmd, open, func(s historyOperations) error {
 			if err := s.Clear(cmd.Context()); err != nil {
-				return fmt.Errorf("clear history: %w", err)
+				return fmt.Errorf(locale.Text("clear history: %w"), err)
 			}
 			return nil
 		})
 	}}
-	clearCmd.Flags().BoolVar(&yes, "yes", false, "Confirm deletion of all history")
+	clearCmd.Flags().BoolVar(&yes, "yes", false, locale.Text("Confirm deletion of all history"))
 	return clearCmd
 }
 
@@ -326,22 +327,22 @@ func newHistorySearchCmd(open historyOpener) *cobra.Command {
 	var from, to string
 	var jsonOutput bool
 	var dangerous bool
-	cmd := &cobra.Command{Use: "search [query]", Short: "Search history", Args: cobra.MaximumNArgs(1)}
+	cmd := &cobra.Command{Use: "search [query]", Short: locale.Text("Search history"), Args: cobra.MaximumNArgs(1)}
 	f := cmd.Flags()
-	f.StringVar(&req.Mode, "mode", "lexical", "Search mode: lexical, semantic or hybrid")
-	f.IntVar(&req.Limit, "limit", 20, "Maximum number of results")
-	f.StringVar(&req.Cursor, "cursor", "", "Continue a previous search page")
-	f.StringVar(&from, "from", "", "Inclusive UTC date or RFC3339 time")
-	f.StringVar(&to, "to", "", "Exclusive UTC date or RFC3339 time")
-	f.StringVar(&req.Provider, "provider", "", "Provider filter")
-	f.StringVar(&req.Model, "model", "", "Model filter")
-	f.StringVar(&req.Status, "status", "", "Conversation status")
-	f.StringVar(&req.Type, "type", "", "Document type")
-	f.BoolVar(&dangerous, "dangerous", false, "Filter by dangerous command")
-	f.StringVar(&req.Fuzzy, "fuzzy", "auto", "Fuzzy mode: auto, always or off")
-	f.StringVar(&req.ExactCommand, "exact-command", "", "Exact command text")
-	f.BoolVar(&req.Literal, "literal", false, "Search literal text")
-	f.BoolVar(&jsonOutput, "json", false, "Output JSON")
+	f.StringVar(&req.Mode, "mode", "lexical", locale.Text("Search mode: lexical, semantic or hybrid"))
+	f.IntVar(&req.Limit, "limit", 20, locale.Text("Maximum number of results"))
+	f.StringVar(&req.Cursor, "cursor", "", locale.Text("Continue a previous search page"))
+	f.StringVar(&from, "from", "", locale.Text("Inclusive UTC date or RFC3339 time"))
+	f.StringVar(&to, "to", "", locale.Text("Exclusive UTC date or RFC3339 time"))
+	f.StringVar(&req.Provider, "provider", "", locale.Text("Provider filter"))
+	f.StringVar(&req.Model, "model", "", locale.Text("Model filter"))
+	f.StringVar(&req.Status, "status", "", locale.Text("Conversation status"))
+	f.StringVar(&req.Type, "type", "", locale.Text("Document type"))
+	f.BoolVar(&dangerous, "dangerous", false, locale.Text("Filter by dangerous command"))
+	f.StringVar(&req.Fuzzy, "fuzzy", "auto", locale.Text("Fuzzy mode: auto, always or off"))
+	f.StringVar(&req.ExactCommand, "exact-command", "", locale.Text("Exact command text"))
+	f.BoolVar(&req.Literal, "literal", false, locale.Text("Search literal text"))
+	f.BoolVar(&jsonOutput, "json", false, locale.Text("Output JSON"))
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
 			req.Query = args[0]
@@ -352,7 +353,7 @@ func newHistorySearchCmd(open historyOpener) *cobra.Command {
 		return withHistory(cmd, open, func(s historyOperations) error {
 			result, err := s.Search(cmd.Context(), req)
 			if err != nil {
-				return fmt.Errorf("search history: %w", err)
+				return fmt.Errorf(locale.Text("search history: %w"), err)
 			}
 			return writeHistorySearchResult(cmd, result, jsonOutput)
 		})
@@ -362,37 +363,37 @@ func newHistorySearchCmd(open historyOpener) *cobra.Command {
 
 func validateHistorySearch(req *service.SearchRequest, from, to string, dangerous, dangerousChanged bool) error {
 	if strings.TrimSpace(req.Query) == "" && req.ExactCommand == "" {
-		return errors.New("query must not be empty unless --exact-command is set")
+		return errors.New(locale.Text("query must not be empty unless --exact-command is set"))
 	}
 	if !utf8.ValidString(req.Query) || !utf8.ValidString(req.ExactCommand) {
-		return errors.New("query must be valid UTF-8")
+		return errors.New(locale.Text("query must be valid UTF-8"))
 	}
 	if req.Mode != "lexical" && req.Mode != "semantic" && req.Mode != "hybrid" {
-		return errors.New("mode must be lexical, semantic or hybrid")
+		return errors.New(locale.Text("mode must be lexical, semantic or hybrid"))
 	}
 	if req.Fuzzy != "auto" && req.Fuzzy != "always" && req.Fuzzy != "off" {
-		return errors.New("fuzzy must be auto, always or off")
+		return errors.New(locale.Text("fuzzy must be auto, always or off"))
 	}
 	if req.Limit <= 0 {
-		return errors.New("limit must be positive")
+		return errors.New(locale.Text("limit must be positive"))
 	}
 	if req.Type != "" && req.Type != "user" && req.Type != "assistant" && req.Type != "command" && req.Type != "explanation" {
-		return errors.New("type must be user, assistant, command or explanation")
+		return errors.New(locale.Text("type must be user, assistant, command or explanation"))
 	}
 	if req.Status != "" && req.Status != "started" && req.Status != "completed" && req.Status != "cancelled" && req.Status != historyStatusFailed {
-		return errors.New("invalid status")
+		return errors.New(locale.Text("invalid status"))
 	}
 	parsedFrom, err := parseOptionalHistoryTime(from)
 	if err != nil {
-		return fmt.Errorf("invalid from: %w", err)
+		return fmt.Errorf(locale.Text("invalid from: %w"), err)
 	}
 	parsedTo, err := parseOptionalHistoryTime(to)
 	if err != nil {
-		return fmt.Errorf("invalid to: %w", err)
+		return fmt.Errorf(locale.Text("invalid to: %w"), err)
 	}
 	req.From, req.To = parsedFrom, parsedTo
 	if !req.From.IsZero() && !req.To.IsZero() && !req.From.Before(req.To) {
-		return errors.New("from must be before to")
+		return errors.New(locale.Text("from must be before to"))
 	}
 	if dangerousChanged {
 		req.Dangerous = &dangerous
@@ -408,12 +409,12 @@ func writeHistorySearchResult(cmd *cobra.Command, result service.SearchResult, j
 		return nil
 	}
 	if result.Warning != "" {
-		if _, err := fmt.Fprintln(cmd.ErrOrStderr(), result.Warning); err != nil {
+		if _, err := fmt.Fprintln(cmd.ErrOrStderr(), locale.Text(result.Warning)); err != nil {
 			return fmt.Errorf("write search warning: %w", err)
 		}
 	}
 	for _, hit := range result.Hits {
-		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%q\t%s\t%q\t%g\t%q\n", hit.ConversationID, hit.CreatedAt.Format(time.RFC3339), hit.DocumentType, hit.Score, hit.Snippet); err != nil {
+		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%q	%s	%q	%g	%q\n", hit.ConversationID, hit.CreatedAt.Format(time.RFC3339), hit.DocumentType, hit.Score, hit.Snippet); err != nil {
 			return fmt.Errorf("write search result: %w", err)
 		}
 	}
@@ -438,7 +439,7 @@ func parseHistoryTime(s string) (time.Time, error) {
 func safeHistoryPrompt(text string) string {
 	var b strings.Builder
 	for _, r := range text {
-		if r == '\n' || r == '\r' || r == '\t' || !utf8.ValidRune(r) || r < 0x20 || r == 0x7f {
+		if r == '\n' || r == '\r' || r == '	' || !utf8.ValidRune(r) || r < 0x20 || r == 0x7f {
 			if b.Len() > 0 && !strings.HasSuffix(b.String(), " ") {
 				b.WriteByte(' ')
 			}

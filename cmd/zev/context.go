@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/ra1phdd/zev/internal/core/contextfile"
+	"github.com/ra1phdd/zev/locale"
 )
 
 func projectContextSection(value string) string {
@@ -20,11 +21,11 @@ func loadProjectContext(paths []string, allowSensitive bool) (string, error) {
 	}
 	root, err := filepath.Abs(".")
 	if err != nil {
-		return "", fmt.Errorf("resolve project context root: %w", err)
+		return "", fmt.Errorf(locale.Text("resolve project context root: %w"), err)
 	}
 	content, err := contextfile.LoadWithOptions(root, paths, allowSensitive)
 	if err != nil {
-		return "", fmt.Errorf("load project context: %w", err)
+		return "", fmt.Errorf(locale.Text("load project context: %w"), err)
 	}
 	return content, nil
 }

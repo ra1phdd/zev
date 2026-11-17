@@ -1,0 +1,1074 @@
+["\n⚠️  No headers entered. Configuration unchanged."]
+other = "\n⚠️  Заголовки не введены. Настройки не изменены."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n✅ HTTP headers updated successfully!"]
+other = "\n✅ HTTP-заголовки обновлены!"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n✏️  Enter headers one per line in format 'Header-Name:Header-Value'\n   Press Enter on empty line to finish\n   Common headers:\n     User-Agent:zev/1.0\n     X-Custom-Header:custom-value\n     Authorization:Bearer ***\n\n"]
+other = "\n✏️  Вводите заголовки по одному в строке в формате 'Header-Name:Header-Value'\n   Нажмите Enter на пустой строке для завершения\n   Типичные заголовки:\n     User-Agent:zev/1.0\n     X-Custom-Header:custom-value\n     Authorization:Bearer ***\n\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n📋 Current HTTP headers:"]
+other = "\n📋 Текущие HTTP-заголовки:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n📋 New headers:"]
+other = "\n📋 Новые заголовки:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["  %s: [redacted]\n"]
+other = "  %s: [скрыто]\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["  (none set)"]
+other = "  (не заданы)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["--fts and --vectors are mutually exclusive"]
+other = "Параметры --fts и --vectors взаимоисключающие"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["--option must be a positive number"]
+other = "Параметр --option должен быть положительным числом"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["--option requires --print or --json"]
+other = "Для --option требуется --print или --json"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["--print and --json cannot be used together"]
+other = "Нельзя одновременно использовать --print и --json"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["--retry-failed requires --vectors"]
+other = "Для --retry-failed требуется --vectors"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["API key is configured; functionality is not verified without a network check"]
+other = "API-ключ настроен; работоспособность не подтверждена без сетевой проверки"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["API key is not configured"]
+other = "API-ключ не настроен"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["API key is not required for this provider"]
+other = "Для этого провайдера API-ключ не требуется"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Add a new alias"]
+other = "Добавить алиас"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Add a new command alias with argument substitution.\n\nTemplate variables:\n  {{.arg1}}, {{.arg2}}, ... - positional arguments\n  {{.args}}                  - all arguments joined with spaces\n\nExample:\n  zev alias add dps \"docker service ps {{.arg1}} --no-trunc\""]
+other = "Добавить алиас команды с подстановкой аргументов.\n\nПеременные шаблона:\n  {{.arg1}}, {{.arg2}}, ... - позиционные аргументы\n  {{.args}}                  - все аргументы через пробел\n\nПример:\n  zev alias add dps \"docker service ps {{.arg1}} --no-trunc\""
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Configure command execution mode"]
+other = "Настроить режим выполнения команд"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Configure custom HTTP headers"]
+other = "Настроить дополнительные HTTP-заголовки"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Configure custom HTTP headers for all requests.\n\nHeaders are applied to all HTTP requests to LLM providers.\nCommon use cases:\n  - Custom User-Agent\n  - Authorization headers\n  - API version headers\n  - Custom tracking headers\n\nFormat: \"Header-Name:Header-Value\" (one per line, empty line to finish)"]
+other = "Настроить дополнительные HTTP-заголовки для всех запросов.\n\nЗаголовки применяются ко всем HTTP-запросам к LLM-провайдерам.\nТипичные случаи использования:\n  - Собственный User-Agent\n  - Заголовки авторизации\n  - Заголовки версии API\n  - Дополнительные заголовки отслеживания\n\nФормат: \"Header-Name:Header-Value\" (по одному в строке, пустая строка для завершения)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Configure how zev executes selected commands:\n  inject  - Insert command into terminal (default)\n  execute - Execute command immediately\n\nExamples:\n  zev setup mode inject     # Set mode to inject\n  zev setup mode execute    # Set mode to execute\n  zev setup mode            # Show current mode"]
+other = "Настроить способ выполнения выбранных команд в zev:\n  inject  - Вставить команду в терминал (по умолчанию)\n  execute - Немедленно выполнить команду\n\nПримеры:\n  zev setup mode inject     # Установить режим inject\n  zev setup mode execute    # Установить режим execute\n  zev setup mode            # Показать текущий режим"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Configure zev with your LLM provider credentials"]
+other = "Настроить zev с учётными данными LLM-провайдера"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Confirm deletion of all history"]
+other = "Подтвердить удаление всей истории"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Confirm vector transmission"]
+other = "Подтвердить передачу данных для векторизации"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Continue a previous search page"]
+other = "Продолжить предыдущую страницу поиска"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Conversation status"]
+other = "Статус диалога"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Create a new bash script in ~/.zev/scripts/ and open it in $EDITOR.\n\nExample:\n  zev script create deploy \"Deploy application to production\""]
+other = "Создать bash-скрипт в ~/.zev/scripts/ и открыть его в $EDITOR.\n\nПример:\n  zev script create deploy \"Deploy application to production\""
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Create a new script and open it in $EDITOR"]
+other = "Создать скрипт и открыть его в $EDITOR"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Create, list, and remove bash scripts"]
+other = "Создание, просмотр и удаление bash-скриптов"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Create, list, and remove command aliases with argument substitution"]
+other = "Создание, просмотр и удаление алиасов команд с подстановкой аргументов"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Current command execution mode: %s\n"]
+other = "Текущий режим выполнения команд: %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Delete all conversations"]
+other = "Удалить все диалоги"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Delete one conversation"]
+other = "Удалить один диалог"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Diagnose local configuration and provider readiness"]
+other = "Проверить локальные настройки и готовность провайдера"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Document type"]
+other = "Тип документа"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Edit a bash script in the configured editor"]
+other = "Редактировать bash-скрипт в настроенном редакторе"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Edit an alias in the configured editor"]
+other = "Редактировать алиас в настроенном редакторе"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Exact command text"]
+other = "Точный текст команды"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Exclusive UTC date or RFC3339 time"]
+other = "Дата UTC или время RFC3339, не включительно"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Export complete history"]
+other = "Экспортировать всю историю"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["FTS indexes rebuilt"]
+other = "Индексы FTS перестроены"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Filter by dangerous command"]
+other = "Фильтр по опасным командам"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Fuzzy mode: auto, always or off"]
+other = "Режим нечёткого поиска: auto, always или off"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Header (empty to finish):"]
+other = "Заголовок (пустая строка для завершения):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["ID must not be empty"]
+other = "ID не должен быть пустым"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Inclusive UTC date or RFC3339 time"]
+other = "Дата UTC или время RFC3339, включительно"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Inspect and maintain history indexes"]
+other = "Просмотр и обслуживание индексов истории"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Keep this diagnosis local"]
+other = "Выполнить только локальную диагностику"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["List all aliases"]
+other = "Показать все алиасы"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["List all scripts"]
+other = "Показать все скрипты"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Manage bash scripts"]
+other = "Управление bash-скриптами"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Manage command aliases"]
+other = "Управление алиасами команд"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Maximum number of results"]
+other = "Максимальное количество результатов"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Model filter"]
+other = "Фильтр по модели"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["NAME\tFILE\tDESCRIPTION"]
+other = "ИМЯ\tФАЙЛ\tОПИСАНИЕ"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["NAME\tTEMPLATE"]
+other = "ИМЯ\tШАБЛОН"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["No"]
+other = "Нет"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["No aliases configured"]
+other = "Алиасы не настроены"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["No history found. Run some queries first!"]
+other = "История пуста. Сначала выполните несколько запросов!"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["No scripts configured"]
+other = "Скрипты не настроены"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Output JSON"]
+other = "Вывести JSON"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Output a stable JSON report"]
+other = "Вывести отчёт JSON со стабильной схемой"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Output format: json or jsonl"]
+other = "Формат вывода: json или jsonl"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Print a human-readable report without prompting"]
+other = "Вывести отчёт для человека без запросов подтверждения"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Provider filter"]
+other = "Фильтр по провайдеру"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Rebuild history indexes"]
+other = "Перестроить индексы истории"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Rebuild lexical indexes"]
+other = "Перестроить лексические индексы"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Rebuild semantic vectors"]
+other = "Перестроить семантические векторы"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Remove a script"]
+other = "Удалить скрипт"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Remove an alias"]
+other = "Удалить алиас"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Retry previously failed vector messages"]
+other = "Повторить векторизацию сообщений с ошибками"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Save the last used history command as an alias"]
+other = "Сохранить последнюю использованную команду из истории как алиас"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Search history"]
+other = "Поиск по истории"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Search literal text"]
+other = "Искать буквальный текст"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Search mode: lexical, semantic or hybrid"]
+other = "Режим поиска: lexical, semantic или hybrid"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Semantic search unavailable; using lexical search."]
+other = "Семантический поиск недоступен; используется лексический поиск."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Send one provider request"]
+other = "Отправить один запрос провайдеру"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Send one real provider request without prompting"]
+other = "Отправить один реальный запрос провайдеру без подтверждения"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Send one real request to the configured provider?"]
+other = "Отправить один реальный запрос настроенному провайдеру?"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Show a conversation or message"]
+other = "Показать диалог или сообщение"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Show a message by full ID"]
+other = "Показать сообщение по полному ID"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Show a script body"]
+other = "Показать содержимое скрипта"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Show history index status"]
+other = "Показать состояние индексов истории"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Show query history"]
+other = "Показать историю запросов"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Yes"]
+other = "Да"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["[%s] %s: %s (action: %s)\n"]
+other = "[%s] %s: %s (действие: %s)\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["add alias %q: %w"]
+other = "Добавление алиаса %q: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["alias %q already exists; choose a different name: %w"]
+other = "Алиас %q уже существует; выберите другое имя: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["all checks passed"]
+other = "Все проверки пройдены"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["check history.db permissions/schema or recover the legacy history file"]
+other = "Проверьте права и схему history.db или восстановите старый файл истории"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["check the provider endpoint, model and credentials; no response body was retained"]
+other = "Проверьте адрес, модель и учётные данные провайдера; тело ответа не сохранялось"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["check zev --print, zev --json and --option parsing"]
+other = "Проверьте разбор zev --print, zev --json и --option"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["choose --fts or --vectors"]
+other = "Выберите --fts или --vectors"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["choose openai, gemini, anthropic, ollama or opencode"]
+other = "Выберите openai, gemini, anthropic, ollama или opencode"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["clear history: %w"]
+other = "Очистка истории: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["clear requires explicit --yes"]
+other = "Для clear требуется явное подтверждение --yes"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["configuration could not be loaded"]
+other = "Не удалось загрузить настройки"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["configuration loaded"]
+other = "Настройки загружены"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["configure an HTTP(S) base URL with a host"]
+other = "Укажите базовый URL HTTP(S) с именем хоста"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["configure the selected provider API key; doctor does not print keys"]
+other = "Настройте API-ключ выбранного провайдера; doctor не выводит ключи"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["configure the selected provider model"]
+other = "Настройте модель выбранного провайдера"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["confirmation was not completed"]
+other = "Подтверждение не получено"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["conversation %s"]
+other = "диалог %s"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["create script %q: %w"]
+other = "Создание скрипта %q: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["delete conversation: %w"]
+other = "Удаление диалога: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["doctor found failing checks"]
+other = "Команда doctor обнаружила ошибки"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["documents=%d lexical_ready=%t eligible=%d ready=%d failed=%d stale=%d\n"]
+other = "документов=%d лексический_индекс_готов=%t подходящих=%d готовых=%d ошибок=%d устаревших=%d\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["edit alias %q: %w"]
+other = "Редактирование алиаса %q: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["edit script %q: %w"]
+other = "Редактирование скрипта %q: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["editor is available"]
+other = "Редактор доступен"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["editor is not available"]
+other = "Редактор недоступен"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["embedding provider=%s model=%s eligible=%d\n"]
+other = "векторизация: провайдер=%s модель=%s подходящих=%d\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["execution mode is invalid"]
+other = "Недопустимый режим выполнения"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["execution mode is supported"]
+other = "Режим выполнения поддерживается"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["failed to load config: %w"]
+other = "Не удалось загрузить настройки: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["failed to save config: %w"]
+other = "Не удалось сохранить настройки: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["fix configuration first"]
+other = "Сначала исправьте настройки"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["fix the configuration file or environment and rerun doctor"]
+other = "Исправьте файл настроек или переменные окружения и повторите запуск doctor"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["fix the directory type, ownership and permissions"]
+other = "Исправьте тип, владельца и права доступа каталога"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["fix the failing checks and rerun zev doctor"]
+other = "Исправьте обнаруженные ошибки и повторите запуск zev doctor"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["format must be json or jsonl"]
+other = "Параметр format должен быть json или jsonl"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["from must be before to"]
+other = "Значение from должно быть раньше to"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["fuzzy must be auto, always or off"]
+other = "Параметр fuzzy должен быть auto, always или off"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["get conversation: %w"]
+other = "Получение диалога: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["get message: %w"]
+other = "Получение сообщения: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["history database could not be read"]
+other = "Не удалось прочитать базу данных истории"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["history database is not initialized"]
+other = "База данных истории не инициализирована"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["history database is readable"]
+other = "База данных истории доступна для чтения"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["history index maintenance is unavailable"]
+other = "Обслуживание индексов истории недоступно"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["interactive and machine CLI modes are available"]
+other = "Интерактивный и машинные режимы CLI доступны"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["interactive terminal mode is available"]
+other = "Интерактивный режим терминала доступен"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["interactive terminal mode is unavailable on current standard streams"]
+other = "Интерактивный режим терминала недоступен для текущих стандартных потоков"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["invalid from: %w"]
+other = "Недопустимый from: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["invalid mode %q: must be 'inject' or 'execute'"]
+other = "Недопустимый режим %q: требуется 'inject' или 'execute'"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["invalid status"]
+other = "Недопустимый status"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["invalid to: %w"]
+other = "Недопустимый to: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["lexical index profile is stale; rebuild required"]
+other = "Профиль лексического индекса устарел; требуется перестроение"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["lexical index profile is stale; rebuild required Semantic search unavailable; using lexical search."]
+other = "Профиль лексического индекса устарел; требуется перестроение. Семантический поиск недоступен; используется лексический поиск."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["limit must be positive"]
+other = "Параметр limit должен быть положительным"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["list aliases: %w"]
+other = "Получение списка алиасов: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["list history: %w"]
+other = "Получение истории: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["list scripts: %w"]
+other = "Получение списка скриптов: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["load project context: %w"]
+other = "Загрузка контекста проекта: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["load provider configuration: %w"]
+other = "Загрузка настроек провайдера: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["machine CLI modes are unavailable"]
+other = "Машинные режимы CLI недоступны"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["machine output cannot be combined with --execute or --inject"]
+other = "Машинный вывод нельзя использовать с --execute или --inject"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["machine output requires a nonempty query"]
+other = "Для машинного вывода требуется непустой запрос"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["mode must be lexical, semantic or hybrid"]
+other = "Параметр mode должен быть lexical, semantic или hybrid"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["model is configured"]
+other = "Модель настроена"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["network reachability is not checked without confirmation"]
+other = "Доступность сети не проверяется без подтверждения"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["no usable selected command found in Zev history"]
+other = "В истории Zev нет подходящей выбранной команды"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["none"]
+other = "не требуется"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["not checked; no network request was sent"]
+other = "Не проверено; сетевые запросы не отправлялись"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["open history: %w"]
+other = "Открытие истории: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["option %d is not available; provider returned %d option(s)"]
+other = "Вариант %d недоступен; провайдер вернул вариантов: %d"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["provide exactly one conversation ID or --message ID"]
+other = "Укажите либо один ID диалога, либо --message ID"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["provider base URL is invalid"]
+other = "Недопустимый базовый URL провайдера"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["provider base URL is syntactically valid"]
+other = "Базовый URL провайдера синтаксически корректен"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["provider checks skipped because configuration is unavailable"]
+other = "Проверки провайдера пропущены: настройки недоступны"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["provider request failed"]
+other = "Запрос провайдеру завершился ошибкой"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["provider returned no command options: %s"]
+other = "Провайдер не вернул варианты команд: %s"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["query must be valid UTF-8"]
+other = "Запрос query должен быть в кодировке UTF-8"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["query must not be empty unless --exact-command is set"]
+other = "Запрос query не должен быть пустым, если не задан --exact-command"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["read HTTP header: %w"]
+other = "Чтение HTTP-заголовка: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["read history index status: %w"]
+other = "Чтение состояния индексов истории: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["read last history command: %w"]
+other = "Чтение последней команды из истории: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["read local context: %w"]
+other = "Чтение локального контекста: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["read script metadata: %w"]
+other = "Чтение метаданных скрипта: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["read vector rebuild status: %w"]
+other = "Чтение состояния перестроения векторов: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["real provider request succeeded; credentials were not printed"]
+other = "Реальный запрос провайдеру выполнен; учётные данные не выводились"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["rebuild FTS indexes: %w"]
+other = "Перестроение индексов FTS: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["rebuild vectors: %w"]
+other = "Перестроение векторов: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["remove alias %q: %w"]
+other = "Удаление алиаса %q: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["remove script %q: %w"]
+other = "Удаление скрипта %q: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["required model is missing"]
+other = "Обязательная модель не указана"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["rerun with --confirm to test the provider"]
+other = "Для проверки провайдера повторите запуск с --confirm"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["resolve alias: %w"]
+other = "Подстановка алиаса: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["resolve project context root: %w"]
+other = "Определение корня контекста проекта: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["run a query once to initialize local history"]
+other = "Выполните запрос для инициализации локальной истории"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["run setup: %w"]
+other = "Настройка: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["run without --json or --print from a terminal to answer the provider check"]
+other = "Запустите из терминала без --json и --print для подтверждения проверки провайдера"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["run zev setup or create a private ~/.zev directory"]
+other = "Выполните zev setup или создайте каталог ~/.zev с ограниченными правами"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["save alias %q: %w"]
+other = "Сохранение алиаса %q: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["script %q cannot be printed automatically; use `zev script show %s`"]
+other = "Скрипт %q нельзя вывести автоматически; используйте `zev script show %s`"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["search history: %w"]
+other = "Поиск по истории: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["select history: %w"]
+other = "Выбор записи истории: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["selected provider is supported"]
+other = "Выбранный провайдер поддерживается"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["selected provider is unsupported"]
+other = "Выбранный провайдер не поддерживается"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["set COMMAND_EXECUTION_MODE to inject or execute"]
+other = "Установите COMMAND_EXECUTION_MODE в inject или execute"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["set SCRIPT_EDITOR or EDITOR to an installed editor"]
+other = "Укажите установленный редактор в SCRIPT_EDITOR или EDITOR"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["set SHELL or COMSPEC to an installed shell"]
+other = "Укажите установленную оболочку в SHELL или COMSPEC"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["shell is available"]
+other = "Оболочка доступна"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["shell is not available"]
+other = "Оболочка недоступна"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["show script %q: %w"]
+other = "Просмотр скрипта %q: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["static checks passed; network/provider functionality is not verified without confirmation"]
+other = "Статические проверки пройдены; работа сети и провайдера не подтверждена без согласия"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["type must be user, assistant, command or explanation"]
+other = "Параметр type должен быть user, assistant, command или explanation"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["use --confirm for non-interactive verification"]
+other = "Для проверки без интерактивного подтверждения используйте --confirm"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["use --confirm to test the provider"]
+other = "Для проверки провайдера используйте --confirm"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["vector rebuild requires explicit --yes consent"]
+other = "Для перестроения векторов требуется явное согласие --yes"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["vectors rebuilt: ready=%d failed=%d\n"]
+other = "векторы перестроены: готовых=%d ошибок=%d\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["~/.zev does not exist yet"]
+other = "Каталог ~/.zev ещё не существует"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["~/.zev is accessible and private"]
+other = "Каталог ~/.zev доступен и имеет ограниченные права"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["~/.zev is not accessible or private"]
+other = "Каталог ~/.zev недоступен или имеет слишком широкие права"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["⚠️  Header name cannot be empty"]
+other = "⚠️  Имя заголовка не может быть пустым"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["⚠️  Invalid format. Use 'Header-Name:Header-Value'"]
+other = "⚠️  Неверный формат. Используйте 'Header-Name:Header-Value'"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["✅ Added: %s: [redacted]\n"]
+other = "✅ Добавлен: %s: [скрыто]\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["✓ Alias %q added successfully\n"]
+other = "✓ Алиас %q добавлен\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["✓ Alias %q removed successfully\n"]
+other = "✓ Алиас %q удалён\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["✓ Alias %q updated successfully\n"]
+other = "✓ Алиас %q обновлён\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["✓ Command execution mode set to: %s\n"]
+other = "✓ Установлен режим выполнения команд: %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["✓ Saved command %q as alias %q\nRun it with: zev %s\n"]
+other = "✓ Команда %q сохранена как алиас %q\nЗапуск: zev %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["✓ Script %q created successfully\n"]
+other = "✓ Скрипт %q создан\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["✓ Script %q removed successfully\n"]
+other = "✓ Скрипт %q удалён\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["✓ Script %q updated successfully\n"]
+other = "✓ Скрипт %q обновлён\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["📜 Query History"]
+other = "📜 История запросов"
+leftDelim = "[[["
+rightDelim = "]]]"

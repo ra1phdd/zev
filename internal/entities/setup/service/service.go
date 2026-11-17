@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/ra1phdd/zev/internal/core/config"
+	"github.com/ra1phdd/zev/locale"
 	"github.com/ra1phdd/zev/pkg/tui/list"
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
 )
@@ -41,19 +42,18 @@ func maskAPIKey(key string) string {
 	return "***"
 }
 
-// promptWithDefault показывает промпт с текущим значением и дефолтом.
-// Если пользователь жмёт Enter — возвращает current.
-// Если пользователь пишет "default" — возвращает defaultVal.
-// Иначе возвращает то, что пользователь ввёл.
+// promptWithDefault preserves current on Enter and accepts the literal "default"
+// to restore defaultVal. Other input is returned unchanged.
 func (s *Service) promptWithDefault(ctx context.Context, promptText, current, defaultVal string) (string, error) {
+	promptText = locale.Text(promptText)
 	var fullPrompt string
 	switch {
 	case current != "" && defaultVal != "" && current != defaultVal:
-		fullPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep or type 'default' for %s):", promptText, current, defaultVal)
+		fullPrompt = fmt.Sprintf(locale.Text("%s (current: %s, press Enter to keep or type 'default' for %s):"), promptText, current, defaultVal)
 	case current != "":
-		fullPrompt = fmt.Sprintf("%s (current: %s, press Enter to keep):", promptText, current)
+		fullPrompt = fmt.Sprintf(locale.Text("%s (current: %s, press Enter to keep):"), promptText, current)
 	case defaultVal != "":
-		fullPrompt = fmt.Sprintf("%s (default: %s):", promptText, defaultVal)
+		fullPrompt = fmt.Sprintf(locale.Text("%s (default: %s):"), promptText, defaultVal)
 	default:
 		fullPrompt = promptText + ":"
 	}
@@ -108,7 +108,7 @@ func (s *Service) RunContext(ctx context.Context) error {
 	}
 
 	selected, err := s.selectContext(ctx, list.SelectOptions{
-		Title: "Which LLM provider would you like to use?",
+		Title: locale.Text("Which LLM provider would you like to use?"),
 		Items: items,
 	})
 	if err != nil {
@@ -151,7 +151,7 @@ func (s *Service) RunContext(ctx context.Context) error {
 		return fmt.Errorf("save config: %w", err)
 	}
 
-	if _, err := fmt.Fprintln(os.Stdout, "\n✓ Configuration saved successfully!"); err != nil {
+	if _, err := fmt.Fprintln(os.Stdout, locale.Text("\n✓ Configuration saved successfully!")); err != nil {
 		return fmt.Errorf("failed to print success message: %w", err)
 	}
 	return nil
@@ -273,10 +273,10 @@ func (s *Service) setupOpenCode(ctx context.Context, cfg *config.Config) error {
 	}
 	cfg.OpenAIModel = model
 
-	// Base URL фиксированный для OpenCode
+	// OpenCode uses a fixed base URL.
 	cfg.OpenAIBaseURL = "https://opencode.ai/inference/openai/v1"
 
-	// HTTP Headers фиксированные для OpenCode
+	// OpenCode uses fixed HTTP headers.
 	cfg.HTTPHeaders = map[string]string{
 		"User-Agent":         "opencode/latest/2.0.29/cli",
 		"x-opencode-session": "ses_ebeea89daffe69kTavLoPHLIzF",

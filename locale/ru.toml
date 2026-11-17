@@ -1,0 +1,319 @@
+["\n⚠️  No commands found for your query.\n"]
+other = "\n⚠️  Для запроса не найдено команд.\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n⚠️  The AI did not provide a response. Please try rephrasing your request.\n"]
+other = "\n⚠️  Модель не вернула ответ. Попробуйте переформулировать запрос.\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n⚠️  The AI did not provide a response. This might happen if your request is unclear.\n\n"]
+other = "\n⚠️  Модель не вернула ответ. Возможно, запрос требует уточнения.\n\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n⚠️  Unable to process your request:\n%s\n"]
+other = "\n⚠️  Не удалось обработать запрос:\n%s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n⚠️  WARNING: %s\n"]
+other = "\n⚠️  ВНИМАНИЕ: %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n✓ Selected command:\n\n  %s\n\n"]
+other = "\n✓ Выбранная команда:\n\n  %s\n\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["--continue requires history; remove --no-history"]
+other = "Для --continue требуется история; уберите --no-history"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Attach context files (comma-separated paths), or press Enter to skip:"]
+other = "Прикрепите файлы контекста через запятую или нажмите Enter для пропуска:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Choose a 1-based command option in machine mode"]
+other = "Выбрать вариант команды по номеру с 1 в машинном режиме"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Clarify the request"]
+other = "Уточнить запрос"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Continue the latest usable conversation"]
+other = "Продолжить последний пригодный диалог"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Continue using the supplied context."]
+other = "Продолжите с использованием переданного контекста."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Describe how to continue, or press Enter to skip:"]
+other = "Опишите, как продолжить, или нажмите Enter для пропуска:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Do not persist this query in history"]
+other = "Не сохранять запрос в истории"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Do not send local environment context"]
+other = "Не передавать контекст локального окружения"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Error: %v\n"]
+other = "Ошибка: %v\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Execute selected command immediately"]
+other = "Сразу выполнить выбранную команду"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Fetching suggestions...\n"]
+other = "Получение вариантов команд...\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)"]
+other = "Уровень подробности (-v: INFO, -vv: DEBUG, -vvv: TRACE)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Inject selected command into terminal (default)"]
+other = "Вставить выбранную команду в терминал (по умолчанию)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Natural language terminal command suggestions"]
+other = "Подбор терминальных команд на естественном языке"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["No aliases configured"]
+other = "Алиасы не настроены"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["No commands found for your query.\n"]
+other = "Для запроса не найдено команд.\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["No history found. Run some queries first!"]
+other = "История пуста. Сначала выполните несколько запросов!"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Output command options as schema version 1 JSON"]
+other = "Вывести варианты команд в JSON (версия схемы 1)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Paste the command log (Enter: newline, Ctrl+D: next or skip):"]
+other = "Вставьте лог команды (Enter — новая строка, Ctrl+D — продолжить или пропустить):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Please clarify your request:"]
+other = "Уточните запрос:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Print the chosen command without executing it"]
+other = "Вывести выбранную команду без выполнения"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Query for command suggestions"]
+other = "Получить варианты команд"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Select a command to run:"]
+other = "Выберите команду для запуска:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Show zev version"]
+other = "Показать версию zev"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Specify your request:"]
+other = "Уточните задачу:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["The request cannot be empty.\n"]
+other = "Запрос не может быть пустым.\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Warning: failed to save to history: %v\n"]
+other = "Предупреждение: не удалось сохранить историю: %v\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["What command do you need?"]
+other = "Какую команду нужно выполнить?"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Zev helps you remember terminal commands by describing what you want to do in natural language."]
+other = "Zev подбирает терминальные команды по описанию задачи на естественном языке."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["continuation requires HISTORY_ENABLED=true"]
+other = "Для продолжения требуется HISTORY_ENABLED=true"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["continuation requires context files, a command log, or a clarification"]
+other = "Для продолжения укажите файлы контекста, лог команды или уточнение"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["failed to create provider: %w"]
+other = "не удалось создать провайдер: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["failed to execute command: %w"]
+other = "не удалось выполнить команду: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["failed to load config: %w. Run `zev setup` to configure"]
+other = "не удалось загрузить конфигурацию: %w. Запустите `zev setup`"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["failed to select command: %w"]
+other = "не удалось выбрать команду: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["find continuation history: %w"]
+other = "поиск диалога для продолжения: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["get command suggestions: %w"]
+other = "получение вариантов команд: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["get query input: %w"]
+other = "чтение запроса: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["open continuation history: %w"]
+other = "открытие истории для продолжения: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["prompt cannot be empty"]
+other = "запрос не может быть пустым"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["provider returned an invalid response: %s"]
+other = "провайдер вернул некорректный ответ: %s"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["provider returned no commands"]
+other = "провайдер не вернул команды"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["restore continuation history: %w"]
+other = "восстановление диалога: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["zev version %s\n"]
+other = "zev версия %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["⚠️  WARNING: %s\n\n"]
+other = "⚠️  ВНИМАНИЕ: %s\n\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Usage:"]
+other = "Использование:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Aliases:"]
+other = "Алиасы:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Examples:"]
+other = "Примеры:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Available Commands:"]
+other = "Доступные команды:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Additional Commands:"]
+other = "Дополнительные команды:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Flags:"]
+other = "Флаги:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Global Flags:"]
+other = "Глобальные флаги:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Additional help topics:"]
+other = "Дополнительные разделы помощи:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Use \"{{.CommandPath}} [command] --help\" for more information about a command."]
+other = "Используйте \"{{.CommandPath}} [command] --help\" для подробной информации о команде."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Help about any command"]
+other = "Справка по любой команде"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Help provides help for any command in the application."]
+other = "Справка по любой команде приложения."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Show help for this command"]
+other = "Показать справку по этой команде"
+leftDelim = "[[["
+rightDelim = "]]]"

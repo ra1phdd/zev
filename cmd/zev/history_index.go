@@ -10,6 +10,7 @@ import (
 	"github.com/ra1phdd/zev/internal/core/httpclient"
 	historyclient "github.com/ra1phdd/zev/internal/entities/history/client"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
+	"github.com/ra1phdd/zev/locale"
 	"github.com/spf13/cobra"
 )
 
@@ -54,24 +55,24 @@ func newHistoryEmbedder(cfg *config.Config) (service.Embedder, error) {
 }
 
 func newHistoryIndexCmd(open historyOpener) *cobra.Command {
-	index := &cobra.Command{Use: "index", Short: "Inspect and maintain history indexes", Args: cobra.NoArgs}
+	index := &cobra.Command{Use: "index", Short: locale.Text("Inspect and maintain history indexes"), Args: cobra.NoArgs}
 	index.AddCommand(newHistoryIndexStatusCmd(open), newHistoryIndexRebuildCmd(open))
 	return index
 }
 
 func newHistoryIndexStatusCmd(open historyOpener) *cobra.Command {
 	var jsonOutput bool
-	status := &cobra.Command{Use: "status", Short: "Show history index status", Args: cobra.NoArgs}
-	status.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON")
+	status := &cobra.Command{Use: "status", Short: locale.Text("Show history index status"), Args: cobra.NoArgs}
+	status.Flags().BoolVar(&jsonOutput, "json", false, locale.Text("Output JSON"))
 	status.RunE = func(cmd *cobra.Command, _ []string) error {
 		return withHistory(cmd, open, func(raw historyOperations) error {
 			index, ok := raw.(historyIndexOperations)
 			if !ok {
-				return errors.New("history index maintenance is unavailable")
+				return errors.New(locale.Text("history index maintenance is unavailable"))
 			}
 			status, err := index.IndexStatus(cmd.Context(), historyEmbeddingProfile(raw))
 			if err != nil {
-				return fmt.Errorf("read history index status: %w", err)
+				return fmt.Errorf(locale.Text("read history index status: %w"), err)
 			}
 			if jsonOutput {
 				if err := json.NewEncoder(cmd.OutOrStdout()).Encode(status); err != nil {
@@ -79,7 +80,7 @@ func newHistoryIndexStatusCmd(open historyOpener) *cobra.Command {
 				}
 				return nil
 			}
-			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "documents=%d lexical_ready=%t eligible=%d ready=%d failed=%d stale=%d\n", status.Documents, status.LexicalReady, status.EmbeddingCoverage.Eligible, status.EmbeddingCoverage.Ready, status.EmbeddingCoverage.Failed, status.EmbeddingCoverage.Stale); err != nil {
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text("documents=%d lexical_ready=%t eligible=%d ready=%d failed=%d stale=%d\n"), status.Documents, status.LexicalReady, status.EmbeddingCoverage.Eligible, status.EmbeddingCoverage.Ready, status.EmbeddingCoverage.Failed, status.EmbeddingCoverage.Stale); err != nil {
 				return fmt.Errorf("write history index status: %w", err)
 			}
 			return nil
@@ -90,12 +91,12 @@ func newHistoryIndexStatusCmd(open historyOpener) *cobra.Command {
 
 func newHistoryIndexRebuildCmd(open historyOpener) *cobra.Command {
 	var fts, vectors, retryFailed, yes bool
-	rebuild := &cobra.Command{Use: "rebuild", Short: "Rebuild history indexes", Args: cobra.NoArgs}
+	rebuild := &cobra.Command{Use: "rebuild", Short: locale.Text("Rebuild history indexes"), Args: cobra.NoArgs}
 	flags := rebuild.Flags()
-	flags.BoolVar(&fts, "fts", false, "Rebuild lexical indexes")
-	flags.BoolVar(&vectors, "vectors", false, "Rebuild semantic vectors")
-	flags.BoolVar(&retryFailed, "retry-failed", false, "Retry previously failed vector messages")
-	flags.BoolVar(&yes, "yes", false, "Confirm vector transmission")
+	flags.BoolVar(&fts, "fts", false, locale.Text("Rebuild lexical indexes"))
+	flags.BoolVar(&vectors, "vectors", false, locale.Text("Rebuild semantic vectors"))
+	flags.BoolVar(&retryFailed, "retry-failed", false, locale.Text("Retry previously failed vector messages"))
+	flags.BoolVar(&yes, "yes", false, locale.Text("Confirm vector transmission"))
 	rebuild.RunE = func(cmd *cobra.Command, _ []string) error {
 		if err := validateHistoryRebuildFlags(fts, vectors, retryFailed); err != nil {
 			return err
@@ -103,13 +104,13 @@ func newHistoryIndexRebuildCmd(open historyOpener) *cobra.Command {
 		return withHistory(cmd, open, func(raw historyOperations) error {
 			index, ok := raw.(historyIndexOperations)
 			if !ok {
-				return errors.New("history index maintenance is unavailable")
+				return errors.New(locale.Text("history index maintenance is unavailable"))
 			}
 			if fts {
 				if err := index.RebuildFTS(cmd.Context()); err != nil {
-					return fmt.Errorf("rebuild FTS indexes: %w", err)
+					return fmt.Errorf(locale.Text("rebuild FTS indexes: %w"), err)
 				}
-				if _, err := fmt.Fprintln(cmd.OutOrStdout(), "FTS indexes rebuilt"); err != nil {
+				if _, err := fmt.Fprintln(cmd.OutOrStdout(), locale.Text("FTS indexes rebuilt")); err != nil {
 					return fmt.Errorf("write FTS result: %w", err)
 				}
 				return nil
@@ -122,13 +123,13 @@ func newHistoryIndexRebuildCmd(open historyOpener) *cobra.Command {
 
 func validateHistoryRebuildFlags(fts, vectors, retryFailed bool) error {
 	if !fts && !vectors {
-		return errors.New("choose --fts or --vectors")
+		return errors.New(locale.Text("choose --fts or --vectors"))
 	}
 	if fts && vectors {
-		return errors.New("--fts and --vectors are mutually exclusive")
+		return errors.New(locale.Text("--fts and --vectors are mutually exclusive"))
 	}
 	if retryFailed && !vectors {
-		return errors.New("--retry-failed requires --vectors")
+		return errors.New(locale.Text("--retry-failed requires --vectors"))
 	}
 	return nil
 }
@@ -136,23 +137,23 @@ func validateHistoryRebuildFlags(fts, vectors, retryFailed bool) error {
 func rebuildHistoryVectors(cmd *cobra.Command, raw historyOperations, index historyIndexOperations, retryFailed, yes bool) error {
 	status, err := index.IndexStatus(cmd.Context(), historyEmbeddingProfile(raw))
 	if err != nil {
-		return fmt.Errorf("read vector rebuild status: %w", err)
+		return fmt.Errorf(locale.Text("read vector rebuild status: %w"), err)
 	}
 	cfg := historyEmbeddingConfig{}
 	if provider, ok := raw.(historyEmbeddingConfigProvider); ok {
 		cfg = provider.EmbeddingConfig()
 	}
-	if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "embedding provider=%s model=%s eligible=%d\n", cfg.Provider, cfg.Model, status.EmbeddingCoverage.Eligible); err != nil {
+	if _, err := fmt.Fprintf(cmd.ErrOrStderr(), locale.Text("embedding provider=%s model=%s eligible=%d\n"), cfg.Provider, cfg.Model, status.EmbeddingCoverage.Eligible); err != nil {
 		return fmt.Errorf("write vector rebuild summary: %w", err)
 	}
 	if !yes {
-		return errors.New("vector rebuild requires explicit --yes consent")
+		return errors.New(locale.Text("vector rebuild requires explicit --yes consent"))
 	}
 	result, err := index.RebuildVectors(cmd.Context(), retryFailed, 0)
 	if err != nil {
-		return fmt.Errorf("rebuild vectors: %w", err)
+		return fmt.Errorf(locale.Text("rebuild vectors: %w"), err)
 	}
-	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "vectors rebuilt: ready=%d failed=%d\n", result.Ready, result.Failed); err != nil {
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text("vectors rebuilt: ready=%d failed=%d\n"), result.Ready, result.Failed); err != nil {
 		return fmt.Errorf("write vector rebuild result: %w", err)
 	}
 	return nil

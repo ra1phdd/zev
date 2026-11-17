@@ -26,6 +26,7 @@ import (
 	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
 	scriptrepo "github.com/ra1phdd/zev/internal/entities/script/repository"
 	scriptservice "github.com/ra1phdd/zev/internal/entities/script/service"
+	"github.com/ra1phdd/zev/locale"
 	"github.com/ra1phdd/zev/pkg/terminal"
 	"github.com/ra1phdd/zev/pkg/tui/list"
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
@@ -93,7 +94,7 @@ func setupLogger(verbosity int) *slog.Logger {
 func newContinueCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:                "continue [clarification]",
-		Short:              "Continue the latest usable conversation",
+		Short:              locale.Text("Continue the latest usable conversation"),
 		Args:               cobra.ArbitraryArgs,
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -105,18 +106,18 @@ func newContinueCmd() *cobra.Command {
 func newQueryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "query [query]",
-		Short: "Query for command suggestions",
+		Short: locale.Text("Query for command suggestions"),
 		Args:  cobra.ArbitraryArgs,
 		RunE:  runQuery,
 	}
-	cmd.Flags().BoolVar(&executeFlag, "execute", false, "Execute selected command immediately")
-	cmd.Flags().BoolVar(&injectFlag, "inject", false, "Inject selected command into terminal (default)")
-	cmd.Flags().BoolVar(&noHistoryFlag, "no-history", false, "Do not persist this query in history")
-	cmd.Flags().BoolVar(&noContextFlag, "no-context", false, "Do not send local environment context")
+	cmd.Flags().BoolVar(&executeFlag, "execute", false, locale.Text("Execute selected command immediately"))
+	cmd.Flags().BoolVar(&injectFlag, "inject", false, locale.Text("Inject selected command into terminal (default)"))
+	cmd.Flags().BoolVar(&noHistoryFlag, "no-history", false, locale.Text("Do not persist this query in history"))
+	cmd.Flags().BoolVar(&noContextFlag, "no-context", false, locale.Text("Do not send local environment context"))
 	cmd.DisableFlagParsing = true
-	cmd.Flags().Bool("print", false, "Print the chosen command without executing it")
-	cmd.Flags().Bool("json", false, "Output command options as schema version 1 JSON")
-	cmd.Flags().Int("option", 1, "Choose a 1-based command option in machine mode")
+	cmd.Flags().Bool("print", false, locale.Text("Print the chosen command without executing it"))
+	cmd.Flags().Bool("json", false, locale.Text("Output command options as schema version 1 JSON"))
+	cmd.Flags().Int("option", 1, locale.Text("Choose a 1-based command option in machine mode"))
 	cmd.MarkFlagsMutuallyExclusive("execute", "inject")
 	return cmd
 }
@@ -264,7 +265,7 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	}
 	cfg, err := config.Load()
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w. Run `zev setup` to configure", err)
+		return fmt.Errorf(locale.Text("failed to load config: %w. Run `zev setup` to configure"), err)
 	}
 	cfg.HistoryEnabled = cfg.HistoryEnabled && !flags.NoHistory
 	cfg.ContextEnabled = cfg.ContextEnabled && !flags.NoContext
@@ -274,13 +275,13 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 		var err error
 		userPrompt, err = readQueryInput(func(title string) (string, error) {
 			return prompt.InputContext(cmd.Context(), title)
-		}, "What command do you need?")
+		}, locale.Text("What command do you need?"))
 		if err != nil {
 			return err
 		}
 	}
 	if strings.TrimSpace(userPrompt) == "" {
-		return errors.New("prompt cannot be empty")
+		return errors.New(locale.Text("prompt cannot be empty"))
 	}
 	if handled, err := executeNamedQuery(cmd.Context(), userPrompt, logger); handled {
 		return err
@@ -288,7 +289,7 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	httpClient := httpclient.New(cfg.HTTPHeaders, logger)
 	provider, err := factory.NewProvider(cfg, httpClient)
 	if err != nil {
-		return fmt.Errorf("failed to create provider: %w", err)
+		return fmt.Errorf(locale.Text("failed to create provider: %w"), err)
 	}
 	logger.Debug("Provider created", "name", provider.Name(), "model", provider.Model())
 	s := newQuerySessionWithProjectContext(queryservice.New(provider), cmd, userPrompt, projectContext)
@@ -418,7 +419,7 @@ func readQueryInput(input func(string) (string, error), title string) (string, e
 		if err.Error() == queryCancelled {
 			return "", errQueryCancelled
 		}
-		return "", fmt.Errorf("get query input: %w", err)
+		return "", fmt.Errorf(locale.Text("get query input: %w"), err)
 	}
 	return value, nil
 }
@@ -458,7 +459,7 @@ func (s *querySession) finishHistory(ctx context.Context, store *historyrepo.Sto
 
 func (s *querySession) warnHistory(err error) {
 	if err != nil {
-		if _, writeErr := fmt.Fprintf(s.cmd.ErrOrStderr(), "Warning: failed to save to history: %v\n", err); writeErr != nil {
+		if _, writeErr := fmt.Fprintf(s.cmd.ErrOrStderr(), locale.Text("Warning: failed to save to history: %v\n"), err); writeErr != nil {
 			return
 		}
 	}
@@ -469,12 +470,12 @@ func (s *querySession) fetch(ctx context.Context) error {
 	if s.machine {
 		progressOut = s.cmd.ErrOrStderr()
 	}
-	if err := writeQueryOutput(progressOut, "Fetching suggestions...\n"); err != nil {
+	if err := writeQueryOutput(progressOut, "%s", locale.Text("Fetching suggestions...\n")); err != nil {
 		return err
 	}
 	response, err := s.svc.GetOptionsWithHistory(ctx, s.history)
 	if err != nil {
-		return fmt.Errorf("get command suggestions: %w", err)
+		return fmt.Errorf(locale.Text("get command suggestions: %w"), err)
 	}
 	s.response = response
 	if s.persistence != nil {
@@ -502,10 +503,10 @@ func (s *querySession) start(ctx context.Context) error {
 	if !errors.Is(err, domain.ErrNoResponse) {
 		return err
 	}
-	if err := writeQueryOutput(s.cmd.ErrOrStderr(), "\n⚠️  The AI did not provide a response. This might happen if your request is unclear.\n\n"); err != nil {
+	if err := writeQueryOutput(s.cmd.ErrOrStderr(), "%s", locale.Text("\n⚠️  The AI did not provide a response. This might happen if your request is unclear.\n\n")); err != nil {
 		return err
 	}
-	refined, err := readQueryInput(s.input, "Please clarify your request:")
+	refined, err := readQueryInput(s.input, locale.Text("Please clarify your request:"))
 	if err != nil {
 		return err
 	}
@@ -533,15 +534,15 @@ func (s *querySession) acceptResponse() (bool, error) {
 	}
 	if !s.response.IsValid {
 		if s.machine {
-			return false, machineError(4, fmt.Errorf("provider returned an invalid response: %s", s.response.ExplanationIfNotValid))
+			return false, machineError(4, fmt.Errorf(locale.Text("provider returned an invalid response: %s"), s.response.ExplanationIfNotValid))
 		}
-		return false, writeQueryOutput(s.cmd.ErrOrStderr(), "\n⚠️  Unable to process your request:\n%s\n", s.response.ExplanationIfNotValid)
+		return false, writeQueryOutput(s.cmd.ErrOrStderr(), locale.Text("\n⚠️  Unable to process your request:\n%s\n"), s.response.ExplanationIfNotValid)
 	}
 	if len(s.response.Commands) == 0 {
 		if s.machine {
-			return false, machineError(4, errors.New("provider returned no commands"))
+			return false, machineError(4, errors.New(locale.Text("provider returned no commands")))
 		}
-		return false, writeQueryOutput(s.cmd.OutOrStdout(), "\n⚠️  No commands found for your query.\n")
+		return false, writeQueryOutput(s.cmd.OutOrStdout(), "%s", locale.Text("\n⚠️  No commands found for your query.\n"))
 	}
 	s.history.Messages = append(s.history.Messages, domain.Message{Role: queryAssistantRole, Content: s.response.CompactJSON()})
 	return true, nil
@@ -553,7 +554,7 @@ func (s *querySession) commandItems() []list.Item {
 		items = append(items, list.NewCommandItem(&s.response.Commands[i]))
 	}
 	items = append(items, list.NewCommandItem(&domain.Command{
-		Command: queryRefineMarker, ShortExplanation: "Clarify the request",
+		Command: queryRefineMarker, ShortExplanation: locale.Text("Clarify the request"),
 	}))
 	return items
 }
@@ -584,13 +585,13 @@ func (s *querySession) selectCommand(ctx context.Context, mode string) (*domain.
 
 func (s *querySession) chooseCommand() (*domain.Command, error) {
 	selected, err := s.selectItem(list.SelectOptions{
-		Title: "Select a command to run:", Items: s.commandItems(), ShowWarning: true,
+		Title: locale.Text("Select a command to run:"), Items: s.commandItems(), ShowWarning: true,
 	})
 	if err != nil {
 		if err.Error() == queryCancelled {
 			return nil, errQueryCancelled
 		}
-		return nil, fmt.Errorf("failed to select command: %w", err)
+		return nil, fmt.Errorf(locale.Text("failed to select command: %w"), err)
 	}
 	item, ok := selected.(list.CommandItem)
 	if !ok || item.Cmd == nil {
@@ -600,12 +601,12 @@ func (s *querySession) chooseCommand() (*domain.Command, error) {
 }
 
 func (s *querySession) refine(ctx context.Context) (bool, error) {
-	refined, err := readQueryInput(s.input, "Specify your request:")
+	refined, err := readQueryInput(s.input, locale.Text("Specify your request:"))
 	if err != nil {
 		return false, err
 	}
 	if strings.TrimSpace(refined) == "" {
-		return true, writeQueryOutput(s.cmd.ErrOrStderr(), "The request cannot be empty.\n")
+		return true, writeQueryOutput(s.cmd.ErrOrStderr(), "%s", locale.Text("The request cannot be empty.\n"))
 	}
 	s.addRefinement(refined)
 	if s.persistence != nil {
@@ -613,7 +614,7 @@ func (s *querySession) refine(ctx context.Context) (bool, error) {
 	}
 	err = s.fetch(ctx)
 	if errors.Is(err, domain.ErrNoResponse) {
-		return true, writeQueryOutput(s.cmd.ErrOrStderr(), "\n⚠️  The AI did not provide a response. Please try rephrasing your request.\n")
+		return true, writeQueryOutput(s.cmd.ErrOrStderr(), "%s", locale.Text("\n⚠️  The AI did not provide a response. Please try rephrasing your request.\n"))
 	}
 	if err != nil {
 		return false, err
@@ -658,7 +659,7 @@ func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
 				outcome.DeliveryOutcome = "failed"
 				outcome.ExecutionExitCode = &code
 			}
-			return fmt.Errorf("failed to execute command: %w", err)
+			return fmt.Errorf(locale.Text("failed to execute command: %w"), err)
 		}
 		now := time.Now()
 		code := 0
@@ -669,14 +670,14 @@ func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
 	}
 	if err := terminal.Inject(selected.Command); err != nil {
 		delivery.logger.Debug("Failed to inject command into terminal", "error", err)
-		if err := writeQueryOutput(delivery.out, "\n✓ Selected command:\n\n  %s\n\n", selected.Command); err != nil {
+		if err := writeQueryOutput(delivery.out, locale.Text("\n✓ Selected command:\n\n  %s\n\n"), selected.Command); err != nil {
 			outcome.DeliveryOutcome = "failed"
 			outcome.ExecutionError = err.Error()
 			return err
 		}
 		outcome.DeliveryOutcome = queryDeliveryPrinted
 		if selected.IsDangerous {
-			return writeQueryOutput(delivery.out, "⚠️  WARNING: %s\n\n", selected.DangerousExplanation)
+			return writeQueryOutput(delivery.out, locale.Text("⚠️  WARNING: %s\n\n"), selected.DangerousExplanation)
 		}
 		return nil
 	}
@@ -688,7 +689,7 @@ func writeQueryWarning(out io.Writer, selected *domain.Command) error {
 	if !selected.IsDangerous {
 		return nil
 	}
-	return writeQueryOutput(out, "\n⚠️  WARNING: %s\n", selected.DangerousExplanation)
+	return writeQueryOutput(out, locale.Text("\n⚠️  WARNING: %s\n"), selected.DangerousExplanation)
 }
 
 func writeQueryOutput(out io.Writer, format string, args ...any) error {

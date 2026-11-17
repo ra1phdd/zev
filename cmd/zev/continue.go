@@ -16,6 +16,7 @@ import (
 	"github.com/ra1phdd/zev/internal/entities/query/repository"
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
 	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
+	"github.com/ra1phdd/zev/locale"
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
 	"github.com/spf13/cobra"
 )
@@ -36,18 +37,18 @@ func collectContinuationInputsWithLog(input, logInput func(string) (string, erro
 		return result, nil
 	}
 	if len(result.ContextFiles) == 0 {
-		value, err := readQueryInput(input, "Attach context files (comma-separated paths), or press Enter to skip:")
+		value, err := readQueryInput(input, locale.Text(locale.Text("Attach context files (comma-separated paths), or press Enter to skip:")))
 		if err != nil {
 			return result, err
 		}
 		result.ContextFiles = splitContinuationPaths(value)
 	}
-	value, err := logInput("Paste the command log (Enter: newline, Ctrl+D: next or skip):")
+	value, err := logInput(locale.Text(locale.Text("Paste the command log (Enter: newline, Ctrl+D: next or skip):")))
 	if err != nil {
 		return result, err
 	}
 	result.CommandLog = value
-	result.Clarification, err = readQueryInput(input, "Describe how to continue, or press Enter to skip:")
+	result.Clarification, err = readQueryInput(input, locale.Text(locale.Text("Describe how to continue, or press Enter to skip:")))
 	if err != nil {
 		return result, err
 	}
@@ -59,7 +60,7 @@ func collectContinuationInputsWithLog(input, logInput func(string) (string, erro
 
 func validateContinuationInputs(inputs continuationInputs) error {
 	if len(inputs.ContextFiles) == 0 && strings.TrimSpace(inputs.CommandLog) == "" && strings.TrimSpace(inputs.Clarification) == "" {
-		return errors.New("continuation requires context files, a command log, or a clarification")
+		return errors.New(locale.Text("continuation requires context files, a command log, or a clarification"))
 	}
 	return nil
 }
@@ -88,30 +89,30 @@ func closeContinuationStore(store *historyrepo.Store, logger *slog.Logger) {
 //nolint:gocognit // Continuation orchestration keeps preflight, provider setup, persistence, and delivery in one fail-closed path.
 func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logger) (resultErr error) {
 	if flags.NoHistory {
-		return errors.New("--continue requires history; remove --no-history")
+		return errors.New(locale.Text("--continue requires history; remove --no-history"))
 	}
 	store, err := openQueryHistory(cmd.Context())
 	if err != nil {
-		return fmt.Errorf("open continuation history: %w", err)
+		return fmt.Errorf(locale.Text("open continuation history: %w"), err)
 	}
 	view, err := store.LastConversation(cmd.Context())
 	if err != nil {
 		closeContinuationStore(store, logger)
-		return fmt.Errorf("find continuation history: %w", err)
+		return fmt.Errorf(locale.Text("find continuation history: %w"), err)
 	}
 	seed, err := historyservice.RestoreConversation(view)
 	if err != nil {
 		closeContinuationStore(store, logger)
-		return fmt.Errorf("restore continuation history: %w", err)
+		return fmt.Errorf(locale.Text("restore continuation history: %w"), err)
 	}
 	cfg, err := config.Load()
 	if err != nil {
 		closeContinuationStore(store, logger)
-		return fmt.Errorf("failed to load config: %w. Run `zev setup` to configure", err)
+		return fmt.Errorf(locale.Text("failed to load config: %w. Run `zev setup` to configure"), err)
 	}
 	if !cfg.HistoryEnabled {
 		closeContinuationStore(store, logger)
-		return errors.New("continuation requires HISTORY_ENABLED=true")
+		return errors.New(locale.Text("continuation requires HISTORY_ENABLED=true"))
 	}
 	interactive := !flags.Print && !flags.JSON && len(flags.Args) == 0
 	inputs, err := collectContinuationInputsWithLog(func(title string) (string, error) {
@@ -134,16 +135,16 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	}
 	if strings.TrimSpace(clarification) == "" && strings.TrimSpace(inputs.CommandLog) == "" && projectContext == "" {
 		closeContinuationStore(store, logger)
-		return errors.New("continuation requires context files, a command log, or a clarification")
+		return errors.New(locale.Text("continuation requires context files, a command log, or a clarification"))
 	}
 	promptText := clarification
 	if strings.TrimSpace(promptText) == "" {
-		promptText = "Continue using the supplied context."
+		promptText = locale.Text("Continue using the supplied context.")
 	}
 	provider, err := factory.NewProvider(cfg, httpclient.New(cfg.HTTPHeaders, logger))
 	if err != nil {
 		closeContinuationStore(store, logger)
-		return fmt.Errorf("failed to create provider: %w", err)
+		return fmt.Errorf(locale.Text("failed to create provider: %w"), err)
 	}
 	envContext := queryservice.New(provider).GetEnvContext()
 	if !cfg.ContextEnabled || flags.NoContext {

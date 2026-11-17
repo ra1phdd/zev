@@ -1,0 +1,319 @@
+["\n⚠️  No commands found for your query.\n"]
+other = "\n⚠️  No commands found for your query.\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n⚠️  The AI did not provide a response. Please try rephrasing your request.\n"]
+other = "\n⚠️  The AI did not provide a response. Please try rephrasing your request.\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n⚠️  The AI did not provide a response. This might happen if your request is unclear.\n\n"]
+other = "\n⚠️  The AI did not provide a response. This might happen if your request is unclear.\n\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n⚠️  Unable to process your request:\n%s\n"]
+other = "\n⚠️  Unable to process your request:\n%s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n⚠️  WARNING: %s\n"]
+other = "\n⚠️  WARNING: %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n✓ Selected command:\n\n  %s\n\n"]
+other = "\n✓ Selected command:\n\n  %s\n\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["--continue requires history; remove --no-history"]
+other = "--continue requires history; remove --no-history"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Attach context files (comma-separated paths), or press Enter to skip:"]
+other = "Attach context files (comma-separated paths), or press Enter to skip:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Choose a 1-based command option in machine mode"]
+other = "Choose a 1-based command option in machine mode"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Clarify the request"]
+other = "Clarify the request"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Continue the latest usable conversation"]
+other = "Continue the latest usable conversation"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Continue using the supplied context."]
+other = "Continue using the supplied context."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Describe how to continue, or press Enter to skip:"]
+other = "Describe how to continue, or press Enter to skip:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Do not persist this query in history"]
+other = "Do not persist this query in history"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Do not send local environment context"]
+other = "Do not send local environment context"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Error: %v\n"]
+other = "Error: %v\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Execute selected command immediately"]
+other = "Execute selected command immediately"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Fetching suggestions...\n"]
+other = "Fetching suggestions...\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)"]
+other = "Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Inject selected command into terminal (default)"]
+other = "Inject selected command into terminal (default)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Natural language terminal command suggestions"]
+other = "Natural language terminal command suggestions"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["No aliases configured"]
+other = "No aliases configured"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["No commands found for your query.\n"]
+other = "No commands found for your query.\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["No history found. Run some queries first!"]
+other = "No history found. Run some queries first!"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Output command options as schema version 1 JSON"]
+other = "Output command options as schema version 1 JSON"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Paste the command log (Enter: newline, Ctrl+D: next or skip):"]
+other = "Paste the command log (Enter: newline, Ctrl+D: next or skip):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Please clarify your request:"]
+other = "Please clarify your request:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Print the chosen command without executing it"]
+other = "Print the chosen command without executing it"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Query for command suggestions"]
+other = "Query for command suggestions"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Select a command to run:"]
+other = "Select a command to run:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Show zev version"]
+other = "Show zev version"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Specify your request:"]
+other = "Specify your request:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["The request cannot be empty.\n"]
+other = "The request cannot be empty.\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Warning: failed to save to history: %v\n"]
+other = "Warning: failed to save to history: %v\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["What command do you need?"]
+other = "What command do you need?"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Zev helps you remember terminal commands by describing what you want to do in natural language."]
+other = "Zev helps you remember terminal commands by describing what you want to do in natural language."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["continuation requires HISTORY_ENABLED=true"]
+other = "continuation requires HISTORY_ENABLED=true"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["continuation requires context files, a command log, or a clarification"]
+other = "continuation requires context files, a command log, or a clarification"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["failed to create provider: %w"]
+other = "failed to create provider: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["failed to execute command: %w"]
+other = "failed to execute command: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["failed to load config: %w. Run `zev setup` to configure"]
+other = "failed to load config: %w. Run `zev setup` to configure"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["failed to select command: %w"]
+other = "failed to select command: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["find continuation history: %w"]
+other = "find continuation history: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["get command suggestions: %w"]
+other = "get command suggestions: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["get query input: %w"]
+other = "get query input: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["open continuation history: %w"]
+other = "open continuation history: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["prompt cannot be empty"]
+other = "prompt cannot be empty"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["provider returned an invalid response: %s"]
+other = "provider returned an invalid response: %s"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["provider returned no commands"]
+other = "provider returned no commands"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["restore continuation history: %w"]
+other = "restore continuation history: %w"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["zev version %s\n"]
+other = "zev version %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["⚠️  WARNING: %s\n\n"]
+other = "⚠️  WARNING: %s\n\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Usage:"]
+other = "Usage:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Aliases:"]
+other = "Aliases:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Examples:"]
+other = "Examples:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Available Commands:"]
+other = "Available Commands:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Additional Commands:"]
+other = "Additional Commands:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Flags:"]
+other = "Flags:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Global Flags:"]
+other = "Global Flags:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Additional help topics:"]
+other = "Additional help topics:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Use \"{{.CommandPath}} [command] --help\" for more information about a command."]
+other = "Use \"{{.CommandPath}} [command] --help\" for more information about a command."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Help about any command"]
+other = "Help about any command"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Help provides help for any command in the application."]
+other = "Help provides help for any command in the application."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Show help for this command"]
+other = "Show help for this command"
+leftDelim = "[[["
+rightDelim = "]]]"

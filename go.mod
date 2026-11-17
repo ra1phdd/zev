@@ -3,6 +3,8 @@ module github.com/ra1phdd/zev
 go 1.27.2
 
 require (
+	github.com/BurntSushi/toml v1.6.0
+	github.com/atotto/clipboard v0.1.4
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
@@ -11,6 +13,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/kljensen/snowball v0.10.0
 	github.com/liushuangls/go-anthropic/v2 v2.25.0
+	github.com/nicksnyder/go-i18n/v2 v2.7.0
 	github.com/sashabaranov/go-openai v1.43.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/sys v0.49.0
@@ -21,7 +24,6 @@ require (
 )
 
 require (
-	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/x/ansi v0.11.9 // indirect

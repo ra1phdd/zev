@@ -1,0 +1,59 @@
+["(Press Enter to confirm, Esc to cancel)"]
+other = "(Press Enter to confirm, Esc to cancel)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["(Enter: newline, Ctrl+D: submit or skip, Esc/Ctrl+C: cancel; 64 KiB / 10000 lines maximum)"]
+other = "(Enter: newline, Ctrl+D: submit or skip, Esc/Ctrl+C: cancel; 64 KiB / 10000 lines maximum)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["%s (current: %s, press Enter to keep or type 'default' for %s):"]
+other = "%s (current: %s, press Enter to keep or type 'default' for %s):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["%s (current: %s, press Enter to keep):"]
+other = "%s (current: %s, press Enter to keep):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["%s (default: %s):"]
+other = "%s (default: %s):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Which LLM provider would you like to use?"]
+other = "Which LLM provider would you like to use?"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["\n✓ Configuration saved successfully!"]
+other = "\n✓ Configuration saved successfully!"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Enter the model to use"]
+other = "Enter the model to use"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Enter custom base URL"]
+other = "Enter custom base URL"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Enter Ollama base URL"]
+other = "Enter Ollama base URL"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Enter your %s API key"]
+other = "Enter your %s API key"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+[" (current: %s, press Enter to keep)"]
+other = " (current: %s, press Enter to keep)"
+leftDelim = "[[["
+rightDelim = "]]]"

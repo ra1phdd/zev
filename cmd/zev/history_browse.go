@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/ra1phdd/zev/internal/entities/history/service"
+	"github.com/ra1phdd/zev/locale"
 	"github.com/ra1phdd/zev/pkg/tui/list"
 	"github.com/spf13/cobra"
 )
@@ -29,7 +30,7 @@ func runHistoryBrowse(cmd *cobra.Command, store historyOperations) error {
 		return err
 	}
 	if len(entries) == 0 {
-		if _, err := fmt.Fprintln(cmd.OutOrStdout(), "No history found. Run some queries first!"); err != nil {
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), locale.Text("No history found. Run some queries first!")); err != nil {
 			return fmt.Errorf("write empty history message: %w", err)
 		}
 		return nil
@@ -39,9 +40,9 @@ func runHistoryBrowse(cmd *cobra.Command, store historyOperations) error {
 
 func selectHistoryBrowseEntry(cmd *cobra.Command, store historyOperations, entries []historyBrowseEntry) error {
 	items := makeHistoryBrowseItems(entries)
-	selected, err := list.SelectContext(cmd.Context(), list.SelectOptions{Title: "📜 Query History", Items: items})
+	selected, err := list.SelectContext(cmd.Context(), list.SelectOptions{Title: locale.Text("📜 Query History"), Items: items})
 	if err != nil {
-		return fmt.Errorf("select history: %w", err)
+		return fmt.Errorf(locale.Text("select history: %w"), err)
 	}
 	entry, ok := selectedHistoryEntry(items, entries, selected)
 	if !ok {
@@ -49,7 +50,7 @@ func selectHistoryBrowseEntry(cmd *cobra.Command, store historyOperations, entri
 	}
 	view, err := store.GetConversation(cmd.Context(), entry.conversation.ID)
 	if err != nil {
-		return fmt.Errorf("get conversation: %w", err)
+		return fmt.Errorf(locale.Text("get conversation: %w"), err)
 	}
 	if err := json.NewEncoder(cmd.OutOrStdout()).Encode(view); err != nil {
 		return fmt.Errorf("encode conversation: %w", err)
@@ -59,14 +60,14 @@ func selectHistoryBrowseEntry(cmd *cobra.Command, store historyOperations, entri
 
 func loadHistoryBrowseEntries(cmd *cobra.Command, store historyOperations) ([]historyBrowseEntry, error) {
 	if err := cmd.Context().Err(); err != nil {
-		return nil, fmt.Errorf("list history: %w", err)
+		return nil, fmt.Errorf(locale.Text("list history: %w"), err)
 	}
 	var entries []historyBrowseEntry
 	req := service.ListRequest{Limit: 100}
 	for {
 		page, err := store.ListConversations(cmd.Context(), req)
 		if err != nil {
-			return nil, fmt.Errorf("list history: %w", err)
+			return nil, fmt.Errorf(locale.Text("list history: %w"), err)
 		}
 		for _, conversation := range page {
 			entries = append(entries, historyBrowseEntry{conversation: conversation})
@@ -86,7 +87,7 @@ func historyBrowsePrompt(conversation service.Conversation) string {
 	if metadata := safeHistoryPrompt(conversation.MetadataJSON); metadata != "" {
 		return strconv.Quote(metadata)
 	}
-	return strconv.Quote("conversation " + conversation.ID)
+	return strconv.Quote(fmt.Sprintf(locale.Text("conversation %s"), conversation.ID))
 }
 
 func makeHistoryBrowseItems(entries []historyBrowseEntry) []list.Item {
