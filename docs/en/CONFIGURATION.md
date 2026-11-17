@@ -163,6 +163,25 @@ writing any terminal input. A multiline suggestion can still be displayed as a
 fallback or executed in `execute` mode. Validation is not shell sanitization, a
 sandbox or a guarantee that a suggested command is safe.
 
+
+## Explicit project context files
+
+A query may attach one or more bounded files to the model request:
+
+```bash
+zev --context-file README.md -cf docs/ARCHITECTURE.md "explain the startup path"
+zev --print --context-file README.md "find the relevant command"
+zev --json --context-file README.md "find the relevant command"
+```
+
+`--context-file` and `-cf` may be repeated. Paths are resolved relative to the current
+working directory and must remain below it. Only regular files are accepted; directories,
+symlinks, `.env` files, private keys and credential-like files are rejected before any
+provider request. Each file is limited to 64 KiB and the request total to 256 KiB.
+Use `--allow-sensitive-context` only when a specific sensitive file is intentionally
+selected; symlinks remain rejected. A context-file failure returns before network access,
+and machine modes keep stdout reserved for their existing command/JSON contracts.
+
 ## Machine-readable output
 
 For scripts and CI, machine mode never opens the selector, injects terminal input, starts a

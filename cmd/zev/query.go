@@ -49,18 +49,20 @@ var (
 
 // parsedFlags contains manually parsed CLI flags without changing package state.
 type parsedFlags struct {
-	Args       []string
-	Help       bool
-	Verbosity  int
-	Execute    bool
-	Inject     bool
-	NoHistory  bool
-	NoContext  bool
-	Print      bool
-	JSON       bool
-	Option     int
-	OptionSet  bool
-	ParseError string
+	Args                  []string
+	Help                  bool
+	Verbosity             int
+	Execute               bool
+	Inject                bool
+	NoHistory             bool
+	NoContext             bool
+	AllowSensitiveContext bool
+	ContextFiles          []string
+	Print                 bool
+	JSON                  bool
+	Option                int
+	OptionSet             bool
+	ParseError            string
 }
 
 // setupLogger enables warnings by default, info at -v and debug at -vv.
@@ -147,6 +149,22 @@ func parseArgsFlags(args []string) parsedFlags {
 			result.NoHistory = true
 		case arg == "--no-context":
 			result.NoContext = true
+		case arg == "--allow-sensitive-context":
+			result.AllowSensitiveContext = true
+		case arg == "--context-file", arg == "-cf":
+			if i+1 >= len(args) {
+				result.ParseError = arg + " requires a path"
+				continue
+			}
+			i++
+			result.ContextFiles = append(result.ContextFiles, args[i])
+		case strings.HasPrefix(arg, "--context-file="):
+			path := strings.TrimPrefix(arg, "--context-file=")
+			if path == "" {
+				result.ParseError = "--context-file requires a path"
+			} else {
+				result.ContextFiles = append(result.ContextFiles, path)
+			}
 		case arg == "--print":
 			result.Print = true
 		case arg == "--json":
@@ -214,6 +232,10 @@ func runQuery(cmd *cobra.Command, args []string) error {
 
 func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logger) (resultErr error) {
 	args := flags.Args
+	projectContext, err := loadProjectContext(flags.ContextFiles, flags.AllowSensitiveContext)
+	if err != nil {
+		return err
+	}
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w. Run `zev setup` to configure", err)
@@ -243,12 +265,16 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 		return fmt.Errorf("failed to create provider: %w", err)
 	}
 	logger.Debug("Provider created", "name", provider.Name(), "model", provider.Model())
-	s := newQuerySession(queryservice.New(provider), cmd, userPrompt)
+	s := newQuerySessionWithProjectContext(queryservice.New(provider), cmd, userPrompt, projectContext)
 	s.provider, s.model = provider.Name(), provider.Model()
 	s.prepareHistory(cfg.HistoryEnabled)
 	defer s.closeHistory(cmd.Context(), &resultErr)
 	if !cfg.ContextEnabled {
-		s.history.SystemPrompt = fmt.Sprintf(repository.SystemPrompt, "Local environment context is disabled.")
+		contextPrompt := "Local environment context is disabled."
+		if projectContext != "" {
+			contextPrompt += "\n\n" + projectContextSection(projectContext)
+		}
+		s.history.SystemPrompt = fmt.Sprintf(repository.SystemPrompt, contextPrompt)
 	}
 	if err := s.start(cmd.Context()); err != nil {
 		return err
@@ -328,16 +354,21 @@ type querySession struct {
 	cmd             *cobra.Command
 	history         *domain.ConversationHistory
 	userPrompt      string
+	projectContext  string
 	response        *domain.OptionsResponse
 	input           func(string) (string, error)
 	selectItem      func(list.SelectOptions) (list.Item, error)
 }
 
-func newQuerySession(svc *queryservice.Service, cmd *cobra.Command, userPrompt string) *querySession {
+func newQuerySessionWithProjectContext(svc *queryservice.Service, cmd *cobra.Command, userPrompt, projectContext string) *querySession {
+	ctx := svc.GetEnvContext()
+	if projectContext != "" {
+		ctx += "\n\n" + projectContextSection(projectContext)
+	}
 	return &querySession{
-		svc: svc, cmd: cmd, userPrompt: userPrompt,
+		svc: svc, cmd: cmd, userPrompt: userPrompt, projectContext: projectContext,
 		history: &domain.ConversationHistory{
-			SystemPrompt: fmt.Sprintf(repository.SystemPrompt, svc.GetEnvContext()),
+			SystemPrompt: fmt.Sprintf(repository.SystemPrompt, ctx),
 			Messages:     []domain.Message{{Role: queryUserRole, Content: userPrompt}},
 		},
 		input: func(title string) (string, error) {
@@ -347,6 +378,10 @@ func newQuerySession(svc *queryservice.Service, cmd *cobra.Command, userPrompt s
 			return list.SelectContext(cmd.Context(), options)
 		},
 	}
+}
+
+func newQuerySession(svc *queryservice.Service, cmd *cobra.Command, userPrompt string) *querySession {
+	return newQuerySessionWithProjectContext(svc, cmd, userPrompt, "")
 }
 
 func readQueryInput(input func(string) (string, error), title string) (string, error) {

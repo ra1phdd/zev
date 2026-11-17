@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/config"
@@ -125,6 +126,18 @@ func TestParseArgsFlags(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestParseArgsFlagsSupportsRepeatedContextFiles(t *testing.T) {
+	t.Parallel()
+	got := parseArgsFlags([]string{"query", "--context-file", "a.txt", "-cf", "b.txt", "--context-file=c.txt"})
+	want := []string{"a.txt", "b.txt", "c.txt"}
+	if fmt.Sprint(got.ContextFiles) != fmt.Sprint(want) {
+		t.Fatalf("context files = %v, want %v", got.ContextFiles, want)
+	}
+	if got.Args[0] != "query" {
+		t.Fatalf("args = %v, want query preserved", got.Args)
 	}
 }
 

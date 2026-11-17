@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add repeated `--context-file`/`-cf` query inputs with bounded, sectioned project context,
+  fail-closed path and sensitive-file checks, and machine-mode stdout preservation.
 - Add `zev doctor` with local-only provider/configuration diagnostics, stable JSON checks,
   explicit actionable messages, secret-safe output, and opt-in confirmed provider verification.
 - Add persistent SQLite history with incremental conversation lifecycle records and

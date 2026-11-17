@@ -41,7 +41,7 @@ func (s *Service) GetOptions(ctx context.Context, prompt string) (*domain.Option
 
 // GetOptionsWithHistory requests command options using an existing conversation history.
 func (s *Service) GetOptionsWithHistory(ctx context.Context, history *domain.ConversationHistory) (*domain.OptionsResponse, error) {
-	response, err := s.provider.GetOptionsWithHistory(ctx, history)
+	response, err := s.provider.GetOptionsWithHistory(ctx, providerHistory(history))
 	if err != nil {
 		return nil, fmt.Errorf("get command options with history: %w", err)
 	}

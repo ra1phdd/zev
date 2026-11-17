@@ -144,6 +144,19 @@ func TestMachineFlags(t *testing.T) {
 	}
 }
 
+func TestMachineContextFileFailureDoesNotCallProvider(t *testing.T) {
+	t.Parallel()
+	var out, stderr bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
+	cmd.SetOut(&out)
+	cmd.SetErr(&stderr)
+	err := runMachineConfigured(cmd, parsedFlags{Print: true, Option: 1, Args: []string{"list files"}, ContextFiles: []string{"missing.txt"}}, slog.New(slog.DiscardHandler))
+	if cliExitCode(err) != exitContext || out.Len() != 0 {
+		t.Fatalf("error=%v stdout=%q", err, out.String())
+	}
+}
+
 func TestMachineProviderAndContextErrors(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {

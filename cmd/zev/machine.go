@@ -146,6 +146,10 @@ func runMachineConfigured(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	if strings.TrimSpace(prompt) == "" {
 		return machineError(exitArguments, errors.New("machine output requires a nonempty query"))
 	}
+	projectContext, err := loadProjectContext(flags.ContextFiles, flags.AllowSensitiveContext)
+	if err != nil {
+		return machineError(exitContext, err)
+	}
 	if handled, err := machineNamedQuery(cmd, flags); handled {
 		return err
 	}
@@ -161,15 +165,16 @@ func runMachineConfigured(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	if !cfg.ContextEnabled || flags.NoContext {
 		contextFn = func() (string, error) { return "Local environment context is disabled.", nil }
 	}
-	return runMachineProvider(cmd, flags, machineProviderParams{Context: contextFn, Provider: provider, Prompt: prompt, History: cfg.HistoryEnabled && !flags.NoHistory, Logger: logger})
+	return runMachineProvider(cmd, flags, machineProviderParams{Context: contextFn, Provider: provider, Prompt: prompt, ProjectContext: projectContext, History: cfg.HistoryEnabled && !flags.NoHistory, Logger: logger})
 }
 
 type machineProviderParams struct {
-	Context  func() (string, error)
-	Provider domain.InferenceProvider
-	Prompt   string
-	History  bool
-	Logger   *slog.Logger
+	Context        func() (string, error)
+	Provider       domain.InferenceProvider
+	Prompt         string
+	ProjectContext string
+	History        bool
+	Logger         *slog.Logger
 }
 
 func runMachineProvider(cmd *cobra.Command, flags parsedFlags, params machineProviderParams) (resultErr error) {
@@ -177,9 +182,13 @@ func runMachineProvider(cmd *cobra.Command, flags parsedFlags, params machinePro
 	if err != nil {
 		return machineError(exitContext, fmt.Errorf("read local context: %w", err))
 	}
+	projectPrompt := env
+	if params.ProjectContext != "" {
+		projectPrompt += "\n\n" + projectContextSection(params.ProjectContext)
+	}
 	s := &querySession{
 		svc: queryservice.New(params.Provider), cmd: cmd, userPrompt: params.Prompt,
-		history: &domain.ConversationHistory{SystemPrompt: fmt.Sprintf(repository.SystemPrompt, env), Messages: []domain.Message{{Role: queryUserRole, Content: params.Prompt}}}, machine: true,
+		history: &domain.ConversationHistory{SystemPrompt: fmt.Sprintf(repository.SystemPrompt, projectPrompt), Messages: []domain.Message{{Role: queryUserRole, Content: params.Prompt}}}, machine: true,
 	}
 	s.provider, s.model = params.Provider.Name(), params.Provider.Model()
 	s.prepareHistory(params.History)
