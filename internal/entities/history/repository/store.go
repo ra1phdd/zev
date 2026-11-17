@@ -1,3 +1,4 @@
+// Package repository stores history in SQLite.
 package repository
 
 import (
@@ -14,13 +15,26 @@ import (
 	_ "modernc.org/sqlite" // Register the SQLite database/sql driver.
 )
 
+const historySQLiteURLScheme = "file"
+
 // Store persists history in a SQLite database.
 type Store struct{ db *sql.DB }
 
 // Open opens or creates a private SQLite history database and applies migrations.
-// The caller owns the returned store and must close it. Schema setup and legacy
-// migration share one lock so another opener cannot observe an unfinished import.
+// The caller owns the returned store and must close it. Legacy JSONL files are
+// never read or modified by this method; callers must invoke the migrator first.
 func Open(ctx context.Context, path string) (*Store, error) {
+	db, err := OpenDatabase(ctx, path, true)
+	if err != nil {
+		return nil, fmt.Errorf("initialize history: %w", err)
+	}
+	return &Store{db: db}, nil
+}
+
+// OpenDatabase opens a history SQLite database and applies schema migrations.
+// When create is false, the database must already exist and no filesystem data
+// is created. The returned connection is owned by the caller.
+func OpenDatabase(ctx context.Context, path string, create bool) (*sql.DB, error) {
 	if path == "" {
 		return nil, fmt.Errorf("%w: empty database path", service.ErrInvalid)
 	}
@@ -35,29 +49,25 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	if err := filestore.ValidateDirectory(dir); err != nil {
 		return nil, fmt.Errorf("validate history directory: %w", err)
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("create history directory: %w", err)
-	}
-	if err := secureHistoryPath(dir, true); err != nil {
-		return nil, fmt.Errorf("secure history directory: %w", err)
-	}
-	if err := filestore.ValidateDirectory(dir); err != nil {
-		return nil, fmt.Errorf("validate history directory: %w", err)
-	}
-	var store *Store
-	source := filepath.Join(dir, "history")
-	err = filestore.WithLockContext(ctx, source, func() error {
-		var err error
-		store, err = openLocked(ctx, abs)
-		return err
-	})
-	if err != nil {
-		if store != nil {
-			err = errors.Join(err, store.Close())
+	if create {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return nil, fmt.Errorf("create history directory: %w", err)
 		}
-		return nil, fmt.Errorf("initialize history: %w", err)
+		if err := secureHistoryPath(dir, true); err != nil {
+			return nil, fmt.Errorf("secure history directory: %w", err)
+		}
+	} else if _, err := os.Stat(abs); err != nil {
+		return nil, fmt.Errorf("inspect history database: %w", err)
 	}
-	return store, nil
+	db, err := openDatabase(ctx, abs, create)
+	if err != nil {
+		return nil, err
+	}
+	store := &Store{db: db}
+	if err := store.migrate(ctx); err != nil {
+		return nil, errors.Join(err, db.Close())
+	}
+	return db, nil
 }
 
 func secureHistorySidecars(abs string) error {
@@ -79,12 +89,12 @@ func secureHistorySidecars(abs string) error {
 	return nil
 }
 
-func openLocked(ctx context.Context, abs string) (*Store, error) {
+func openDatabase(ctx context.Context, abs string, create bool) (*sql.DB, error) {
 	if err := secureHistorySidecars(abs); err != nil {
 		return nil, err
 	}
 	info, err := os.Lstat(abs)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && (!create || !os.IsNotExist(err)) {
 		return nil, fmt.Errorf("inspect history database: %w", err)
 	}
 	if err == nil && !info.Mode().IsRegular() {
@@ -95,7 +105,11 @@ func openLocked(ctx context.Context, abs string) (*Store, error) {
 			return nil, fmt.Errorf("secure history database: %w", err)
 		}
 	}
-	f, err := os.OpenFile(abs, os.O_CREATE|os.O_RDWR, 0o600) //nolint:gosec // The caller-selected database leaf and trusted application directory were validated.
+	flags := os.O_RDWR
+	if create {
+		flags |= os.O_CREATE
+	}
+	f, err := os.OpenFile(abs, flags, 0o600) //nolint:gosec // The caller-selected database leaf and trusted application directory were validated.
 	if err != nil {
 		return nil, fmt.Errorf("open history database: %w", err)
 	}
@@ -105,13 +119,14 @@ func openLocked(ctx context.Context, abs string) (*Store, error) {
 	if err = f.Close(); err != nil {
 		return nil, fmt.Errorf("close history database: %w", err)
 	}
-	u := &url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}
+	u := &url.URL{Scheme: historySQLiteURLScheme, Path: filepath.ToSlash(abs)}
 	q := u.Query()
 	q.Add("_pragma", "foreign_keys(1)")
 	q.Add("_pragma", "busy_timeout(5000)")
-	// Reserve the writer before read-modify-write transactions so concurrent
-	// processes wait rather than fail while upgrading a stale read snapshot.
 	q.Set("_txlock", "immediate")
+	if !create {
+		q.Set("mode", "rw")
+	}
 	u.RawQuery = q.Encode()
 	db, err := sql.Open("sqlite", u.String())
 	if err != nil {
@@ -121,14 +136,7 @@ func openLocked(ctx context.Context, abs string) (*Store, error) {
 	if _, err = db.ExecContext(ctx, "PRAGMA journal_mode=WAL"); err != nil {
 		return nil, errors.Join(fmt.Errorf("enable WAL: %w", err), db.Close())
 	}
-	s := &Store{db: db}
-	if err = s.migrate(ctx); err != nil {
-		return nil, errors.Join(err, db.Close())
-	}
-	if err = s.importLegacyLocked(ctx, filepath.Join(filepath.Dir(abs), "history")); err != nil {
-		return nil, errors.Join(err, db.Close())
-	}
-	return s, nil
+	return db, nil
 }
 
 // Close releases the database connection.
@@ -173,6 +181,12 @@ func (s *Store) migrate(ctx context.Context) (err error) {
 		return fmt.Errorf("commit migration: %w", err)
 	}
 	return nil
+}
+
+func rollbackTransaction(err *error, tx *sql.Tx) {
+	if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
+		*err = errors.Join(*err, fmt.Errorf("rollback transaction: %w", rollbackErr))
+	}
 }
 
 const schema = `

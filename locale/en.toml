@@ -1,319 +1,319 @@
-["\n⚠️  No commands found for your query.\n"]
+["query.no_commands_found_query"]
 other = "\n⚠️  No commands found for your query.\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["\n⚠️  The AI did not provide a response. Please try rephrasing your request.\n"]
+["query.ai_did_not_provide_response_please_try"]
 other = "\n⚠️  The AI did not provide a response. Please try rephrasing your request.\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["\n⚠️  The AI did not provide a response. This might happen if your request is unclear.\n\n"]
+["query.ai_did_not_provide_response_might_happen"]
 other = "\n⚠️  The AI did not provide a response. This might happen if your request is unclear.\n\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["\n⚠️  Unable to process your request:\n%s\n"]
+["query.unable_process_request_message"]
 other = "\n⚠️  Unable to process your request:\n%s\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["\n⚠️  WARNING: %s\n"]
+["query.warning_message"]
 other = "\n⚠️  WARNING: %s\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["\n✓ Selected command:\n\n  %s\n\n"]
+["query.selected_command_message"]
 other = "\n✓ Selected command:\n\n  %s\n\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["--continue requires history; remove --no-history"]
+["query.continue_requires_history_remove_no_history"]
 other = "--continue requires history; remove --no-history"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Attach context files (comma-separated paths), or press Enter to skip:"]
+["query.attach_context_files_comma_separated_paths_press"]
 other = "Attach context files (comma-separated paths), or press Enter to skip:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Choose a 1-based command option in machine mode"]
+["query.choose_1_based_command_option_machine_mode"]
 other = "Choose a 1-based command option in machine mode"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Clarify the request"]
+["query.clarify_request"]
 other = "Clarify the request"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Continue the latest usable conversation"]
+["query.continue_latest_usable_conversation"]
 other = "Continue the latest usable conversation"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Continue using the supplied context."]
+["query.continue_using_supplied_context"]
 other = "Continue using the supplied context."
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Describe how to continue, or press Enter to skip:"]
+["query.describe_continue_press_enter_skip"]
 other = "Describe how to continue, or press Enter to skip:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Do not persist this query in history"]
+["query.not_persist_query_history"]
 other = "Do not persist this query in history"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Do not send local environment context"]
+["query.not_send_local_environment_context"]
 other = "Do not send local environment context"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Error: %v\n"]
+["query.error_message"]
 other = "Error: %v\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Execute selected command immediately"]
+["query.execute_selected_command_immediately"]
 other = "Execute selected command immediately"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Fetching suggestions...\n"]
+["query.fetching_suggestions"]
 other = "Fetching suggestions...\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)"]
+["query.increase_verbosity_level_v_info_vv_debug"]
 other = "Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Inject selected command into terminal (default)"]
+["query.inject_selected_command_into_terminal_default"]
 other = "Inject selected command into terminal (default)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Natural language terminal command suggestions"]
+["query.natural_language_terminal_command_suggestions"]
 other = "Natural language terminal command suggestions"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["No aliases configured"]
+["cli.no_aliases_configured"]
 other = "No aliases configured"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["No commands found for your query.\n"]
+["query.no_commands_found_query_2"]
 other = "No commands found for your query.\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["No history found. Run some queries first!"]
+["cli.no_history_found_run_some_queries_first"]
 other = "No history found. Run some queries first!"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Output command options as schema version 1 JSON"]
+["query.output_command_options_schema_version_1_json"]
 other = "Output command options as schema version 1 JSON"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Paste the command log (Enter: newline, Ctrl+D: next or skip):"]
+["query.paste_command_log_enter_newline_ctrl_d"]
 other = "Paste the command log (Enter: newline, Ctrl+D: next or skip):"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Please clarify your request:"]
+["query.please_clarify_request"]
 other = "Please clarify your request:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Print the chosen command without executing it"]
+["query.print_chosen_command_executing"]
 other = "Print the chosen command without executing it"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Query for command suggestions"]
+["query.query_command_suggestions"]
 other = "Query for command suggestions"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Select a command to run:"]
+["query.select_command_run"]
 other = "Select a command to run:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Show zev version"]
+["query.show_zev_version"]
 other = "Show zev version"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Specify your request:"]
+["query.specify_request"]
 other = "Specify your request:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["The request cannot be empty.\n"]
+["query.request_cannot_empty"]
 other = "The request cannot be empty.\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Warning: failed to save to history: %v\n"]
+["query.warning_failed_save_history_message"]
 other = "Warning: failed to save to history: %v\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["What command do you need?"]
+["query.what_command_you_need"]
 other = "What command do you need?"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Zev helps you remember terminal commands by describing what you want to do in natural language."]
+["query.zev_helps_you_remember_terminal_commands_describing"]
 other = "Zev helps you remember terminal commands by describing what you want to do in natural language."
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["continuation requires HISTORY_ENABLED=true"]
+["query.continuation_requires_history_enabled_true"]
 other = "continuation requires HISTORY_ENABLED=true"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["continuation requires context files, a command log, or a clarification"]
+["query.continuation_requires_context_files_command_log_clarificat"]
 other = "continuation requires context files, a command log, or a clarification"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["failed to create provider: %w"]
+["query.failed_create_provider_error"]
 other = "failed to create provider: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["failed to execute command: %w"]
+["query.failed_execute_command_error"]
 other = "failed to execute command: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["failed to load config: %w. Run `zev setup` to configure"]
+["query.failed_load_config_w_run_zev_setup"]
 other = "failed to load config: %w. Run `zev setup` to configure"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["failed to select command: %w"]
+["query.failed_select_command_error"]
 other = "failed to select command: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["find continuation history: %w"]
+["query.find_continuation_history_error"]
 other = "find continuation history: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["get command suggestions: %w"]
+["query.get_command_suggestions_error"]
 other = "get command suggestions: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["get query input: %w"]
+["query.get_query_input_error"]
 other = "get query input: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["open continuation history: %w"]
+["query.open_continuation_history_error"]
 other = "open continuation history: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["prompt cannot be empty"]
+["query.prompt_cannot_empty"]
 other = "prompt cannot be empty"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["provider returned an invalid response: %s"]
+["query.provider_returned_invalid_response_message"]
 other = "provider returned an invalid response: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["provider returned no commands"]
+["query.provider_returned_no_commands"]
 other = "provider returned no commands"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["restore continuation history: %w"]
+["query.restore_continuation_history_error"]
 other = "restore continuation history: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["zev version %s\n"]
+["query.zev_version_message"]
 other = "zev version %s\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["⚠️  WARNING: %s\n\n"]
+["query.warning_s_2"]
 other = "⚠️  WARNING: %s\n\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Usage:"]
+["query.usage"]
 other = "Usage:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Aliases:"]
+["query.aliases"]
 other = "Aliases:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Examples:"]
+["query.examples"]
 other = "Examples:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Available Commands:"]
+["query.available_commands"]
 other = "Available Commands:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Additional Commands:"]
+["query.additional_commands"]
 other = "Additional Commands:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Flags:"]
+["query.flags"]
 other = "Flags:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Global Flags:"]
+["query.global_flags"]
 other = "Global Flags:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Additional help topics:"]
+["query.additional_help_topics"]
 other = "Additional help topics:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Use \"{{.CommandPath}} [command] --help\" for more information about a command."]
+["query.commandpath_command_help_more_information_about_command"]
 other = "Use \"{{.CommandPath}} [command] --help\" for more information about a command."
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Help about any command"]
+["query.help_about_any_command"]
 other = "Help about any command"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Help provides help for any command in the application."]
+["query.help_provides_help_any_command_application"]
 other = "Help provides help for any command in the application."
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Show help for this command"]
+["query.show_help_command"]
 other = "Show help for this command"
 leftDelim = "[[["
 rightDelim = "]]]"

@@ -148,5 +148,5 @@ func (m multilineModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m multilineModel) View() string {
-	return fmt.Sprintf("%s\n\n%s\n\n%s", m.title, m.textArea.View(), locale.Text("(Enter: newline, Ctrl+D: submit or skip, Esc/Ctrl+C: cancel; 64 KiB / 10000 lines maximum)"))
+	return fmt.Sprintf("%s\n\n%s\n\n%s", m.title, m.textArea.View(), locale.Text(locale.KeyUIMultilineHint))
 }

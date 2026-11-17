@@ -1,86 +1,21 @@
+// Package main starts the Zev command-line application.
 package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"log/slog"
 	"os"
-	"os/exec"
 	"os/signal"
 	"syscall"
 
-	"github.com/ra1phdd/zev/locale"
-	"github.com/spf13/cobra"
+	"github.com/ra1phdd/zev/internal/cli"
 )
 
 var version = "dev"
 
-var verbosityLevel int
-
-func newRootCmd() *cobra.Command {
-	rootCmd := &cobra.Command{
-		Use:                "zev [query]",
-		Short:              locale.Text("Natural language terminal command suggestions"),
-		Long:               locale.Text("Zev helps you remember terminal commands by describing what you want to do in natural language."),
-		Args:               cobra.ArbitraryArgs,
-		RunE:               runQuery,
-		SilenceUsage:       true,
-		SilenceErrors:      true,
-		DisableFlagParsing: true, // Preserve flags intended for aliases.
-	}
-	// Find preserves pre-subcommand flags for the query's manual parser; Traverse
-	// would discard them when DisableFlagParsing is set on the root.
-	rootCmd.TraverseChildren = false
-	registerToolFlags(rootCmd)
-
-	rootCmd.PersistentFlags().CountVarP(&verbosityLevel, "verbose", "v", locale.Text("Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)"))
-
-	rootCmd.AddCommand(newQueryCmd())
-	rootCmd.AddCommand(newContinueCmd())
-	rootCmd.AddCommand(newHistoryCmd())
-	rootCmd.AddCommand(newSetupCmd())
-	rootCmd.AddCommand(newDoctorCmd())
-	rootCmd.AddCommand(newAliasCmd())
-	rootCmd.AddCommand(newScriptCmd())
-	rootCmd.AddCommand(newVersionCmd())
-	localizeCommandHelp(rootCmd)
-	return rootCmd
-}
-
 func main() {
-	rootCmd := newRootCmd()
+	root := cli.NewRootCommand(version)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	err := rootCmd.ExecuteContext(ctx)
+	code := cli.Execute(ctx, root)
 	stop()
-	//nolint:nestif // Exit handling must preserve machine and child-process status codes.
-	if err != nil {
-		if machineErr, ok := errors.AsType[*machineExitError](err); ok {
-			if _, writeErr := fmt.Fprintf(os.Stderr, locale.Text("Error: %v\n"), err); writeErr != nil {
-				slog.Error("Failed to write command error", "error", writeErr)
-			}
-			os.Exit(machineErr.code)
-		}
-		// Preserve child exit codes without adding another diagnostic.
-		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-			os.Exit(exitErr.ExitCode())
-		}
-		if _, writeErr := fmt.Fprintf(os.Stderr, locale.Text("Error: %v\n"), err); writeErr != nil {
-			slog.Error("Failed to write command error", "error", writeErr)
-		}
-		os.Exit(1)
-	}
-}
-
-func newVersionCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: locale.Text("Show zev version"),
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text("zev version %s\n"), version); err != nil {
-				return fmt.Errorf("write version: %w", err)
-			}
-			return nil
-		},
-	}
+	os.Exit(code)
 }

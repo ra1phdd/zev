@@ -16,6 +16,8 @@ import (
 const (
 	startedStatus       = "started"
 	userRole            = "user"
+	assistantRole       = "assistant"
+	initialPromptKind   = "initial_prompt"
 	responseKind        = "response"
 	refinementKind      = "refinement"
 	commandDocument     = "command"
@@ -81,6 +83,12 @@ func getMessage(ctx context.Context, q queryer, id string) (service.Message, err
 	}
 	m.CreatedAt, err = parseTime(created)
 	return m, historyError(err)
+}
+
+// AppendMessage appends a message in the transaction and maintains its lexical index.
+// It is intended for the history migrator and other same-package storage workflows.
+func AppendMessage(ctx context.Context, tx *sql.Tx, m service.Message) (service.Message, error) {
+	return appendMessage(ctx, tx, m)
 }
 
 func appendMessage(ctx context.Context, tx *sql.Tx, m service.Message) (service.Message, error) {

@@ -9,7 +9,8 @@
 Zev is a small Go CLI built as **vertical slices with ports and adapters**.
 
 ```
-cmd/zev/                        Cobra commands, composition and query orchestration
+cmd/zev/                        Thin process launcher
+internal/cli/                    Cobra commands, composition and query orchestration
 internal/core/
   domain/                       domain types, InferenceProvider interface, errors
   config/                       ~/.zev/config loading (godotenv + caarlos0/env)
@@ -38,7 +39,7 @@ pkg/terminal/                   shell execution and platform-specific input inje
 
 ## Query flow
 
-1. `cmd/zev/query.go` manually parses root-command flags and loads configuration.
+1. `internal/cli/query.go` manually parses root-command flags and loads configuration.
 2. It resolves aliases first, then saved scripts. A match executes directly; only
    unmatched input reaches an LLM.
 3. The CLI creates the HTTP client and calls `factory.NewProvider`. The query
@@ -91,11 +92,12 @@ CLI handlers do not assemble SQL.
 
 ## History boundaries and limits
 
-- `history/repository` owns SQLite, related-record transactions, versioned schema
-  migrations, foreign keys, WAL, the import ledger and local derived indexes. The active
-  store has no last-N rotation. Opening the repository imports legacy JSONL from a verified
-  snapshot, then archives it by rename before activation; migration sends no network data.
-  Both enabled queries and explicit history commands use this migration path.
+- `history/repository` owns SQLite, related-record transactions, schema migrations,
+  foreign keys, WAL and derived indexes. Opening it never imports legacy JSONL.
+- `history/migrator` owns legacy detection, snapshot verification, import ledger and
+  archive/recovery. CLI history startup checks it explicitly before opening the active
+  store. Enabled queries and explicit history commands use this path; help, version,
+  local doctor and history-disabled queries do not. Migration makes no network calls.
 - `history/service` owns conversation lifecycle and search orchestration. Full responses
   and alternatives are atomic; selected does not mean executed, and a completed
   interaction is not proof that terminal input ran. A failed history write warns the
@@ -148,8 +150,8 @@ description does not claim all release gates passed.
 
 ## Tests
 
-Tests live next to the code. `make check` runs formatting checks, the linter,
-application deadcode reporting, vet and default unit tests; `make test-race` is
-separate. Tagged-test targets exist, but tracked tests currently have no
-`integration`, `e2e` or `manual` suites. See [DEVELOPMENT.md](DEVELOPMENT.md) for
+Unit tests live next to the code, including CLI tests in `internal/cli`.
+Black-box scenarios live in `e2e/`, build the real binary and run with `make test-e2e`.
+`make check` runs formatting checks, lint, deadcode, vet and unit tests;
+`make test-race` is separate. See [DEVELOPMENT.md](DEVELOPMENT.md) for
 commands and [PROJECT.md](../../PROJECT.md) for operational limitations.

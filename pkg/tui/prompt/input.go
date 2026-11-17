@@ -151,6 +151,6 @@ func (m inputModel) View() string {
 	return fmt.Sprintf("%s\n\n%s\n\n%s",
 		wrappedPrompt,
 		m.textInput.View(),
-		locale.Text("(Press Enter to confirm, Esc to cancel)"),
+		locale.Text(locale.KeyUIConfirmHint),
 	)
 }

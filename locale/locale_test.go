@@ -43,14 +43,25 @@ func TestLanguagePreference(t *testing.T) {
 
 func TestTextCatalogAndFallback(t *testing.T) {
 	t.Setenv(localeOverrideEnv, "ru")
-	if got := Text("Fetching suggestions...\n"); got != "Получение вариантов команд...\n" {
+	if got := Text(KeyQueryFetchingSuggestions); got != "Получение вариантов команд...\n" {
 		t.Fatalf("translation=%q", got)
 	}
 	if got := Text("unknown message %s"); got != "unknown message %s" {
 		t.Fatalf("fallback=%q", got)
 	}
 	t.Setenv(localeOverrideEnv, "en")
-	if got := Text("Fetching suggestions...\n"); got != "Fetching suggestions...\n" {
+	if got := Text(KeyQueryFetchingSuggestions); got != "Fetching suggestions...\n" {
 		t.Fatalf("English=%q", got)
+	}
+}
+
+func TestTextSourceUsesCatalogReverseLookup(t *testing.T) {
+	t.Setenv(localeOverrideEnv, "ru")
+	if got := TextSource("Fetching suggestions...\n"); got != "Получение вариантов команд...\n" {
+		t.Fatalf("dynamic translation=%q", got)
+	}
+	const unknown = "dynamic message from a provider"
+	if got := TextSource(unknown); got != unknown {
+		t.Fatalf("unknown dynamic value=%q, want unchanged", got)
 	}
 }

@@ -26,9 +26,8 @@ SQLite history — Unreleased. Query lifecycle, автоматическая JSO
 
 ## Архитектура и путь выполнения
 
-Точка входа — [cmd/zev/main.go](cmd/zev/main.go). Здесь регистрируются Cobra-команды
-`query`, `history`, `setup`, `alias`, `script`, `version`; корневая команда также
-обрабатывает запрос. Файлы `cmd/zev/*.go` создают зависимости и адаптируют CLI/TUI.
+Точка входа — [cmd/zev/main.go](cmd/zev/main.go), тонкий launcher. Cobra-команды
+и orchestration находятся в `internal/cli`; сквозные сценарии — в `e2e/`.
 
 Основные пакеты:
 
@@ -53,7 +52,7 @@ SQLite history — Unreleased. Query lifecycle, автоматическая JSO
 | `pkg/tui/list`, `pkg/tui/prompt` | Списки выбора, предупреждения и ввод с переносом строк |
 | `pkg/terminal` | Выполнение через shell и платформенная вставка команды в терминал |
 
-Реальный путь запроса в [cmd/zev/query.go](cmd/zev/query.go):
+Реальный путь запроса в [internal/cli/query.go](internal/cli/query.go):
 
 1. Ручной разбор флагов сохраняет возможность передавать флаги алиасам.
 2. Загрузка конфигурации; поиск алиаса, затем скрипта по первому слову запроса.
@@ -144,13 +143,13 @@ SQLite history — Unreleased. Query lifecycle, автоматическая JSO
 | `~/.zev/scripts` | YAML-метаданные: имя, файл и описание скрипта |
 | `~/.zev/script_files/*.sh` | Тела bash-скриптов; при создании режим `0700` |
 | `~/.zev/history.db` | SQLite с постоянными диалогами, сообщениями, ответами, командами и индексами; без лимита количества |
-| `~/.zev/history` | Legacy JSONL: автоматически импортируется/архивируется при открытии repository из query или команд истории |
+| `~/.zev/history` | Legacy JSONL: CLI явно запускает `history/migrator` перед открытием истории |
 | `~/.zev/history.migrated.*.jsonl` | Архив исходного JSONL для ручного восстановления/audit |
 
 Query recorder сохраняет первоначальный запрос, каждое уточнение, ответы, варианты
 команд, выбор и наблюдаемый результат. Выбор/вставка не означают выполнение; аварийный
-выход может оставить `started` и неизвестный outcome. При открытии repository автоматически
-импортирует legacy JSONL под lock: проверяет fingerprint и количество, архивирует в
+выход может оставить `started` и неизвестный outcome. Startup истории в CLI проверяет legacy
+и явно запускает `history/migrator` под lock: проверяет fingerprint и количество, архивирует в
 `history.migrated.<sha256-prefix>.<UTC-timestamp>.<UUID>.jsonl`, затем завершает ledger.
 Миграция не использует сеть; невалидная строка блокирует активацию, ошибки не печатают
 payload. Этот путь используют и query с историей, и explicit history commands.
@@ -233,10 +232,10 @@ make clean
 - `make install` вызывает `go install` с учётом `GOBIN`/`GOPATH/bin`, без лишней локальной сборки.
 - `make dev` использует `-vv`; `make watch` требует `entr` и запускает `make run`.
 
-Unit-тесты находятся рядом с кодом в `*_test.go`, используют стандартный `testing`
-и локальные заглушки/`httptest`. В отслеживаемых тестах текущей истории нет наборов
-с тегами `integration`, `e2e`, `manual`; цели `make test-integration` и `make test-e2e`
-зарезервированы и включают обычные unit-тесты. `make test-manual ALLOW_MANUAL_TESTS=1`
+Unit-тесты находятся рядом с кодом в `*_test.go`, включая `internal/cli`, используют
+`testing` и локальные заглушки/`httptest`. Сквозные сценарии находятся в `e2e/` с тегом
+`e2e`; `make test-e2e` собирает настоящий CLI в отдельном owned-каталоге внутри `bin/`
+и проверяет его с изолированным HOME и локальными HTTP fixtures. `make test-manual ALLOW_MANUAL_TESTS=1`
 требует отдельного разрешения и запрещён при заданном `CI`.
 Существующего target для генерации исходников нет.
 
@@ -302,7 +301,8 @@ GoReleaser уже использует `-s -w` и `-trimpath`.
   Disabled query history не открывает БД. CLI semantic composition, index maintenance
   и cursor input доступны; детали — в [Истории](docs/ru/HISTORY.md). Полный cosine scan
   имеет сложность O(N × dimensions), постоянная задержка не гарантирована.
-- Тексты CLI/TUI находятся в исходниках; пакета `internal/core/i18n` нет.
+- CLI/TUI используют именованные ключи из `locale/keys.go`; английские и русские
+  тексты находятся в embedded TOML-каталогах `locale/`, а не в местах вызова.
 
 Это описание существующих ограничений, а не разрешение ослаблять проверки или
 расширять scope изменений. Изменение исполнения команд, контекстов или файловых

@@ -44,16 +44,16 @@ func maskAPIKey(key string) string {
 
 // promptWithDefault preserves current on Enter and accepts the literal "default"
 // to restore defaultVal. Other input is returned unchanged.
-func (s *Service) promptWithDefault(ctx context.Context, promptText, current, defaultVal string) (string, error) {
-	promptText = locale.Text(promptText)
+func (s *Service) promptWithDefault(ctx context.Context, promptKey locale.Key, current, defaultVal string) (string, error) {
+	promptText := locale.Text(promptKey)
 	var fullPrompt string
 	switch {
 	case current != "" && defaultVal != "" && current != defaultVal:
-		fullPrompt = fmt.Sprintf(locale.Text("%s (current: %s, press Enter to keep or type 'default' for %s):"), promptText, current, defaultVal)
+		fullPrompt = fmt.Sprintf(locale.Text(locale.KeyUISetupCurrentDefault), promptText, current, defaultVal)
 	case current != "":
-		fullPrompt = fmt.Sprintf(locale.Text("%s (current: %s, press Enter to keep):"), promptText, current)
+		fullPrompt = fmt.Sprintf(locale.Text(locale.KeyUISetupCurrent), promptText, current)
 	case defaultVal != "":
-		fullPrompt = fmt.Sprintf(locale.Text("%s (default: %s):"), promptText, defaultVal)
+		fullPrompt = fmt.Sprintf(locale.Text(locale.KeyUISetupDefault), promptText, defaultVal)
 	default:
 		fullPrompt = promptText + ":"
 	}
@@ -103,7 +103,7 @@ func (s *Service) RunContext(ctx context.Context) error {
 	}
 
 	selected, err := s.selectContext(ctx, list.SelectOptions{
-		Title: locale.Text("Which LLM provider would you like to use?"),
+		Title: locale.Text(locale.KeyUISetupProvider),
 		Items: items,
 	})
 	if err != nil {
@@ -146,7 +146,7 @@ func (s *Service) RunContext(ctx context.Context) error {
 		return fmt.Errorf("save config: %w", err)
 	}
 
-	if _, err := fmt.Fprintln(os.Stdout, locale.Text("\n✓ Configuration saved successfully!")); err != nil {
+	if _, err := fmt.Fprintln(os.Stdout, locale.Text(locale.KeyUISetupSaved)); err != nil {
 		return fmt.Errorf("failed to print success message: %w", err)
 	}
 	return nil

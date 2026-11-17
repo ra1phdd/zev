@@ -11,7 +11,7 @@ Zev stores requests, refinements, model responses and command alternatives local
 are sensitive data, not encrypted storage: do not put credentials in requests.
 
 > History is available through both query recording and the explicit history commands. The
-> automatic legacy migration runs before the repository is returned; semantic search is
+> CLI checks for legacy data and runs the separate migrator before opening history; semantic search is
 > opt-in and uses the separately configured embedding client. Use `zev history --help`
 > for the commands available in the installed version.
 
@@ -48,9 +48,11 @@ commands are separate operations, not disabled by this per-query opt-out.
 
 ## Automatic upgrade from legacy JSONL
 
-Opening the repository automatically imports an existing `~/.zev/history` before
-returning the active store. Both enabled queries and explicit history commands use this
-path. With no source and no unfinished import, opening simply initializes/opens SQLite.
+CLI history startup checks for `~/.zev/history` or an unfinished migration and explicitly
+runs `history/migrator` when needed, before opening the active store. Enabled queries
+and explicit history commands use this path. `repository.Open` only initializes/opens
+SQLite; it does not inspect or import legacy JSONL. Help, version, local doctor and
+history-disabled queries do not trigger migration.
 
 The import runs under the legacy file lock, verifies an open-file snapshot using identity,
 size, modification time and SHA-256, and reads JSONL line by line. It creates local search

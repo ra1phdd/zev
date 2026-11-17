@@ -101,15 +101,86 @@ OpenAI-compatible/Ollama, OpenCode, Anthropic and Gemini adapters support this e
   reading accessible files. Executables are resolved from system directories; specify an
   absolute path for other tools. stdin is closed; interactive commands are not supported.
 
-Auto uses builtins, not PATH executables: `pwd` (no arguments), `ls [directory]`,
-`cat file`, and `head file` / `head -n N file` (`1 <= N <= 1000`). No other flags,
-pipelines, substitutions or recursive traversal are accepted. Paths stay inside the
-canonical initial working directory; symlinks and sensitive names/components (including
-`.env*`, `.git`, `.ssh`, credential/token/private-key files) are rejected. `ls` lists at
-most 1024 entries without following links. Files must be regular and not multiply linked.
-Filename filtering is conservative, not a secret-content detector: ordinary source files
-can still contain sensitive data. Do not enable tools in an untrusted or secret-bearing
-project without considering what will be sent to the provider.
+### Local tool adapter contract
+
+Caller authorization and isolated model review belong to the consuming service, not the
+filesystem/process adapter. In `auto`, the service performs the separate reviewer request
+described above; in all modes, `Execute` revalidates the complete request. A prior lexical
+check or reviewer decision is never durable authority.
+
+The `auto` mode uses these built-ins, not executables found through `PATH`. The restricted
+adapter accepts only these exact argv forms:
+
+```text
+pwd                  # no arguments
+ls                   # root, one level only
+ls PATH              # one directory, one level only
+cat PATH             # one regular, singly linked file
+head PATH            # first 10 LF-delimited lines
+head -n N PATH       # canonical decimal N in [1, 1000]
+```
+
+There is no PATH lookup, subprocess, shell, stdin, globbing, expansion, option parser,
+recursion, multi-path mode, or support for other flags (including `--`). Shell
+metacharacters in a path are literal filename bytes, never instructions. `ls` emits ASCII
+Go-quoted filenames in filesystem order, without metadata; it omits symlinks, sensitive
+names and platform-ambiguous names.
+
+Relative paths start at the configured root; absolute paths are accepted only inside it.
+Every lexical `..` component is rejected, even when the result would remain inside the
+root, and every relative component is checked before as well as after cleaning. Names
+beginning with `-`, containing a colon or a non-native backslash, or ending in a dot or
+space are rejected (except `.`). Symlinks in every component—including the configured
+root and its ancestors—are rejected. `New` does not canonicalize aliases: a composition
+root may canonicalize a trusted cwd before construction, but must never canonicalize an
+untrusted tool path to bypass these checks.
+
+Sensitive matching is case-insensitive, including root ancestors. It rejects `.env*`,
+any name containing `credential`, `secret`, `password`, `token`, `privatekey`,
+`private_key`, `private-key` or `keys`; exact `.git`, `.ssh`, `.aws`, `.kube`, `.azure`,
+`.gnupg` and `.zev`; `id_*`; and `.pem`, `.key`, `.p12` or `.pfx` suffixes. This
+intentionally overblocks some innocent names and cannot detect secrets stored under
+innocent names. Files must be regular and singly linked.
+
+The root is pinned until close, and each operation verifies that the current path still
+names that identity. Descendant directories are opened one component at a time through
+`os.Root`; opened identities must match pre-open, non-symlink metadata. File handles are
+verified before reading. Unix uses `O_NOFOLLOW|O_NONBLOCK` so a replacement FIFO cannot
+block open; Windows verifies link counts and reparse attributes on the opened handle.
+
+Fixed adapter budgets are: 32 KiB combined stdout/stderr (including escaped output),
+32,769 bytes consumed per file read (`head` may read that bounded prefix even when fewer
+lines suffice), at most 1,024 `ls` entries including omitted entries,
+4,096 bytes and 64 components for each path and the root, 64 arguments, 4,096 bytes per
+executable/argument, 16,384 bytes for executable plus arguments, and 2,048 bytes for
+`reason`. `reason` is never executed. `ls` does not sort or recurse; reaching its entry
+budget marks `Truncated` conservatively even at exact EOF. `Truncated` means a budget was
+encountered, not that the data is a consistent filesystem snapshot. C0/C1 controls except
+LF and tab, CR, and Unicode format controls are escaped; invalid UTF-8 is replaced. No
+child output is written to the application's stdout/stderr; callers should JSON-quote
+adapter output before terminal rendering.
+
+Every `Execute` receives a ten-second deadline, shortened by its caller. Native processes
+use `childprocess.Run`, including process-group/job cleanup and bounded pipe draining;
+cleanup can extend wall-clock time beyond the deadline. Ordinary filesystem APIs cannot
+cancel an in-flight kernel call: the adapter checks cancellation around bounded I/O, but
+a stalled filesystem, FUSE or kernel call has no hard wall-clock bound and must not be
+advertised as one.
+
+With `restricted=false`, the caller has already approved the complete request. `os/exec`
+receives literal argv and `cwd=root`; a shell runs only when explicitly requested. Stdin
+is the null device. The environment contains only `PATH`, `LANG=C`, `LC_ALL=C`, and on
+Windows `SystemRoot`; provider secrets, `HOME`, loader hooks and shell-startup variables
+are not inherited. Bare executables are searched only in `/usr/bin:/bin`, or
+`SystemRoot/System32` on Windows and only as `.exe`; explicit absolute paths or relative
+paths containing separators may select other tools.
+
+Manual and bypass execution are not a sandbox: approved commands may modify files, access
+the network, read credentials from disk or intentionally detach descendants. `os.Root`
+does not prevent mount crossings, and the adapter does not protect against hostile
+same-UID writers, mount changes or concurrent mutation of regular-file data. Filename
+filtering is not a secret-content detector; do not enable tools in an untrusted or
+secret-bearing project without considering what may be sent to the provider.
 
 ```bash
 zev query --tool-approval manual "inspect this project"
@@ -264,7 +335,9 @@ ZEV_LANG=en zev alias list
 
 Translations live in root `locale/*.toml` and are embedded into the binary. No locale
 files are needed beside the installed executable. Add translations to the matching
-English/Russian catalogs, keeping message IDs, printf placeholders, and CLI tokens intact.
+English/Russian catalogs, keeping stable message IDs, printf placeholders, and CLI tokens intact.
+Go code references named constants from `locale/keys.go`, not English sentences; changing
+an English translation does not change its message ID.
 Machine JSON keys/statuses, suggested commands, script contents, provider responses, and
 saved history are not translated. Lower-level system/library errors may remain English.
 

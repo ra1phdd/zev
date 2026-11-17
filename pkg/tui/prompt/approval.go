@@ -22,7 +22,7 @@ func ConfirmContext(ctx context.Context, options ApprovalOptions) (bool, error) 
 	if options.Output == nil {
 		options.Output = io.Discard
 	}
-	value, err := inputContext(ctx, options.Prompt+"\n"+locale.Text("Type yes to approve this tool call; anything else denies it."), tea.WithOutput(options.Output))
+	value, err := inputContext(ctx, options.Prompt+"\n"+locale.Text(locale.KeyToolsApprovalPrompt), tea.WithOutput(options.Output))
 	if err != nil {
 		return false, fmt.Errorf("confirm tool: %w", err)
 	}

@@ -40,8 +40,8 @@ test-race: ## Запустить unit-тесты с детектором гон�
 test-integration: ## Запустить тесты с тегом integration
 	$(GO) test -tags=integration ./...
 
-test-e2e: ## Запустить тесты с тегом e2e
-	$(GO) test -tags=e2e ./...
+test-e2e: ## Запустить сквозные тесты из e2e/ с реальным бинарником
+	$(GO) test -tags=e2e ./e2e/...
 
 test-manual: ## Запустить manual-тесты только с ALLOW_MANUAL_TESTS=1 и вне CI
 	@if [ -n "$${CI:-}" ]; then echo 'manual tests must not run in CI' >&2; exit 1; fi

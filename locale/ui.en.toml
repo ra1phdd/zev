@@ -1,59 +1,59 @@
-["(Press Enter to confirm, Esc to cancel)"]
+["ui.prompt.confirm_hint"]
 other = "(Press Enter to confirm, Esc to cancel)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["(Enter: newline, Ctrl+D: submit or skip, Esc/Ctrl+C: cancel; 64 KiB / 10000 lines maximum)"]
+["ui.prompt.multiline_hint"]
 other = "(Enter: newline, Ctrl+D: submit or skip, Esc/Ctrl+C: cancel; 64 KiB / 10000 lines maximum)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["%s (current: %s, press Enter to keep or type 'default' for %s):"]
+["ui.setup.current_default"]
 other = "%s (current: %s, press Enter to keep or type 'default' for %s):"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["%s (current: %s, press Enter to keep):"]
+["ui.setup.current"]
 other = "%s (current: %s, press Enter to keep):"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["%s (default: %s):"]
+["ui.setup.default"]
 other = "%s (default: %s):"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Which LLM provider would you like to use?"]
+["ui.setup.provider"]
 other = "Which LLM provider would you like to use?"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["\n✓ Configuration saved successfully!"]
+["ui.setup.saved"]
 other = "\n✓ Configuration saved successfully!"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Enter the model to use"]
+["ui.setup.model"]
 other = "Enter the model to use"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Enter custom base URL"]
+["ui.setup.base_url"]
 other = "Enter custom base URL"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Enter Ollama base URL"]
+["ui.setup.ollama_base_url"]
 other = "Enter Ollama base URL"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Enter your %s API key"]
+["ui.setup.api_key"]
 other = "Enter your %s API key"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-[" (current: %s, press Enter to keep)"]
+["ui.setup.current_api_key"]
 other = " (current: %s, press Enter to keep)"
 leftDelim = "[[["
 rightDelim = "]]]"

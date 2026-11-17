@@ -1,1089 +1,1089 @@
-["\n⚠️  No headers entered. Configuration unchanged."]
+["cli.no_headers_entered_configuration_unchanged"]
 other = "\n⚠️  No headers entered. Configuration unchanged."
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["\n✅ HTTP headers updated successfully!"]
+["cli.http_headers_updated_successfully"]
 other = "\n✅ HTTP headers updated successfully!"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["\n✏️  Enter headers one per line in format 'Header-Name:Header-Value'\n   Press Enter on empty line to finish\n   Common headers:\n     User-Agent:zev/1.0\n     X-Custom-Header:custom-value\n     Authorization:Bearer ***\n\n"]
+["cli.enter_headers_one_per_line_format_header"]
 other = "\n✏️  Enter headers one per line in format 'Header-Name:Header-Value'\n   Press Enter on empty line to finish\n   Common headers:\n     User-Agent:zev/1.0\n     X-Custom-Header:custom-value\n     Authorization:Bearer ***\n\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["\n📋 Current HTTP headers:"]
+["cli.current_http_headers"]
 other = "\n📋 Current HTTP headers:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["\n📋 New headers:"]
+["cli.new_headers"]
 other = "\n📋 New headers:"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["  %s: [redacted]\n"]
+["cli.s_redacted"]
 other = "  %s: [redacted]\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["  (none set)"]
+["cli.none_set"]
 other = "  (none set)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["--fts and --vectors are mutually exclusive"]
+["cli.fts_vectors_mutually_exclusive"]
 other = "--fts and --vectors are mutually exclusive"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["--option must be a positive number"]
+["cli.option_must_positive_number"]
 other = "--option must be a positive number"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["--option requires --print or --json"]
+["cli.option_requires_print_json"]
 other = "--option requires --print or --json"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["--print and --json cannot be used together"]
+["cli.print_json_cannot_used_together"]
 other = "--print and --json cannot be used together"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["--retry-failed requires --vectors"]
+["cli.retry_failed_requires_vectors"]
 other = "--retry-failed requires --vectors"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["API key is configured; functionality is not verified without a network check"]
+["cli.api_key_configured_functionality_not_verified_network"]
 other = "API key is configured; functionality is not verified without a network check"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["API key is not configured"]
+["cli.api_key_not_configured"]
 other = "API key is not configured"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["API key is not required for this provider"]
+["cli.api_key_not_required_provider"]
 other = "API key is not required for this provider"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Add a new alias"]
+["cli.add_new_alias"]
 other = "Add a new alias"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Add a new command alias with argument substitution.\n\nTemplate variables:\n  {{.arg1}}, {{.arg2}}, ... - positional arguments\n  {{.args}}                  - all arguments joined with spaces\n\nExample:\n  zev alias add dps \"docker service ps {{.arg1}} --no-trunc\""]
+["cli.add_new_command_alias_argument_substitution_template"]
 other = "Add a new command alias with argument substitution.\n\nTemplate variables:\n  {{.arg1}}, {{.arg2}}, ... - positional arguments\n  {{.args}}                  - all arguments joined with spaces\n\nExample:\n  zev alias add dps \"docker service ps {{.arg1}} --no-trunc\""
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Configure command execution mode"]
+["cli.configure_command_execution_mode"]
 other = "Configure command execution mode"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Configure custom HTTP headers"]
+["cli.configure_custom_http_headers"]
 other = "Configure custom HTTP headers"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Configure custom HTTP headers for all requests.\n\nHeaders are applied to all HTTP requests to LLM providers.\nCommon use cases:\n  - Custom User-Agent\n  - Authorization headers\n  - API version headers\n  - Custom tracking headers\n\nFormat: \"Header-Name:Header-Value\" (one per line, empty line to finish)"]
+["cli.configure_custom_http_headers_all_requests_headers"]
 other = "Configure custom HTTP headers for all requests.\n\nHeaders are applied to all HTTP requests to LLM providers.\nCommon use cases:\n  - Custom User-Agent\n  - Authorization headers\n  - API version headers\n  - Custom tracking headers\n\nFormat: \"Header-Name:Header-Value\" (one per line, empty line to finish)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Configure how zev executes selected commands:\n  inject  - Insert command into terminal (default)\n  execute - Execute command immediately\n\nExamples:\n  zev setup mode inject     # Set mode to inject\n  zev setup mode execute    # Set mode to execute\n  zev setup mode            # Show current mode"]
+["cli.configure_zev_executes_selected_commands_inject_insert"]
 other = "Configure how zev executes selected commands:\n  inject  - Insert command into terminal (default)\n  execute - Execute command immediately\n\nExamples:\n  zev setup mode inject     # Set mode to inject\n  zev setup mode execute    # Set mode to execute\n  zev setup mode            # Show current mode"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Configure zev with your LLM provider credentials"]
+["cli.configure_zev_llm_provider_credentials"]
 other = "Configure zev with your LLM provider credentials"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Confirm deletion of all history"]
+["cli.confirm_deletion_all_history"]
 other = "Confirm deletion of all history"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Confirm vector transmission"]
+["cli.confirm_vector_transmission"]
 other = "Confirm vector transmission"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Continue a previous search page"]
+["cli.continue_previous_search_page"]
 other = "Continue a previous search page"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Conversation status"]
+["cli.conversation_status"]
 other = "Conversation status"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Create a new bash script in ~/.zev/scripts/ and open it in $EDITOR.\n\nExample:\n  zev script create deploy \"Deploy application to production\""]
+["cli.create_new_bash_script_zev_scripts_open"]
 other = "Create a new bash script in ~/.zev/scripts/ and open it in $EDITOR.\n\nExample:\n  zev script create deploy \"Deploy application to production\""
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Create a new script and open it in $EDITOR"]
+["cli.create_new_script_open_editor"]
 other = "Create a new script and open it in $EDITOR"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Create, list, and remove bash scripts"]
+["cli.create_list_remove_bash_scripts"]
 other = "Create, list, and remove bash scripts"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Create, list, and remove command aliases with argument substitution"]
+["cli.create_list_remove_command_aliases_argument_substitution"]
 other = "Create, list, and remove command aliases with argument substitution"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Current command execution mode: %s\n"]
+["cli.current_command_execution_mode_message"]
 other = "Current command execution mode: %s\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Delete all conversations"]
+["cli.delete_all_conversations"]
 other = "Delete all conversations"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Delete one conversation"]
+["cli.delete_one_conversation"]
 other = "Delete one conversation"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Diagnose local configuration and provider readiness"]
+["cli.diagnose_local_configuration_provider_readiness"]
 other = "Diagnose local configuration and provider readiness"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Document type"]
+["cli.document_type"]
 other = "Document type"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Edit a bash script in the configured editor"]
+["cli.edit_bash_script_configured_editor"]
 other = "Edit a bash script in the configured editor"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Edit an alias in the configured editor"]
+["cli.edit_alias_configured_editor"]
 other = "Edit an alias in the configured editor"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Exact command text"]
+["cli.exact_command_text"]
 other = "Exact command text"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Exclusive UTC date or RFC3339 time"]
+["cli.exclusive_utc_date_rfc3339_time"]
 other = "Exclusive UTC date or RFC3339 time"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Export complete history"]
+["cli.export_complete_history"]
 other = "Export complete history"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["FTS indexes rebuilt"]
+["cli.fts_indexes_rebuilt"]
 other = "FTS indexes rebuilt"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Filter by dangerous command"]
+["cli.filter_dangerous_command"]
 other = "Filter by dangerous command"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Fuzzy mode: auto, always or off"]
+["cli.fuzzy_mode_auto_always_off"]
 other = "Fuzzy mode: auto, always or off"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Header (empty to finish):"]
+["cli.header_empty_finish"]
 other = "Header (empty to finish):"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["ID must not be empty"]
+["cli.id_must_not_empty"]
 other = "ID must not be empty"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Inclusive UTC date or RFC3339 time"]
+["cli.inclusive_utc_date_rfc3339_time"]
 other = "Inclusive UTC date or RFC3339 time"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Inspect and maintain history indexes"]
+["cli.inspect_maintain_history_indexes"]
 other = "Inspect and maintain history indexes"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Keep this diagnosis local"]
+["cli.keep_diagnosis_local"]
 other = "Keep this diagnosis local"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["List all aliases"]
+["cli.list_all_aliases"]
 other = "List all aliases"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["List all scripts"]
+["cli.list_all_scripts"]
 other = "List all scripts"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Manage bash scripts"]
+["cli.manage_bash_scripts"]
 other = "Manage bash scripts"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Manage command aliases"]
+["cli.manage_command_aliases"]
 other = "Manage command aliases"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Maximum number of results"]
+["cli.maximum_number_results"]
 other = "Maximum number of results"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Model filter"]
+["cli.model_filter"]
 other = "Model filter"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["NAME\tFILE\tDESCRIPTION"]
+["cli.name_file_description"]
 other = "NAME\tFILE\tDESCRIPTION"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["NAME\tTEMPLATE"]
+["cli.name_template"]
 other = "NAME\tTEMPLATE"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["No"]
+["cli.no"]
 other = "No"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["No aliases configured"]
+["cli.no_aliases_configured"]
 other = "No aliases configured"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["No history found. Run some queries first!"]
+["cli.no_history_found_run_some_queries_first"]
 other = "No history found. Run some queries first!"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["No scripts configured"]
+["cli.no_scripts_configured"]
 other = "No scripts configured"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Output JSON"]
+["cli.output_json"]
 other = "Output JSON"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Output a stable JSON report"]
+["cli.output_stable_json_report"]
 other = "Output a stable JSON report"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Output format: json or jsonl"]
+["cli.output_format_json_jsonl"]
 other = "Output format: json or jsonl"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Print a human-readable report without prompting"]
+["cli.print_human_readable_report_prompting"]
 other = "Print a human-readable report without prompting"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Provider filter"]
+["cli.provider_filter"]
 other = "Provider filter"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Rebuild history indexes"]
+["cli.rebuild_history_indexes"]
 other = "Rebuild history indexes"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Rebuild lexical indexes"]
+["cli.rebuild_lexical_indexes"]
 other = "Rebuild lexical indexes"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Rebuild semantic vectors"]
+["cli.rebuild_semantic_vectors"]
 other = "Rebuild semantic vectors"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Remove a script"]
+["cli.remove_script"]
 other = "Remove a script"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Remove an alias"]
+["cli.remove_alias"]
 other = "Remove an alias"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Retry previously failed vector messages"]
+["cli.retry_previously_failed_vector_messages"]
 other = "Retry previously failed vector messages"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Save the last used history command as an alias"]
+["cli.save_last_used_history_command_alias"]
 other = "Save the last used history command as an alias"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Search history"]
+["cli.search_history"]
 other = "Search history"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Search literal text"]
+["cli.search_literal_text"]
 other = "Search literal text"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Search mode: lexical, semantic or hybrid"]
+["cli.search_mode_lexical_semantic_hybrid"]
 other = "Search mode: lexical, semantic or hybrid"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Semantic search unavailable; using lexical search."]
+["cli.semantic_search_unavailable_using_lexical_search"]
 other = "Semantic search unavailable; using lexical search."
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Send one provider request"]
+["cli.send_one_provider_request"]
 other = "Send one provider request"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Send one real provider request without prompting"]
+["cli.send_one_real_provider_request_prompting"]
 other = "Send one real provider request without prompting"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Send one real request to the configured provider?"]
+["cli.send_one_real_request_configured_provider"]
 other = "Send one real request to the configured provider?"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Show a conversation or message"]
+["cli.show_conversation_message"]
 other = "Show a conversation or message"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Show a message by full ID"]
+["cli.show_message_full_id"]
 other = "Show a message by full ID"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Show a script body"]
+["cli.show_script_body"]
 other = "Show a script body"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Show history index status"]
+["cli.show_history_index_status"]
 other = "Show history index status"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Show query history"]
+["cli.show_query_history"]
 other = "Show query history"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Yes"]
+["cli.yes"]
 other = "Yes"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["[%s] %s: %s (action: %s)\n"]
+["cli.status_line"]
 other = "[%s] %s: %s (action: %s)\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["add alias %q: %w"]
+["cli.add_alias_error"]
 other = "add alias %q: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["alias %q already exists; choose a different name: %w"]
+["cli.alias_q_already_exists_choose_different_name"]
 other = "alias %q already exists; choose a different name: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["all checks passed"]
+["cli.all_checks_passed"]
 other = "all checks passed"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["check history.db permissions/schema or recover the legacy history file"]
+["cli.check_history_db_permissions_schema_recover_legacy"]
 other = "check history.db permissions/schema or recover the legacy history file"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["check the provider endpoint, model and credentials; no response body was retained"]
+["cli.check_provider_endpoint_model_credentials_no_response"]
 other = "check the provider endpoint, model and credentials; no response body was retained"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["check zev --print, zev --json and --option parsing"]
+["cli.check_zev_print_zev_json_option_parsing"]
 other = "check zev --print, zev --json and --option parsing"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["choose --fts or --vectors"]
+["cli.choose_fts_vectors"]
 other = "choose --fts or --vectors"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["choose openai, gemini, anthropic, ollama or opencode"]
+["cli.choose_openai_gemini_anthropic_ollama_opencode"]
 other = "choose openai, gemini, anthropic, ollama or opencode"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["clear history: %w"]
+["cli.clear_history_error"]
 other = "clear history: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["clear requires explicit --yes"]
+["cli.clear_requires_explicit_yes"]
 other = "clear requires explicit --yes"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["configuration could not be loaded"]
+["cli.configuration_could_not_loaded"]
 other = "configuration could not be loaded"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["configuration loaded"]
+["cli.configuration_loaded"]
 other = "configuration loaded"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["configure an HTTP(S) base URL with a host"]
+["cli.configure_http_s_base_url_host"]
 other = "configure an HTTP(S) base URL with a host"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["configure the selected provider API key; doctor does not print keys"]
+["cli.configure_selected_provider_api_key_doctor_not"]
 other = "configure the selected provider API key; doctor does not print keys"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["configure the selected provider model"]
+["cli.configure_selected_provider_model"]
 other = "configure the selected provider model"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["confirmation was not completed"]
+["cli.confirmation_was_not_completed"]
 other = "confirmation was not completed"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["conversation %s"]
+["cli.conversation_message"]
 other = "conversation %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["create script %q: %w"]
+["cli.create_script_error"]
 other = "create script %q: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["delete conversation: %w"]
+["cli.delete_conversation_error"]
 other = "delete conversation: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["doctor found failing checks"]
+["cli.doctor_found_failing_checks"]
 other = "doctor found failing checks"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["documents=%d lexical_ready=%t eligible=%d ready=%d failed=%d stale=%d\n"]
+["cli.index_status_line"]
 other = "documents=%d lexical_ready=%t eligible=%d ready=%d failed=%d stale=%d\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["edit alias %q: %w"]
+["cli.edit_alias_error"]
 other = "edit alias %q: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["edit script %q: %w"]
+["cli.edit_script_error"]
 other = "edit script %q: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["editor is available"]
+["cli.editor_available"]
 other = "editor is available"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["editor is not available"]
+["cli.editor_not_available"]
 other = "editor is not available"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["embedding provider=%s model=%s eligible=%d\n"]
+["cli.embedding_status_line"]
 other = "embedding provider=%s model=%s eligible=%d\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["execution mode is invalid"]
+["cli.execution_mode_invalid"]
 other = "execution mode is invalid"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["execution mode is supported"]
+["cli.execution_mode_supported"]
 other = "execution mode is supported"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["failed to load config: %w"]
+["cli.failed_load_config_error"]
 other = "failed to load config: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["failed to save config: %w"]
+["cli.failed_save_config_error"]
 other = "failed to save config: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["fix configuration first"]
+["cli.fix_configuration_first"]
 other = "fix configuration first"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["fix the configuration file or environment and rerun doctor"]
+["cli.fix_configuration_file_environment_rerun_doctor"]
 other = "fix the configuration file or environment and rerun doctor"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["fix the directory type, ownership and permissions"]
+["cli.fix_directory_type_ownership_permissions"]
 other = "fix the directory type, ownership and permissions"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["fix the failing checks and rerun zev doctor"]
+["cli.fix_failing_checks_rerun_zev_doctor"]
 other = "fix the failing checks and rerun zev doctor"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["format must be json or jsonl"]
+["cli.format_must_json_jsonl"]
 other = "format must be json or jsonl"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["from must be before to"]
+["cli.must_before"]
 other = "from must be before to"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["fuzzy must be auto, always or off"]
+["cli.fuzzy_must_auto_always_off"]
 other = "fuzzy must be auto, always or off"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["get conversation: %w"]
+["cli.get_conversation_error"]
 other = "get conversation: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["get message: %w"]
+["cli.get_message_error"]
 other = "get message: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["history database could not be read"]
+["cli.history_database_could_not_read"]
 other = "history database could not be read"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["history database is not initialized"]
+["cli.history_database_not_initialized"]
 other = "history database is not initialized"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["history database is readable"]
+["cli.history_database_readable"]
 other = "history database is readable"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["history index maintenance is unavailable"]
+["cli.history_index_maintenance_unavailable"]
 other = "history index maintenance is unavailable"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["interactive and machine CLI modes are available"]
+["cli.interactive_machine_cli_modes_available"]
 other = "interactive and machine CLI modes are available"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["interactive terminal mode is available"]
+["cli.interactive_terminal_mode_available"]
 other = "interactive terminal mode is available"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["interactive terminal mode is unavailable on current standard streams"]
+["cli.interactive_terminal_mode_unavailable_current_standard_str"]
 other = "interactive terminal mode is unavailable on current standard streams"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["invalid from: %w"]
+["cli.invalid_error"]
 other = "invalid from: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["invalid mode %q: must be 'inject' or 'execute'"]
+["cli.invalid_mode_q_must_inject_execute"]
 other = "invalid mode %q: must be 'inject' or 'execute'"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["invalid status"]
+["cli.invalid_status"]
 other = "invalid status"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["invalid to: %w"]
+["cli.invalid_w_2"]
 other = "invalid to: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["lexical index profile is stale; rebuild required"]
+["cli.lexical_index_profile_stale_rebuild_required"]
 other = "lexical index profile is stale; rebuild required"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["lexical index profile is stale; rebuild required Semantic search unavailable; using lexical search."]
+["cli.lexical_stale_with_semantic_warning"]
 other = "lexical index profile is stale; rebuild required Semantic search unavailable; using lexical search."
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["limit must not exceed 1000"]
+["cli.limit_must_not_exceed_1000"]
 other = "limit must not exceed 1000"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Attach a project context file (repeatable; short form: -cf)"]
+["cli.attach_project_context_file_repeatable_short_form"]
 other = "Attach a project context file (repeatable; short form: -cf)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["Allow explicitly requested sensitive context paths; symlinks remain forbidden"]
+["cli.allow_explicitly_requested_sensitive_context_paths_symlink"]
 other = "Allow explicitly requested sensitive context paths; symlinks remain forbidden"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["limit must be positive"]
+["cli.limit_must_positive"]
 other = "limit must be positive"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["list aliases: %w"]
+["cli.list_aliases_error"]
 other = "list aliases: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["list history: %w"]
+["cli.list_history_error"]
 other = "list history: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["list scripts: %w"]
+["cli.list_scripts_error"]
 other = "list scripts: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["load project context: %w"]
+["cli.load_project_context_error"]
 other = "load project context: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["load provider configuration: %w"]
+["cli.load_provider_configuration_error"]
 other = "load provider configuration: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["machine CLI modes are unavailable"]
+["cli.machine_cli_modes_unavailable"]
 other = "machine CLI modes are unavailable"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["machine output cannot be combined with --execute or --inject"]
+["cli.machine_output_cannot_combined_execute_inject"]
 other = "machine output cannot be combined with --execute or --inject"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["machine output requires a nonempty query"]
+["cli.machine_output_requires_nonempty_query"]
 other = "machine output requires a nonempty query"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["mode must be lexical, semantic or hybrid"]
+["cli.mode_must_lexical_semantic_hybrid"]
 other = "mode must be lexical, semantic or hybrid"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["model is configured"]
+["cli.model_configured"]
 other = "model is configured"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["network reachability is not checked without confirmation"]
+["cli.network_reachability_not_checked_confirmation"]
 other = "network reachability is not checked without confirmation"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["no usable selected command found in Zev history"]
+["cli.no_usable_selected_command_found_zev_history"]
 other = "no usable selected command found in Zev history"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["none"]
+["cli.none"]
 other = "none"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["not checked; no network request was sent"]
+["cli.not_checked_no_network_request_was_sent"]
 other = "not checked; no network request was sent"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["open history: %w"]
+["cli.open_history_error"]
 other = "open history: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["option %d is not available; provider returned %d option(s)"]
+["cli.option_d_not_available_provider_returned_summary"]
 other = "option %d is not available; provider returned %d option(s)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["provide exactly one conversation ID or --message ID"]
+["cli.provide_exactly_one_conversation_id_message_id"]
 other = "provide exactly one conversation ID or --message ID"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["provider base URL is invalid"]
+["cli.provider_base_url_invalid"]
 other = "provider base URL is invalid"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["provider base URL is syntactically valid"]
+["cli.provider_base_url_syntactically_valid"]
 other = "provider base URL is syntactically valid"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["provider checks skipped because configuration is unavailable"]
+["cli.provider_checks_skipped_because_configuration_unavailable"]
 other = "provider checks skipped because configuration is unavailable"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["provider request failed"]
+["cli.provider_request_failed"]
 other = "provider request failed"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["provider returned no command options: %s"]
+["cli.provider_returned_no_command_options_message"]
 other = "provider returned no command options: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["query must be valid UTF-8"]
+["cli.query_must_valid_utf_8"]
 other = "query must be valid UTF-8"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["query must not be empty unless --exact-command is set"]
+["cli.query_must_not_empty_unless_exact_command"]
 other = "query must not be empty unless --exact-command is set"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["read HTTP header: %w"]
+["cli.read_http_header_error"]
 other = "read HTTP header: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["read history index status: %w"]
+["cli.read_history_index_status_error"]
 other = "read history index status: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["read last history command: %w"]
+["cli.read_last_history_command_error"]
 other = "read last history command: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["read local context: %w"]
+["cli.read_local_context_error"]
 other = "read local context: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["read script metadata: %w"]
+["cli.read_script_metadata_error"]
 other = "read script metadata: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["read vector rebuild status: %w"]
+["cli.read_vector_rebuild_status_error"]
 other = "read vector rebuild status: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["real provider request succeeded; credentials were not printed"]
+["cli.real_provider_request_succeeded_credentials_were_not"]
 other = "real provider request succeeded; credentials were not printed"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["rebuild FTS indexes: %w"]
+["cli.rebuild_fts_indexes_error"]
 other = "rebuild FTS indexes: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["rebuild vectors: %w"]
+["cli.rebuild_vectors_error"]
 other = "rebuild vectors: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["remove alias %q: %w"]
+["cli.remove_alias_error"]
 other = "remove alias %q: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["remove script %q: %w"]
+["cli.remove_script_error"]
 other = "remove script %q: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["required model is missing"]
+["cli.required_model_missing"]
 other = "required model is missing"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["rerun with --confirm to test the provider"]
+["cli.rerun_confirm_test_provider"]
 other = "rerun with --confirm to test the provider"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["resolve alias: %w"]
+["cli.resolve_alias_error"]
 other = "resolve alias: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["resolve project context root: %w"]
+["cli.resolve_project_context_root_error"]
 other = "resolve project context root: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["run a query once to initialize local history"]
+["cli.run_query_once_initialize_local_history"]
 other = "run a query once to initialize local history"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["run setup: %w"]
+["cli.run_setup_error"]
 other = "run setup: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["run without --json or --print from a terminal to answer the provider check"]
+["cli.run_json_print_terminal_answer_provider_check"]
 other = "run without --json or --print from a terminal to answer the provider check"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["run zev setup or create a private ~/.zev directory"]
+["cli.run_zev_setup_create_private_zev_directory"]
 other = "run zev setup or create a private ~/.zev directory"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["save alias %q: %w"]
+["cli.save_alias_error"]
 other = "save alias %q: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["script %q cannot be printed automatically; use `zev script show %s`"]
+["cli.script_q_cannot_printed_automatically_zev_script"]
 other = "script %q cannot be printed automatically; use `zev script show %s`"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["search history: %w"]
+["cli.search_history_error"]
 other = "search history: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["select history: %w"]
+["cli.select_history_error"]
 other = "select history: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["selected provider is supported"]
+["cli.selected_provider_supported"]
 other = "selected provider is supported"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["selected provider is unsupported"]
+["cli.selected_provider_unsupported"]
 other = "selected provider is unsupported"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["set COMMAND_EXECUTION_MODE to inject or execute"]
+["cli.set_command_execution_mode_inject_execute"]
 other = "set COMMAND_EXECUTION_MODE to inject or execute"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["set SCRIPT_EDITOR or EDITOR to an installed editor"]
+["cli.set_script_editor_editor_installed_editor"]
 other = "set SCRIPT_EDITOR or EDITOR to an installed editor"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["set SHELL or COMSPEC to an installed shell"]
+["cli.set_shell_comspec_installed_shell"]
 other = "set SHELL or COMSPEC to an installed shell"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["shell is available"]
+["cli.shell_available"]
 other = "shell is available"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["shell is not available"]
+["cli.shell_not_available"]
 other = "shell is not available"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["show script %q: %w"]
+["cli.show_script_error"]
 other = "show script %q: %w"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["static checks passed; network/provider functionality is not verified without confirmation"]
+["cli.static_checks_passed_network_provider_functionality_not"]
 other = "static checks passed; network/provider functionality is not verified without confirmation"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["type must be user, assistant, command or explanation"]
+["cli.type_must_user_assistant_command_explanation"]
 other = "type must be user, assistant, command or explanation"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["use --confirm for non-interactive verification"]
+["cli.confirm_non_interactive_verification"]
 other = "use --confirm for non-interactive verification"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["use --confirm to test the provider"]
+["cli.confirm_test_provider"]
 other = "use --confirm to test the provider"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["vector rebuild requires explicit --yes consent"]
+["cli.vector_rebuild_requires_explicit_yes_consent"]
 other = "vector rebuild requires explicit --yes consent"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["vectors rebuilt: ready=%d failed=%d\n"]
+["cli.vectors_rebuilt_ready_d_failed_summary"]
 other = "vectors rebuilt: ready=%d failed=%d\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["~/.zev does not exist yet"]
+["cli.zev_not_exist_yet"]
 other = "~/.zev does not exist yet"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["~/.zev is accessible and private"]
+["cli.zev_accessible_private"]
 other = "~/.zev is accessible and private"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["~/.zev is not accessible or private"]
+["cli.zev_not_accessible_private"]
 other = "~/.zev is not accessible or private"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["⚠️  Header name cannot be empty"]
+["cli.header_name_cannot_empty"]
 other = "⚠️  Header name cannot be empty"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["⚠️  Invalid format. Use 'Header-Name:Header-Value'"]
+["cli.invalid_format_header_name_header_value"]
 other = "⚠️  Invalid format. Use 'Header-Name:Header-Value'"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["✅ Added: %s: [redacted]\n"]
+["cli.added_s_redacted"]
 other = "✅ Added: %s: [redacted]\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["✓ Alias %q added successfully\n"]
+["cli.alias_q_added_successfully"]
 other = "✓ Alias %q added successfully\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["✓ Alias %q removed successfully\n"]
+["cli.alias_q_removed_successfully"]
 other = "✓ Alias %q removed successfully\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["✓ Alias %q updated successfully\n"]
+["cli.alias_q_updated_successfully"]
 other = "✓ Alias %q updated successfully\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["✓ Command execution mode set to: %s\n"]
+["cli.command_execution_mode_set_message"]
 other = "✓ Command execution mode set to: %s\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["✓ Saved command %q as alias %q\nRun it with: zev %s\n"]
+["cli.saved_command_q_alias_q_run_zev"]
 other = "✓ Saved command %q as alias %q\nRun it with: zev %s\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["✓ Script %q created successfully\n"]
+["cli.script_q_created_successfully"]
 other = "✓ Script %q created successfully\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["✓ Script %q removed successfully\n"]
+["cli.script_q_removed_successfully"]
 other = "✓ Script %q removed successfully\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["✓ Script %q updated successfully\n"]
+["cli.script_q_updated_successfully"]
 other = "✓ Script %q updated successfully\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["📜 Query History"]
+["cli.query_history"]
 other = "📜 Query History"
 leftDelim = "[[["
 rightDelim = "]]]"

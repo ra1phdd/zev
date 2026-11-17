@@ -30,9 +30,9 @@ func (s *Service) promptAPIKey(ctx context.Context, provider, current string) (s
 	if err := ctx.Err(); err != nil {
 		return "", secretInputError{cause: err}
 	}
-	promptText := fmt.Sprintf(locale.Text("Enter your %s API key"), provider)
+	promptText := fmt.Sprintf(locale.Text(locale.KeyUISetupAPIKey), provider)
 	if current != "" {
-		promptText += fmt.Sprintf(locale.Text(" (current: %s, press Enter to keep)"), maskAPIKey(current))
+		promptText += fmt.Sprintf(locale.Text(locale.KeyUISetupCurrentAPIKey), maskAPIKey(current))
 	}
 	m := newAPIKeyInput(promptText + ":")
 	var result tea.Model
@@ -101,5 +101,5 @@ func (m apiKeyInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m apiKeyInput) View() string {
-	return fmt.Sprintf("%s\n\n%s\n\n%s", m.prompt, m.textInput.View(), locale.Text("(Press Enter to confirm, Esc to cancel)"))
+	return fmt.Sprintf("%s\n\n%s\n\n%s", m.prompt, m.textInput.View(), locale.Text(locale.KeyUIConfirmHint))
 }

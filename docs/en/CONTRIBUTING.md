@@ -45,8 +45,8 @@ in `AGENTS.md` and `CLAUDE.md`. The essentials:
   `context.Context` is always the first argument and never a struct field.
 - Errors are wrapped with `fmt.Errorf("...: %w", err)`; no ignored errors.
 - Documentation comments start with the entity name.
-- CLI and TUI packages currently own user-facing strings; there is no
-  `internal/core/i18n` package.
+- Use named keys from `locale/keys.go` at localization call sites; English and Russian
+  text lives in `locale/*.toml`. Technical documentation belongs in `docs/`.
 
 ## Tests
 

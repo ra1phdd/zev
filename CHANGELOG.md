@@ -19,9 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   explicit actionable messages, secret-safe output, and opt-in confirmed provider verification.
 - Add persistent SQLite history with incremental conversation lifecycle records and
   no automatic count-based retention.
-- Add automatic repository-level legacy JSONL import and verified archival, local lexical
-  search with morphology and bounded typo tolerance, and CLI semantic/hybrid search
-  whose vector component is limited to user messages and refinements.
+- Add explicit legacy JSONL detection and migration through `history/migrator`, with
+  verified archival, recovery, and no migration side effects in `repository.Open`.
+  Local lexical search and CLI semantic/hybrid search remain available; vector input is
+  limited to user messages and refinements.
 - Add history inspection/export/deletion commands, request-bound `--cursor` pagination,
   index status and explicit lexical/vector rebuilds; vector transmission displays
   provider/model/eligible count and requires `--yes` consent.
@@ -43,10 +44,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Keep `cmd/zev` as a thin launcher and move CLI routing/presentation into `internal/cli`.
+- Use named localization keys instead of English source strings; preserve existing
+  translations and machine-readable output.
+- Run legacy JSONL migration explicitly from CLI history startup using a separate
+  migrator; opening the SQLite repository no longer imports or archives legacy data.
+- Move black-box CLI and migration-concurrency tests into `e2e/`; `make test-e2e`
+  builds and exercises the actual executable. Move the tool adapter guide into docs.
 - Add opt-in `HISTORY_SEMANTIC_ENABLED=false` and separate OpenAI-compatible embedding
   settings, including the 32768-byte input limit and remote-text disclosure. Both query
-  recording and explicit history commands use automatic legacy migration. No automatic
-  vector backfill or history-to-prompt RAG is enabled.
+  recording and explicit history commands invoke the explicit legacy migrator when needed.
+  No automatic vector backfill or history-to-prompt RAG is enabled.
 - Synchronize bilingual project, architecture, configuration and README documentation
   with usable SQLite history commands and verified implementation limits.
 - Add opt-out privacy controls for provider context and query history, mask setup

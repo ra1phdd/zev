@@ -128,9 +128,9 @@ Committing with open linter findings is not allowed.
 make test-integration
 ```
 
-The current tracked tests have no `integration`, `e2e` or `manual` tags; those
-targets reserve the workflow for future tagged tests and still include untagged
-unit tests. Unit tests do not require provider credentials or a running LLM.
+Unit tests live next to their packages and do not require provider credentials or a
+running LLM. Black-box tests live in `e2e/` behind the `e2e` tag; `make test-e2e`
+builds and exercises the actual CLI with isolated homes and local HTTP fixtures.
 Use `make test-race` separately for concurrency checks. Do not run manual tests
 without explicit authorization.
 
@@ -155,8 +155,9 @@ are in `AGENTS.md` and `CLAUDE.md`. The short version:
 - No one-line wrapper functions and no speculative abstractions.
 - Functions with more than three arguments take a named parameter struct, with
   `context.Context` always first and never inside the struct.
-- CLI text currently lives in command and TUI packages; there is no
-  `internal/core/i18n` package.
+- CLI routing and presentation live in `internal/cli`; `cmd/zev` is a thin launcher.
+- Locale call sites use named constants from `locale/keys.go`; translated text lives
+  in the English/Russian TOML catalogs. Technical guides belong in `docs/`.
 
 ## Architecture reference
 

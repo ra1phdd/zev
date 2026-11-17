@@ -50,7 +50,22 @@ CREATE TABLE history_writes (
 );
 `
 
+// SearchDocument describes one history document and its lexical index metadata.
+type SearchDocument struct {
+	ConversationID string
+	MessageID      string
+	CommandID      string
+	Kind           string
+	Content        string
+	Created        string
+}
+
 type searchDocument struct{ conversationID, messageID, commandID, kind, content, created string }
+
+// InsertSearchDocument inserts a document and updates all lexical indexes in tx.
+func InsertSearchDocument(ctx context.Context, tx *sql.Tx, doc SearchDocument) error {
+	return insertSearchDocument(ctx, tx, searchDocument{conversationID: doc.ConversationID, messageID: doc.MessageID, commandID: doc.CommandID, kind: doc.Kind, content: doc.Content, created: doc.Created})
+}
 
 func insertSearchDocument(ctx context.Context, tx *sql.Tx, doc searchDocument) error {
 	res, err := tx.ExecContext(ctx, `INSERT INTO history_documents(conversation_id,message_id,command_id,kind,content) VALUES(?,?,?,?,?)`, doc.conversationID, optional(doc.messageID), optional(doc.commandID), doc.kind, doc.content)

@@ -15,7 +15,10 @@ import (
 //go:embed *.toml
 var files embed.FS
 
-var bundle = newBundle()
+var (
+	bundle     = newBundle()
+	sourceKeys = newSourceKeys()
+)
 
 func newBundle() *i18n.Bundle {
 	b := i18n.NewBundle(language.English)
@@ -30,6 +33,38 @@ func newBundle() *i18n.Bundle {
 		}
 	}
 	return b
+}
+
+func newSourceKeys() map[string]Key {
+	keys := make(map[string]Key)
+	paths, err := fs.Glob(files, "*.toml")
+	if err != nil {
+		panic(err)
+	}
+	for _, path := range paths {
+		if path != "en.toml" && !strings.HasSuffix(path, ".en.toml") {
+			continue
+		}
+		data, err := files.ReadFile(path)
+		if err != nil {
+			panic(err)
+		}
+		var messages map[string]map[string]string
+		if err := toml.Unmarshal(data, &messages); err != nil {
+			panic(err)
+		}
+		for id, message := range messages {
+			source := message["other"]
+			if source == "" {
+				continue
+			}
+			if previous, exists := keys[source]; exists && previous != Key(id) {
+				panic("duplicate English localization value: " + source)
+			}
+			keys[source] = Key(id)
+		}
+	}
+	return keys
 }
 
 // Language returns the configured language. ZEV_LANG takes precedence over
@@ -53,13 +88,23 @@ func Language() string {
 	return "en"
 }
 
-// Text translates a message using the source string as its stable message ID.
-// Missing translations intentionally return the source string.
-func Text(source string) string {
+// Text translates a message using a stable message key.
+// Missing translations intentionally return the key itself.
+func Text(key Key) string {
 	localizer := i18n.NewLocalizer(bundle, Language())
-	value, err := localizer.Localize(&i18n.LocalizeConfig{MessageID: source, DefaultMessage: &i18n.Message{ID: source, Other: source}})
+	value, err := localizer.Localize(&i18n.LocalizeConfig{MessageID: string(key), DefaultMessage: &i18n.Message{ID: string(key), Other: string(key)}})
 	if err != nil || value == "" {
-		return source
+		return string(key)
 	}
 	return value
+}
+
+// TextSource translates a dynamic English catalog value at a localization boundary.
+// Unknown dynamic values remain unchanged instead of becoming catalog IDs.
+func TextSource(source string) string {
+	key, ok := sourceKeys[source]
+	if !ok {
+		return source
+	}
+	return Text(key)
 }

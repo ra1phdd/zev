@@ -8,6 +8,36 @@ import (
 	"testing"
 )
 
+func TestOpenDoesNotImportLegacySource(t *testing.T) {
+	t.Parallel()
+	dir := filepath.Join(t.TempDir(), "zev")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "history.db")
+	source := filepath.Join(dir, "history")
+	original := []byte("not parsed by repository.Open\n")
+	if err := os.WriteFile(source, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(t.Context(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { closeImportTest(t, s) })
+	actual, err := os.ReadFile(source) //nolint:gosec // The test path is created inside t.TempDir().
+	if err != nil || string(actual) != string(original) {
+		t.Fatalf("legacy source changed: %q %v", actual, err)
+	}
+	var count int
+	if err := s.db.QueryRowContext(t.Context(), `SELECT count(*) FROM conversations`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("repository.Open imported %d conversations", count)
+	}
+}
+
 func TestOpenCreatesPrivateDatabase(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "zev", "history.db")
