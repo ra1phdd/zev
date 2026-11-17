@@ -7,12 +7,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/ra1phdd/zev/internal/core/childprocess"
 	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/editor"
 	"github.com/ra1phdd/zev/internal/entities/script/repository"
 )
 
@@ -104,29 +103,14 @@ func closeResource(result *error, resource io.Closer) {
 }
 
 func (s *Service) openInEditor(ctx context.Context, path string) error {
-	editor := s.chooseEditor()
-	if editor == "" {
-		return fmt.Errorf("no editor found (nano, vim, vi, or $EDITOR/$SCRIPT_EDITOR not set).\nPlease create a bash script manually:\n  %s", path)
-	}
-	cmd := exec.CommandContext(ctx, editor, path) //nolint:gosec // User-selected editor is checked with LookPath and receives an isolated working copy.
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := childprocess.Run(ctx, cmd); err != nil {
-		return fmt.Errorf("open editor: %w", err)
+	if err := editor.Open(ctx, path); err != nil {
+		return fmt.Errorf("open script editor: %w", err)
 	}
 	return nil
 }
 
 func (s *Service) chooseEditor() string {
-	for _, editor := range []string{os.Getenv("SCRIPT_EDITOR"), os.Getenv("EDITOR"), "nano", "vim", "vi"} {
-		if editor != "" {
-			if _, err := exec.LookPath(editor); err == nil {
-				return editor
-			}
-		}
-	}
-	return ""
+	return editor.Resolve()
 }
 
 // Remove removes script metadata and its confined file in one transaction.

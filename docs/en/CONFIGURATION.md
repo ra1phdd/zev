@@ -182,6 +182,19 @@ Use `--allow-sensitive-context` only when a specific sensitive file is intention
 selected; symlinks remain rejected. A context-file failure returns before network access,
 and machine modes keep stdout reserved for their existing command/JSON contracts.
 
+## Editing aliases and scripts
+
+```bash
+zev alias edit <name>
+zev script edit <name>
+zev script show <name>
+```
+
+`alias edit` opens the stored alias template and saves it after the editor exits
+successfully. `script edit` opens the registered Bash script through the configured
+editor (`$SCRIPT_EDITOR`, `$EDITOR`, `nano`, `vim`, or `vi`). `script show` writes the
+exact script body to stdout without executing it; it uses direct safe file reading rather
+than launching an external shell command.
 ## Machine-readable output
 
 For scripts and CI, machine mode never opens the selector, injects terminal input, starts a

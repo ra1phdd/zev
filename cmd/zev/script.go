@@ -20,6 +20,7 @@ func newScriptCmd() *cobra.Command {
 	cmd.AddCommand(newScriptCreateCmd())
 	cmd.AddCommand(newScriptListCmd())
 	cmd.AddCommand(newScriptShowCmd())
+	cmd.AddCommand(newScriptEditCmd())
 	cmd.AddCommand(newScriptRemoveCmd())
 
 	return cmd
@@ -62,6 +63,25 @@ func runScriptShow(cmd *cobra.Command, args []string) error {
 	name := args[0]
 	if err := svc.Show(cmd.Context(), name, cmd.OutOrStdout()); err != nil {
 		return fmt.Errorf("show script %q: %w", name, err)
+	}
+	return nil
+}
+
+func newScriptEditCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "edit <name>",
+		Short: "Edit a bash script in the configured editor",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runScriptEdit,
+	}
+}
+
+func runScriptEdit(cmd *cobra.Command, args []string) error {
+	if err := service.New(repository.New(config.GetZevDir())).OpenEditor(cmd.Context(), args[0]); err != nil {
+		return fmt.Errorf("edit script %q: %w", args[0], err)
+	}
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "✓ Script %q updated successfully\n", args[0]); err != nil {
+		return fmt.Errorf("write script confirmation: %w", err)
 	}
 	return nil
 }

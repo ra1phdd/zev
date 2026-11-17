@@ -23,6 +23,7 @@ func newAliasCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newAliasAddCmd())
+	cmd.AddCommand(newAliasEditCmd())
 	cmd.AddCommand(newAliasLastCmd())
 	cmd.AddCommand(newAliasListCmd())
 	cmd.AddCommand(newAliasRemoveCmd())
@@ -45,6 +46,25 @@ Example:
 		Args: cobra.ExactArgs(2),
 		RunE: runAliasAdd,
 	}
+}
+
+func newAliasEditCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "edit <name>",
+		Short: "Edit an alias in the configured editor",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runAliasEdit,
+	}
+}
+
+func runAliasEdit(cmd *cobra.Command, args []string) error {
+	if err := aliasservice.New(aliasrepo.New(config.GetZevDir())).Edit(cmd.Context(), args[0]); err != nil {
+		return fmt.Errorf("edit alias %q: %w", args[0], err)
+	}
+	if _, err := fmt.Fprintf(cmd.OutOrStdout(), "✓ Alias %q updated successfully\n", args[0]); err != nil {
+		return fmt.Errorf("write alias confirmation: %w", err)
+	}
+	return nil
 }
 
 func newAliasLastCmd() *cobra.Command {
