@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   command into the existing YAML alias store without invoking an LLM or network.
 - Add bilingual user documentation for history storage, search, migration, privacy
   and embedding configuration.
+- Add native model `exec` tools with per-call manual approval, root-confined read-only
+  auto execution plus isolated model safety review, and explicit unrestricted bypass.
+  Configure with `TOOLS_ENABLED`/`TOOL_APPROVAL_MODE` or CLI flags; machine output
+  requires explicit `--tools` and retains its stdout and final-command delivery contracts.
 - Add a demo animation to the English and Russian READMEs.
 - Document the repository's actual architecture, configuration, storage, release
   workflow and operational limitations in `PROJECT.md`.
@@ -60,8 +64,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Separate `go vet` and default unit tests from the optional race-test target;
   limit cleanup to the selected binary and its cross-compiled variants.
 
+### Removed
+
+- Remove unused Go TUI wrappers `list.Select` and `prompt.Input`; Go callers should
+  pass their context to `list.SelectContext` and `prompt.InputContext` instead.
+  The CLI commands and machine-output contracts are unchanged.
+
 ### Fixed
 
+- Keep provider redirects on the initial origin so configured authentication headers
+  cannot be reattached to another host, port, or scheme; snapshot custom header maps.
+- Fail closed when the home directory is missing or relative instead of trusting a
+  project-local `.zev` configuration, alias store, or script store.
+- Pin context-file reads beneath the allowed root and validate opened identities and
+  byte budgets; require sensitive-context opt-in for credential directory components.
+- Reject stale alias editor saves and return alias lists in stable name order.
+- Keep multiline script descriptions as comments, preserve UTF-8 in narrow terminal
+  rendering, avoid duplicate prompts, and display literal `::` commands accurately.
+- Reject conflicting doctor output formats before configuration I/O, validate search
+  limits and whitespace-only exact commands before opening history, and expose the
+  context-file flags in localized query help.
 - Preserve immutable creation retries, observed execution outcomes, command timestamps
   during FTS rebuilds, and pagination after semantic fallback; protect existing SQLite
   sidecars and migration archives with private POSIX permissions or Windows DACLs.

@@ -62,21 +62,6 @@ func (r *Repository) loadAll() (map[string]domain.Alias, error) {
 	return aliases, nil
 }
 
-// SaveAll atomically replaces the alias snapshot. Read-modify-write callers must
-// use Update instead to avoid overwriting another transaction's changes.
-// Write errors preserve filestore.ErrCommitted after a successful replacement.
-func (r *Repository) SaveAll(aliases map[string]domain.Alias) error {
-	if err := filestore.ValidateDirectory(filepath.Dir(r.aliasesPath)); err != nil {
-		return fmt.Errorf("validate aliases directory: %w", err)
-	}
-	if err := filestore.WithLock(r.aliasesPath, func() error {
-		return r.saveAll(aliases)
-	}); err != nil {
-		return fmt.Errorf("save transaction: %w", err)
-	}
-	return nil
-}
-
 // Update loads, changes, and saves aliases under one cooperative transaction lock.
 // If change returns an error, no data is saved. The callback must not call other
 // repository methods for the same path. Load, callback, and write errors propagate,

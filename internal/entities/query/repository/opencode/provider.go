@@ -14,6 +14,7 @@ import (
 
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/entities/query/repository"
+	openaisdk "github.com/sashabaranov/go-openai"
 )
 
 // Provider calls OpenCode and decodes query options.
@@ -51,7 +52,6 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 type openCodeRequest struct {
 	Model               string                  `json:"model"`
 	Messages            []openCodeMessage       `json:"messages"`
-	Tools               []openCodeTool          `json:"tools"`
 	Stream              bool                    `json:"stream"`
 	StreamOptions       openCodeStreamOptions   `json:"stream_options"`            //nolint:tagliatelle // OpenAI-compatible wire format uses snake_case.
 	MaxCompletionTokens int                     `json:"max_completion_tokens"`     //nolint:tagliatelle // OpenAI-compatible wire format uses snake_case.
@@ -61,15 +61,6 @@ type openCodeRequest struct {
 type openCodeMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
-}
-
-type openCodeTool struct {
-	Type     string               `json:"type"`
-	Function openCodeToolFunction `json:"function"`
-}
-
-type openCodeToolFunction struct {
-	Name string `json:"name"`
 }
 
 type openCodeStreamOptions struct {
@@ -101,14 +92,6 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userMessage},
 		},
-		Tools: []openCodeTool{
-			{
-				Type: "function",
-				Function: openCodeToolFunction{
-					Name: "read",
-				},
-			},
-		},
 		Stream:              true,
 		StreamOptions:       openCodeStreamOptions{IncludeUsage: true},
 		MaxCompletionTokens: 32000,
@@ -133,16 +116,8 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	}
 
 	reqBody := openCodeRequest{
-		Model:    p.model,
-		Messages: messages,
-		Tools: []openCodeTool{
-			{
-				Type: "function",
-				Function: openCodeToolFunction{
-					Name: "read",
-				},
-			},
-		},
+		Model:               p.model,
+		Messages:            messages,
 		Stream:              true,
 		StreamOptions:       openCodeStreamOptions{IncludeUsage: true},
 		MaxCompletionTokens: 32000,
@@ -242,6 +217,22 @@ func appendContent(content *strings.Builder, value string) error {
 	}
 	content.WriteString(value)
 	return nil
+}
+
+// CompleteToolTurn uses the non-streaming OpenAI-compatible API so tool
+// arguments are returned as complete messages. It never executes tool calls.
+func (p *Provider) CompleteToolTurn(ctx context.Context, request domain.ToolRequest) (*domain.ToolTurn, error) {
+	config := openaisdk.DefaultConfig(p.apiKey)
+	config.BaseURL = p.baseURL
+	config.HTTPClient = repository.WithOpenAIToolResponseValidation(p.client)
+	turn, err := repository.CompleteOpenAIToolTurn(ctx, repository.OpenAIToolParams{
+		Client: openaisdk.NewClientWithConfig(config), Model: p.model,
+		ProviderName: p.Name(), MaxCompletionTokens: 32000, Request: request,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s tool turn failed: %w", p.Name(), err)
+	}
+	return turn, nil
 }
 
 // Name returns the provider identifier.

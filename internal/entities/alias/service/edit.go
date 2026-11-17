@@ -11,6 +11,10 @@ import (
 	"github.com/ra1phdd/zev/internal/core/editor"
 )
 
+// ErrAliasChanged reports that an alias changed while its editor was open.
+// Use errors.Is to distinguish a stale edit from an editor or storage failure.
+var ErrAliasChanged = errors.New("alias changed while editing; open it again")
+
 // Edit opens an existing alias template in the configured editor and saves the
 // edited template only after the editor exits successfully.
 func (s *Service) Edit(ctx context.Context, name string) (err error) {
@@ -54,6 +58,9 @@ func (s *Service) Edit(ctx context.Context, name string) (err error) {
 		current, exists := all[name]
 		if !exists {
 			return fmt.Errorf("%w: %q", ErrAliasNotFound, name)
+		}
+		if current.Template != alias.Template {
+			return fmt.Errorf("%w: %q", ErrAliasChanged, name)
 		}
 		current.Template = template
 		all[name] = current

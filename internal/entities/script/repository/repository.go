@@ -66,12 +66,6 @@ func (r *Repository) LoadAllContext(ctx context.Context) (map[string]domain.Scri
 	return scripts, err
 }
 
-// SaveAll atomically replaces validated metadata under the repository lock.
-// Read-modify-write callers should use Create or Remove instead.
-func (r *Repository) SaveAll(scripts map[string]domain.Script) error {
-	return r.withStore(context.Background(), true, func(st *store) error { return st.save(scripts) })
-}
-
 // Create registers a script after exclusively creating its file under the store
 // lock. Pre-commit metadata failures remove only the file this operation created.
 // Creation and removal are not crash-atomic transactions across both files.
@@ -318,9 +312,6 @@ func (r *Repository) OpenScript(ctx context.Context, scriptFile string) (*os.Fil
 	}
 	return file, err
 }
-
-// GetScriptsDir returns the canonical script directory for editor display.
-func (r *Repository) GetScriptsDir() string { return r.scriptsDir }
 
 type store struct {
 	zev                   *os.Root

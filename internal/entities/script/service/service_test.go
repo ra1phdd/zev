@@ -31,7 +31,7 @@ func TestServiceCreate(t *testing.T) {
 	t.Setenv("SKIP_EDITOR", "1")
 
 	// Создаём скрипт
-	err := svc.Create("test", "Test script")
+	err := svc.CreateContext(t.Context(), "test", "Test script")
 	if err != nil {
 		t.Fatalf("Failed to create script: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestServiceRemove(t *testing.T) {
 	t.Setenv("SKIP_EDITOR", "1")
 
 	// Создаём и удаляем скрипт
-	if err := svc.Create("test", "Test script"); err != nil {
+	if err := svc.CreateContext(t.Context(), "test", "Test script"); err != nil {
 		t.Fatalf("Failed to create script: %v", err)
 	}
 
@@ -94,10 +94,10 @@ func TestServiceList(t *testing.T) {
 	t.Setenv("SKIP_EDITOR", "1")
 
 	// Создаём несколько скриптов
-	if err := svc.Create("script1", "First script"); err != nil {
+	if err := svc.CreateContext(t.Context(), "script1", "First script"); err != nil {
 		t.Fatalf("Failed to create script1: %v", err)
 	}
-	if err := svc.Create("script2", "Second script"); err != nil {
+	if err := svc.CreateContext(t.Context(), "script2", "Second script"); err != nil {
 		t.Fatalf("Failed to create script2: %v", err)
 	}
 
@@ -108,58 +108,5 @@ func TestServiceList(t *testing.T) {
 
 	if len(scripts) != 2 {
 		t.Errorf("Expected 2 scripts, got %d", len(scripts))
-	}
-}
-
-func TestServiceChooseEditor(t *testing.T) {
-	tests := []struct {
-		name           string
-		scriptEditor   string
-		editor         string
-		expectNonEmpty bool
-	}{
-		{
-			name:           "SCRIPT_EDITOR set",
-			scriptEditor:   "nano",
-			editor:         "",
-			expectNonEmpty: true,
-		},
-		{
-			name:           "EDITOR set",
-			scriptEditor:   "",
-			editor:         "vim",
-			expectNonEmpty: true,
-		},
-		{
-			name:           "fallback to available editor",
-			scriptEditor:   "",
-			editor:         "",
-			expectNonEmpty: true, // nano/vim/vi должны быть доступны
-		},
-		{
-			name:           "nonexistent editor in SCRIPT_EDITOR",
-			scriptEditor:   "nonexistent-editor-12345",
-			editor:         "",
-			expectNonEmpty: true, // fallback на nano/vim/vi
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.scriptEditor != "" {
-				t.Setenv("SCRIPT_EDITOR", tt.scriptEditor)
-			}
-			if tt.editor != "" {
-				t.Setenv("EDITOR", tt.editor)
-			}
-
-			svc, _ := newTestService(t)
-
-			result := svc.chooseEditor()
-
-			if tt.expectNonEmpty && result == "" {
-				t.Error("Expected non-empty editor, got empty string")
-			}
-		})
 	}
 }

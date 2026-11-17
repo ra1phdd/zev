@@ -59,7 +59,11 @@ func newAliasEditCmd() *cobra.Command {
 }
 
 func runAliasEdit(cmd *cobra.Command, args []string) error {
-	if err := aliasservice.New(aliasrepo.New(config.GetZevDir())).Edit(cmd.Context(), args[0]); err != nil {
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return fmt.Errorf("resolve Zev directory: %w", err)
+	}
+	if err := aliasservice.New(aliasrepo.New(dir)).Edit(cmd.Context(), args[0]); err != nil {
 		return fmt.Errorf(locale.Text("edit alias %q: %w"), args[0], err)
 	}
 	if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text("✓ Alias %q updated successfully\n"), args[0]); err != nil {
@@ -78,7 +82,10 @@ func newAliasLastCmd() *cobra.Command {
 }
 
 func runAliasLast(cmd *cobra.Command, args []string) (err error) {
-	dir := config.GetZevDir()
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return fmt.Errorf("resolve Zev directory: %w", err)
+	}
 	store, err := historyrepo.Open(cmd.Context(), filepath.Join(dir, "history.db"))
 	if err != nil {
 		return fmt.Errorf(locale.Text("open history: %w"), err)
@@ -122,7 +129,11 @@ func newAliasRemoveCmd() *cobra.Command {
 }
 
 func runAliasAdd(cmd *cobra.Command, args []string) error {
-	repo := aliasrepo.New(config.GetZevDir())
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return fmt.Errorf("resolve Zev directory: %w", err)
+	}
+	repo := aliasrepo.New(dir)
 	svc := aliasservice.New(repo)
 
 	name := args[0]
@@ -139,7 +150,11 @@ func runAliasAdd(cmd *cobra.Command, args []string) error {
 }
 
 func runAliasList(cmd *cobra.Command, _ []string) error {
-	repo := aliasrepo.New(config.GetZevDir())
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return fmt.Errorf("resolve Zev directory: %w", err)
+	}
+	repo := aliasrepo.New(dir)
 	svc := aliasservice.New(repo)
 
 	aliases, err := svc.List()
@@ -172,7 +187,11 @@ func runAliasList(cmd *cobra.Command, _ []string) error {
 }
 
 func runAliasRemove(cmd *cobra.Command, args []string) error {
-	repo := aliasrepo.New(config.GetZevDir())
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return fmt.Errorf("resolve Zev directory: %w", err)
+	}
+	repo := aliasrepo.New(dir)
 	svc := aliasservice.New(repo)
 
 	name := args[0]

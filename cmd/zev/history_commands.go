@@ -109,7 +109,10 @@ func (a *historyAdapter) EmbeddingProfile() string {
 type historyOpener func(context.Context) (historyOperations, io.Closer, error)
 
 func openHistory(ctx context.Context) (historyOperations, io.Closer, error) {
-	dir := config.GetZevDir()
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolve Zev directory: %w", err)
+	}
 	if err := filestore.ValidateDirectory(dir); err != nil {
 		return nil, nil, fmt.Errorf("validate history directory: %w", err)
 	}
@@ -361,14 +364,42 @@ func newHistorySearchCmd(open historyOpener) *cobra.Command {
 	return cmd
 }
 
+const historySearchModeLexical = "lexical"
+
 func validateHistorySearch(req *service.SearchRequest, from, to string, dangerous, dangerousChanged bool) error {
-	if strings.TrimSpace(req.Query) == "" && req.ExactCommand == "" {
+	if err := validateHistorySearchInput(req); err != nil {
+		return err
+	}
+	if err := validateHistorySearchFilters(req); err != nil {
+		return err
+	}
+	if err := setHistorySearchRange(req, from, to); err != nil {
+		return err
+	}
+	if dangerousChanged {
+		req.Dangerous = &dangerous
+	}
+	return nil
+}
+
+func validateHistorySearchInput(req *service.SearchRequest) error {
+	if strings.TrimSpace(req.Query) == "" && strings.TrimSpace(req.ExactCommand) == "" {
+		return errors.New(locale.Text("query must not be empty unless --exact-command is set"))
+	}
+	if req.ExactCommand != "" && strings.TrimSpace(req.ExactCommand) == "" {
 		return errors.New(locale.Text("query must not be empty unless --exact-command is set"))
 	}
 	if !utf8.ValidString(req.Query) || !utf8.ValidString(req.ExactCommand) {
 		return errors.New(locale.Text("query must be valid UTF-8"))
 	}
-	if req.Mode != "lexical" && req.Mode != "semantic" && req.Mode != "hybrid" {
+	return nil
+}
+
+func validateHistorySearchFilters(req *service.SearchRequest) error {
+	if req.Limit > 1000 {
+		return errors.New(locale.Text("limit must not exceed 1000"))
+	}
+	if req.Mode != historySearchModeLexical && req.Mode != "semantic" && req.Mode != "hybrid" {
 		return errors.New(locale.Text("mode must be lexical, semantic or hybrid"))
 	}
 	if req.Fuzzy != "auto" && req.Fuzzy != "always" && req.Fuzzy != "off" {
@@ -383,6 +414,10 @@ func validateHistorySearch(req *service.SearchRequest, from, to string, dangerou
 	if req.Status != "" && req.Status != "started" && req.Status != "completed" && req.Status != "cancelled" && req.Status != historyStatusFailed {
 		return errors.New(locale.Text("invalid status"))
 	}
+	return nil
+}
+
+func setHistorySearchRange(req *service.SearchRequest, from, to string) error {
 	parsedFrom, err := parseOptionalHistoryTime(from)
 	if err != nil {
 		return fmt.Errorf(locale.Text("invalid from: %w"), err)
@@ -394,9 +429,6 @@ func validateHistorySearch(req *service.SearchRequest, from, to string, dangerou
 	req.From, req.To = parsedFrom, parsedTo
 	if !req.From.IsZero() && !req.To.IsZero() && !req.From.Before(req.To) {
 		return errors.New(locale.Text("from must be before to"))
-	}
-	if dangerousChanged {
-		req.Dangerous = &dangerous
 	}
 	return nil
 }

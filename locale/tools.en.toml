@@ -1,0 +1,39 @@
+["Enable model context tools (required explicitly in --print/--json)"]
+other = "Enable model context tools (required explicitly in --print/--json)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Disable model context tools"]
+other = "Disable model context tools"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Tool approval policy: manual, auto or bypass (overrides config)"]
+other = "Tool approval policy: manual, auto or bypass (overrides config)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["--tools and --no-tools cannot be used together"]
+other = "--tools and --no-tools cannot be used together"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["--tool-approval must be manual, auto or bypass"]
+other = "--tool-approval must be manual, auto or bypass"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Type yes to approve this tool call; anything else denies it."]
+other = "Type yes to approve this tool call; anything else denies it."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Model requests a local command. Working directory: %q\n%s"]
+other = "Model requests a local command. Working directory: %q\n%s"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Warning: tool bypass permits arbitrary commands with your user permissions, without safety review or confirmation."]
+other = "Warning: tool bypass permits arbitrary commands with your user permissions, without safety review or confirmation."
+leftDelim = "[[["
+rightDelim = "]]]"

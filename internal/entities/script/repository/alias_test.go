@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -16,18 +17,46 @@ func TestTrustedParentAlias(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := New(filepath.Join(alias, ".zev"))
-	if err := r.SaveAll(map[string]domain.Script{safeName: {Name: safeName, ScriptFile: safeFile}}); err != nil {
+	script := domain.Script{Name: safeName, ScriptFile: safeFile}
+	if err := r.Create(t.Context(), script, []byte("body")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.LoadAll(); err != nil {
+	scripts, err := r.LoadAll()
+	if err != nil {
 		t.Fatal(err)
+	}
+	if len(scripts) != 1 || scripts[safeName] != script {
+		t.Fatalf("metadata = %+v, want %v", scripts, script)
+	}
+	file, err := r.OpenScript(t.Context(), safeFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, readErr := io.ReadAll(file)
+	if err := file.Close(); err != nil {
+		t.Error(err)
+	}
+	if readErr != nil || string(data) != "body" {
+		t.Errorf("script = %q, %v", data, readErr)
 	}
 }
 
 func TestTemporaryHome(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	r := New(filepath.Join(os.Getenv("HOME"), ".zev"))
-	if err := r.SaveAll(map[string]domain.Script{}); err != nil {
+	scripts, err := r.LoadAll()
+	if err != nil || len(scripts) != 0 {
+		t.Fatalf("new store metadata = %+v, %v", scripts, err)
+	}
+	script := domain.Script{Name: safeName, ScriptFile: safeFile}
+	if err := r.Create(t.Context(), script, []byte("body")); err != nil {
 		t.Fatal(err)
+	}
+	scripts, err = r.LoadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scripts) != 1 || scripts[safeName] != script {
+		t.Fatalf("metadata = %+v, want %v", scripts, script)
 	}
 }

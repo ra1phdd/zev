@@ -339,7 +339,7 @@ func BenchmarkCosineFixedDataset(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		for _, blob := range blobs {
-			if _, err := Cosine(query, blob, dimensions); err != nil {
+			if _, err := cosineForTest(query, blob, dimensions); err != nil {
 				b.Fatal(err)
 			}
 		}
@@ -375,7 +375,7 @@ func TestCosineRejectsInvalidQueryAndBlob(t *testing.T) {
 		{[]float32{1, 0}, nan, 2},
 		{[]float32{1, 0}, valid, -1},
 	} {
-		if _, err := Cosine(tc.query, tc.blob, tc.dims); !errors.Is(err, ErrInvalid) {
+		if _, err := cosineForTest(tc.query, tc.blob, tc.dims); !errors.Is(err, ErrInvalid) {
 			t.Errorf("invalid cosine: %v", err)
 		}
 	}

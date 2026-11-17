@@ -77,11 +77,6 @@ func (s *Service) promptWithDefault(ctx context.Context, promptText, current, de
 	return input, nil
 }
 
-// Run prompts for provider settings using a background context.
-func (s *Service) Run() error {
-	return s.RunContext(context.Background())
-}
-
 // RunContext prompts for provider settings and saves them unless ctx is canceled.
 func (s *Service) RunContext(ctx context.Context) error {
 	run := *s

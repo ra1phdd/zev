@@ -45,12 +45,6 @@ func NewSimpleItem(title, description string) SimpleItem {
 	return SimpleItem{title: title, description: description}
 }
 
-// Select returns the item chosen interactively from opts.Items.
-// It returns an error for an empty list, cancellation, or a terminal UI failure.
-func Select(opts SelectOptions) (Item, error) {
-	return SelectContext(context.Background(), opts)
-}
-
 // SelectContext returns the chosen item, or an error for empty items, terminal
 // failure, or cancellation. Context errors are preserved for errors.Is.
 func SelectContext(ctx context.Context, opts SelectOptions) (Item, error) {
@@ -112,49 +106,42 @@ var (
 	regularStyle = lipgloss.NewStyle()
 )
 
-// wrapText переносит текст на несколько строк с учётом максимальной ширины.
-// indent — отступ для всех строк кроме первой.
+// wrapText keeps UTF-8 intact and always advances, even when the terminal is
+// narrower than the selection prefix or continuation indentation.
 func wrapText(text string, maxWidth, indent int) string {
-	if len(text) <= maxWidth {
+	maxWidth = max(1, maxWidth)
+	indent = max(0, min(indent, maxWidth-1))
+	remaining := []rune(text)
+	if len(remaining) <= maxWidth {
 		return text
 	}
-
 	var lines []string
-	remaining := text
 	firstLine := true
-
 	for len(remaining) > 0 {
 		lineWidth := maxWidth
+		padding := ""
 		if !firstLine {
-			lineWidth = maxWidth - indent
+			lineWidth -= indent
+			padding = strings.Repeat(" ", indent)
 		}
-
 		if len(remaining) <= lineWidth {
-			if firstLine {
-				lines = append(lines, remaining)
-			} else {
-				lines = append(lines, strings.Repeat(" ", indent)+remaining)
-			}
+			lines = append(lines, padding+string(remaining))
 			break
 		}
-
-		breakPoint := strings.LastIndex(remaining[:lineWidth], " ")
-		hardBreak := breakPoint == -1
-		if hardBreak {
-			breakPoint = lineWidth
+		breakPoint := lineWidth
+		for i := lineWidth - 1; i > 0; i-- {
+			if remaining[i] == ' ' {
+				breakPoint = i
+				break
+			}
 		}
-		line := remaining[:breakPoint]
-		if !firstLine {
-			line = strings.Repeat(" ", indent) + line
-		}
-		lines = append(lines, line)
-		firstLine = false
+		lines = append(lines, padding+string(remaining[:breakPoint]))
 		remaining = remaining[breakPoint:]
-		if !hardBreak {
-			remaining = strings.TrimSpace(remaining)
+		if breakPoint < lineWidth {
+			remaining = []rune(strings.TrimSpace(string(remaining)))
 		}
+		firstLine = false
 	}
-
 	return strings.Join(lines, "\n")
 }
 

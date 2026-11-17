@@ -30,9 +30,8 @@ func TestConfigRejectsUnsafeRead(t *testing.T) {
 				t.Skipf("cannot create %s: %v", kind, err)
 			}
 
-			previous := getConfigPath
-			getConfigPath = func() string { return path }
-			t.Cleanup(func() { getConfigPath = previous })
+			previous := SetConfigPathForTests(path)
+			t.Cleanup(func() { SetConfigPathForTests(previous) })
 			if _, err := Load(); err == nil {
 				t.Error("Load accepted unsafe file")
 			}
@@ -69,9 +68,8 @@ func TestConfigRejectsUnsafeDirectory(t *testing.T) {
 				t.Skipf("symlinks unavailable: %v", err)
 			}
 			path := filepath.Join(dir, "config")
-			previous := getConfigPath
-			getConfigPath = func() string { return path }
-			t.Cleanup(func() { getConfigPath = previous })
+			previous := SetConfigPathForTests(path)
+			t.Cleanup(func() { SetConfigPathForTests(previous) })
 			if _, err := Load(); err == nil {
 				t.Error("Load accepted unsafe directory")
 			}

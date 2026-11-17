@@ -688,6 +688,21 @@ other = "Профиль лексического индекса устарел; 
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["limit must not exceed 1000"]
+other = "Параметр limit не должен превышать 1000"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Attach a project context file (repeatable; short form: -cf)"]
+other = "Добавить файл контекста проекта (можно повторять; короткая форма: -cf)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Allow explicitly requested sensitive context paths; symlinks remain forbidden"]
+other = "Разрешить явно указанные чувствительные пути контекста; symlink по-прежнему запрещён"
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["limit must be positive"]
 other = "Параметр limit должен быть положительным"
 leftDelim = "[[["

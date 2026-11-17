@@ -13,12 +13,6 @@ import (
 	"github.com/ra1phdd/zev/locale"
 )
 
-// Input displays promptText and returns the submitted value with whitespace trimmed.
-// It returns an error on cancellation or terminal UI failure.
-func Input(promptText string) (string, error) {
-	return InputContext(context.Background(), promptText)
-}
-
 // InputContext displays promptText and returns trimmed input. Cancellation is
 // reported with an error matching ctx.Err() through errors.Is.
 func InputContext(ctx context.Context, promptText string) (string, error) {
@@ -50,8 +44,6 @@ func newInputModel(promptText string, secret bool) inputModel {
 	ti := textinput.New()
 	if secret {
 		ti.EchoMode = textinput.EchoPassword
-	} else {
-		ti.Placeholder = promptText
 	}
 	ti.Focus()
 	return inputModel{textInput: ti, prompt: promptText}
@@ -93,35 +85,32 @@ func (m inputModel) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-// wrapText wraps text to the given maximum width.
+// wrapText wraps without splitting UTF-8 or stalling on a narrow terminal.
 func wrapText(text string, maxWidth int) string {
-	if len(text) <= maxWidth {
+	maxWidth = max(1, maxWidth)
+	remaining := []rune(text)
+	if len(remaining) <= maxWidth {
 		return text
 	}
-
 	var lines []string
-	remaining := text
-
 	for len(remaining) > 0 {
 		if len(remaining) <= maxWidth {
-			lines = append(lines, remaining)
+			lines = append(lines, string(remaining))
 			break
 		}
-
-		// Break at the last space.
-		breakPoint := strings.LastIndex(remaining[:maxWidth], " ")
-		if breakPoint == -1 {
-			// Without spaces, split at the width limit.
-			breakPoint = maxWidth
-			lines = append(lines, remaining[:breakPoint])
-			remaining = remaining[breakPoint:]
-		} else {
-			// Split at the space.
-			lines = append(lines, remaining[:breakPoint])
-			remaining = strings.TrimSpace(remaining[breakPoint:])
+		breakPoint := maxWidth
+		for i := maxWidth - 1; i > 0; i-- {
+			if remaining[i] == ' ' {
+				breakPoint = i
+				break
+			}
+		}
+		lines = append(lines, string(remaining[:breakPoint]))
+		remaining = remaining[breakPoint:]
+		if breakPoint < maxWidth {
+			remaining = []rune(strings.TrimSpace(string(remaining)))
 		}
 	}
-
 	return strings.Join(lines, "\n")
 }
 
@@ -131,7 +120,7 @@ func (m inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
-		m.textInput.Width = msg.Width - 4 // Account for spacing.
+		m.textInput.Width = max(1, msg.Width-4)
 		return m, nil
 
 	case tea.KeyMsg:

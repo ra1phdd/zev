@@ -21,39 +21,10 @@ func validScriptFile(name string) error {
 	return nil
 }
 
-// ValidateScriptPath returns a canonical confined path for display. Validation
-// alone does not authorize later pathname opens: use OpenScript to pin a file.
-// Missing files are allowed for creation and stale-metadata removal.
-func (r *Repository) ValidateScriptPath(scriptFile string) (string, error) {
-	if err := validScriptFile(scriptFile); err != nil {
-		return "", err
-	}
-	err := r.withStoreNoLock(func(st *store) error { return st.validate(scriptFile) })
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(r.scriptsDir, scriptFile), nil
-}
-
 func closeResource(result *error, resource io.Closer) {
 	if err := resource.Close(); err != nil {
 		*result = errors.Join(*result, fmt.Errorf("close script resource: %w", err))
 	}
-}
-
-func (r *Repository) withStoreNoLock(fn func(*store) error) (err error) {
-	if err := validateFilePath(filepath.Dir(r.scriptsYAMLPath), true); err != nil {
-		return err
-	}
-	if err := validateFilePath(r.scriptsDir, true); err != nil {
-		return err
-	}
-	parent, err := os.OpenRoot(filepath.Dir(filepath.Dir(r.scriptsDir)))
-	if err != nil {
-		return fmt.Errorf("open trusted parent: %w", err)
-	}
-	defer closeResource(&err, parent)
-	return r.withDirectories(parent, false, fn)
 }
 
 func (st *store) validate(name string) error {

@@ -24,12 +24,6 @@ type Service struct{ repo *repository.Repository }
 // New creates a script service backed by repo.
 func New(repo *repository.Repository) *Service { return &Service{repo: repo} }
 
-// Create registers a script and opens an isolated copy in the editor.
-// Call CreateContext to supply editor cancellation.
-func (s *Service) Create(name, description string) error {
-	return s.CreateContext(context.Background(), name, description)
-}
-
 // CreateContext registers a script and opens an isolated editor copy unless
 // SKIP_EDITOR is set to 1. Cancellation leaves an already-created script registered.
 func (s *Service) CreateContext(ctx context.Context, name, description string) error {
@@ -37,7 +31,8 @@ func (s *Service) CreateContext(ctx context.Context, name, description string) e
 		return fmt.Errorf("invalid script name %q", name)
 	}
 	script := domain.Script{Name: name, ScriptFile: name + ".sh", Description: description}
-	content := []byte("#!/usr/bin/env bash\n\n# " + description + "\n\n")
+	comment := strings.ReplaceAll(strings.ReplaceAll(description, "\r\n", "\n"), "\r", "\n")
+	content := []byte("#!/usr/bin/env bash\n\n# " + strings.ReplaceAll(comment, "\n", "\n# ") + "\n\n")
 	if err := s.repo.Create(ctx, script, content); err != nil {
 		return fmt.Errorf("create script: %w", err)
 	}
@@ -107,10 +102,6 @@ func (s *Service) openInEditor(ctx context.Context, path string) error {
 		return fmt.Errorf("open script editor: %w", err)
 	}
 	return nil
-}
-
-func (s *Service) chooseEditor() string {
-	return editor.Resolve()
 }
 
 // Remove removes script metadata and its confined file in one transaction.

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 
 	"github.com/caarlos0/env/v11"
@@ -38,6 +39,8 @@ type Config struct {
 	ScriptEditor         string `env:"SCRIPT_EDITOR"`
 	HistoryEnabled       bool   `env:"HISTORY_ENABLED"`
 	ContextEnabled       bool   `env:"CONTEXT_ENABLED"`
+	ToolsEnabled         bool   `env:"TOOLS_ENABLED"`
+	ToolApprovalMode     string `env:"TOOL_APPROVAL_MODE"`
 
 	HistorySemanticEnabled     bool   `env:"HISTORY_SEMANTIC_ENABLED"`
 	HistoryEmbeddingProvider   string `env:"HISTORY_EMBEDDING_PROVIDER"`
@@ -65,15 +68,21 @@ func DefaultConfig() *Config {
 		ScriptEditor:             "nano",
 		HistoryEnabled:           true,
 		ContextEnabled:           true,
+		ToolsEnabled:             true,
+		ToolApprovalMode:         "manual",
 		HistoryEmbeddingMaxBytes: 32768,
 	}
 }
 
 // Load reads settings with environment values taking precedence over the config
 // file and defaults. Symlinks at the config file or application directory are
-// rejected. It returns an error if file loading or environment parsing fails.
+// rejected. It returns ErrInvalidHome before filesystem I/O if the platform home
+// is missing or relative, or an error if loading or environment parsing fails.
 func Load() (cfg *Config, err error) {
-	configPath := getConfigPath()
+	configPath, err := getConfigPath()
+	if err != nil {
+		return nil, err
+	}
 	if err := filestore.ValidateDirectory(filepath.Dir(configPath)); err != nil {
 		return nil, fmt.Errorf("validate config directory: %w", err)
 	}
@@ -121,6 +130,16 @@ func readValues(path string) (map[string]string, error) {
 	return values, nil
 }
 
+var errInvalidToolPolicy = errors.New("invalid tool policy")
+
+func validationConfigError(err error) configError {
+	message := "invalid history embedding settings"
+	if errors.Is(err, errInvalidToolPolicy) {
+		message = "invalid tool policy"
+	}
+	return configError{message: message, cause: err}
+}
+
 func parseValues(values map[string]string) (*Config, error) {
 	cfg := DefaultConfig()
 	if err := env.ParseWithOptions(cfg, env.Options{Environment: values}); err != nil {
@@ -129,16 +148,25 @@ func parseValues(values map[string]string) (*Config, error) {
 	if headers, ok := values["HTTP_HEADERS"]; ok {
 		cfg.HTTPHeaders = parseHTTPHeaders(headers)
 	}
+	if mode, ok := values["TOOL_APPROVAL_MODE"]; ok && strings.TrimSpace(mode) == "" {
+		return nil, validationConfigError(fmt.Errorf("%w: approval mode must be manual, auto, or bypass", errInvalidToolPolicy))
+	}
 	if err := cfg.Validate(); err != nil {
-		return nil, configError{message: "invalid history embedding settings", cause: err}
+		return nil, validationConfigError(err)
 	}
 	return cfg, nil
 }
 
-// Validate checks the opt-in history embedding settings. Disabled semantic
-// search deliberately ignores the other embedding fields.
+// Validate checks tool policy and opt-in history embedding settings. Disabled
+// semantic search deliberately ignores the other embedding fields.
 func (c *Config) Validate() error {
-	if c == nil || !c.HistorySemanticEnabled {
+	if c == nil {
+		return nil
+	}
+	if c.ToolApprovalMode != "manual" && c.ToolApprovalMode != "auto" && c.ToolApprovalMode != "bypass" {
+		return fmt.Errorf("%w: approval mode must be manual, auto, or bypass", errInvalidToolPolicy)
+	}
+	if !c.HistorySemanticEnabled {
 		return nil
 	}
 	if c.HistoryEmbeddingProvider != "openai-compatible" {
@@ -163,8 +191,12 @@ func (c *Config) Validate() error {
 // Use Update for read-modify-write operations. Failures before rename leave an
 // existing configuration unchanged; errors.Is(err, filestore.ErrCommitted) marks
 // a visible replacement with uncertain crash durability. cfg must not be nil.
+// ErrInvalidHome is returned before filesystem I/O for a missing or relative home.
 func Save(cfg *Config) error {
-	configPath := getConfigPath()
+	configPath, err := getConfigPath()
+	if err != nil {
+		return err
+	}
 	if err := filestore.ValidateDirectory(filepath.Dir(configPath)); err != nil {
 		return fmt.Errorf("validate config directory: %w", err)
 	}
@@ -182,8 +214,12 @@ func Save(cfg *Config) error {
 // If change fails or the existing file is malformed, no replacement is written.
 // The callback must not call Load, Save, or Update for the same configuration.
 // Write errors preserve filestore.ErrCommitted after a successful replacement.
+// ErrInvalidHome is returned before filesystem I/O for a missing or relative home.
 func Update(change func(*Config) error) error {
-	configPath := getConfigPath()
+	configPath, err := getConfigPath()
+	if err != nil {
+		return err
+	}
 	if err := filestore.ValidateDirectory(filepath.Dir(configPath)); err != nil {
 		return fmt.Errorf("validate config directory: %w", err)
 	}
@@ -211,7 +247,7 @@ func save(configPath string, cfg *Config) error {
 		return errors.New("config must not be nil")
 	}
 	if err := cfg.Validate(); err != nil {
-		return configError{message: "invalid history embedding settings", cause: err}
+		return validationConfigError(err)
 	}
 	values := make(map[string]string)
 	v := reflect.ValueOf(*cfg)
@@ -258,28 +294,52 @@ func save(configPath string, cfg *Config) error {
 	return nil
 }
 
-var getConfigPath = func() string {
-	return filepath.Join(GetZevDir(), "config")
+var configPathForTests string
+
+func getConfigPath() (string, error) {
+	if configPathForTests != "" {
+		if !filepath.IsAbs(configPathForTests) {
+			return "", errors.New("test config path must be absolute")
+		}
+		return configPathForTests, nil
+	}
+	dir, err := GetZevDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "config"), nil
 }
 
-// SetConfigPathForTests overrides the config path and returns its previous value.
+// SetConfigPathForTests overrides the config path and returns its previous override.
+// An empty path restores home-based resolution. Nonempty paths must be absolute.
 // It changes global state and must not be called concurrently with config operations.
 func SetConfigPathForTests(newPath string) string {
-	old := getConfigPath()
-	getConfigPath = func() string {
-		return newPath
-	}
+	old := configPathForTests
+	configPathForTests = newPath
 	return old
 }
 
-// GetZevDir returns the path to ~/.zev. If the home directory is unavailable,
-// it returns the relative path .zev.
-func GetZevDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ".zev"
+// ErrInvalidHome indicates that the platform home environment variable is missing
+// or not absolute. Callers can classify resolution failures with errors.Is.
+var ErrInvalidHome = errors.New("home directory must be set to an absolute path")
+
+// GetZevDir returns the absolute path to ~/.zev without filesystem I/O.
+// It returns an empty path and ErrInvalidHome if HOME (USERPROFILE on Windows,
+// home on Plan 9) is missing or relative; it never falls back to the working directory.
+// Trusted aliases in absolute home paths are preserved for filesystem validation.
+func GetZevDir() (string, error) {
+	homeEnv := "HOME"
+	switch runtime.GOOS {
+	case "windows":
+		homeEnv = "USERPROFILE"
+	case "plan9":
+		homeEnv = "home"
 	}
-	return filepath.Join(home, ".zev")
+	home := os.Getenv(homeEnv)
+	if !filepath.IsAbs(home) {
+		return "", ErrInvalidHome
+	}
+	return filepath.Join(home, ".zev"), nil
 }
 
 func parseHTTPHeaders(input string) map[string]string {

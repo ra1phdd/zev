@@ -14,9 +14,10 @@ import (
 
 // Provider calls OpenAI-compatible and decodes query options.
 type Provider struct {
-	client  *openai.Client
-	model   string
-	baseURL string
+	client     *openai.Client
+	toolClient *openai.Client
+	model      string
+	baseURL    string
 }
 
 // New creates a OpenAI-compatible provider.
@@ -38,11 +39,13 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 	config.BaseURL = baseURL
 	config.HTTPClient = repository.WithResponseBodyLimit(httpClient)
 	client := openai.NewClientWithConfig(config)
+	config.HTTPClient = repository.WithOpenAIToolResponseValidation(httpClient)
 
 	return &Provider{
-		client:  client,
-		model:   model,
-		baseURL: baseURL,
+		client:     client,
+		toolClient: openai.NewClientWithConfig(config),
+		model:      model,
+		baseURL:    baseURL,
 	}, nil
 }
 
@@ -115,6 +118,18 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	}
 
 	return result, nil
+}
+
+// CompleteToolTurn returns one raw native tool turn using the configured bounded
+// client. Tool calls are never executed here; errors preserve their safe causes.
+func (p *Provider) CompleteToolTurn(ctx context.Context, request domain.ToolRequest) (*domain.ToolTurn, error) {
+	turn, err := repository.CompleteOpenAIToolTurn(ctx, repository.OpenAIToolParams{
+		Client: p.toolClient, Model: p.model, ProviderName: p.Name(), Request: request,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s tool turn failed: %w", p.Name(), err)
+	}
+	return turn, nil
 }
 
 // Name returns the provider identifier.

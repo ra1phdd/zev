@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/entities/alias/repository"
 	"github.com/ra1phdd/zev/internal/entities/alias/service"
 )
@@ -84,8 +85,15 @@ func TestAliasesRejectsUnsafeDirectory(t *testing.T) {
 			if err := s.Add("test", "echo new"); err == nil {
 				t.Error("Add accepted unsafe directory")
 			}
-			if err := r.SaveAll(nil); err == nil {
-				t.Error("SaveAll accepted unsafe directory")
+			called := false
+			if err := r.Update(func(map[string]domain.Alias) error {
+				called = true
+				return nil
+			}); err == nil {
+				t.Error("Update accepted unsafe directory")
+			}
+			if called {
+				t.Error("Update called mutation callback for unsafe directory")
 			}
 			if dangling {
 				if _, err := os.Lstat(target); !os.IsNotExist(err) {

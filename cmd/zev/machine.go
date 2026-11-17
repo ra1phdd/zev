@@ -57,6 +57,9 @@ func validateMachineFlags(flags parsedFlags) error {
 	if flags.ParseError != "" {
 		return machineError(exitArguments, errors.New(flags.ParseError))
 	}
+	if err := validateToolFlags(flags); err != nil {
+		return machineError(exitArguments, err)
+	}
 	if flags.Print && flags.JSON {
 		return machineError(exitArguments, errors.New(locale.Text("--print and --json cannot be used together")))
 	}
@@ -123,7 +126,11 @@ func machineNamedQuery(cmd *cobra.Command, flags parsedFlags) (bool, error) {
 		return false, nil
 	}
 	name, args := words[0], words[1:]
-	resolved, err := aliasservice.New(aliasrepo.New(config.GetZevDir())).Resolve(name, args)
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return true, machineError(exitProvider, err)
+	}
+	resolved, err := aliasservice.New(aliasrepo.New(dir)).Resolve(name, args)
 	if err == nil {
 		response := &domain.OptionsResponse{IsValid: true, Commands: []domain.Command{{Command: resolved}}}
 		queryservice.ApplyDangerousValidation(response)
@@ -132,7 +139,7 @@ func machineNamedQuery(cmd *cobra.Command, flags parsedFlags) (bool, error) {
 	if err != nil && !errors.Is(err, aliasservice.ErrAliasNotFound) {
 		return true, fmt.Errorf(locale.Text("resolve alias: %w"), err)
 	}
-	scripts, err := scriptrepo.New(config.GetZevDir()).LoadAllContext(cmd.Context())
+	scripts, err := scriptrepo.New(dir).LoadAllContext(cmd.Context())
 	if err != nil {
 		return true, fmt.Errorf(locale.Text("read script metadata: %w"), err)
 	}
@@ -166,10 +173,11 @@ func runMachineConfigured(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	if !cfg.ContextEnabled || flags.NoContext {
 		contextFn = func() (string, error) { return queryLocalContextDisabled, nil }
 	}
-	return runMachineProvider(cmd, flags, machineProviderParams{Context: contextFn, Provider: provider, Prompt: prompt, ProjectContext: projectContext, History: cfg.HistoryEnabled && !flags.NoHistory, Logger: logger})
+	return runMachineProvider(cmd, flags, machineProviderParams{Context: contextFn, Provider: provider, Prompt: prompt, ProjectContext: projectContext, History: cfg.HistoryEnabled && !flags.NoHistory, Logger: logger, ToolConfig: cfg})
 }
 
 type machineProviderParams struct {
+	ToolConfig     *config.Config
 	Context        func() (string, error)
 	Provider       domain.InferenceProvider
 	Prompt         string
@@ -183,6 +191,15 @@ func runMachineProvider(cmd *cobra.Command, flags parsedFlags, params machinePro
 	if err != nil {
 		return machineError(exitContext, fmt.Errorf(locale.Text("read local context: %w"), err))
 	}
+	cfg := params.ToolConfig
+	if cfg == nil {
+		cfg = config.DefaultConfig()
+	}
+	params.Provider, err = configureQueryTools(cmd, toolProviderParams{Config: cfg, Flags: flags, Provider: params.Provider})
+	if err != nil {
+		return machineProviderError(err)
+	}
+	defer func() { resultErr = errors.Join(resultErr, closeQueryTools(params.Provider)) }()
 	projectPrompt := env
 	if params.ProjectContext != "" {
 		projectPrompt += "\n\n" + projectContextSection(params.ProjectContext)

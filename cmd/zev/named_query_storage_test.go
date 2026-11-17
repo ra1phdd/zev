@@ -14,7 +14,10 @@ func TestNamedQueryPreservesCorruptAliases(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	dir := config.GetZevDir()
+	dir, err := config.GetZevDir()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}

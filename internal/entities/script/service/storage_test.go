@@ -17,7 +17,9 @@ func TestCrossInstanceCreateRemove(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan error, count)
 	for i := range count {
-		wg.Go(func() { errs <- New(repository.New(dir)).Create(fmt.Sprintf("script%d", i), "test") })
+		wg.Go(func() {
+			errs <- New(repository.New(dir)).CreateContext(t.Context(), fmt.Sprintf("script%d", i), "test")
+		})
 	}
 	wg.Wait()
 	close(errs)
@@ -59,7 +61,7 @@ func TestCorruptMetadataPreserved(t *testing.T) {
 	for _, operation := range []string{createOperation, removeOperation} {
 		t.Run(operation, func(t *testing.T) {
 			svc, dir := newTestService(t)
-			if err := svc.Create(safeScriptName, "test"); err != nil {
+			if err := svc.CreateContext(t.Context(), safeScriptName, "test"); err != nil {
 				t.Fatal(err)
 			}
 			path := filepath.Join(dir, "scripts")
@@ -69,7 +71,7 @@ func TestCorruptMetadataPreserved(t *testing.T) {
 			}
 			var err error
 			if operation == createOperation {
-				err = svc.Create("new", "test")
+				err = svc.CreateContext(t.Context(), "new", "test")
 			} else {
 				err = svc.Remove(safeScriptName)
 			}

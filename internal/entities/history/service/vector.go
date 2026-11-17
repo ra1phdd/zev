@@ -37,17 +37,6 @@ func vectorNorm(vector []float32, dimensions int) (float64, error) {
 	return math.Sqrt(norm), nil
 }
 
-// Cosine compares a query vector with a little-endian float32 blob without
-// allocating a decoded vector. Invalid dimensions, nonfinite values, and zero
-// norms return ErrInvalid. The result lies in [-1, 1].
-func Cosine(query []float32, blob []byte, dimensions int) (float64, error) {
-	norm, err := vectorNorm(query, dimensions)
-	if err != nil {
-		return 0, err
-	}
-	return cosineBlob(query, norm, blob, dimensions)
-}
-
 func cosineBlob(query []float32, queryNorm float64, blob []byte, dimensions int) (float64, error) {
 	if dimensions <= 0 || len(query) != dimensions || len(blob)%4 != 0 || len(blob)/4 != dimensions {
 		return 0, fmt.Errorf("%w: vector blob dimensions", ErrInvalid)

@@ -1,15 +1,23 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
 const (
-	historyEmbeddingProvider = "openai-compatible"
-	historyEmbeddingBaseURL  = "https://embedding.example/v1"
+	toolApprovalModeEnv       = "TOOL_APPROVAL_MODE"
+	historySemanticEnabledEnv = "HISTORY_SEMANTIC_ENABLED"
+	historyEmbeddingProvider  = "openai-compatible"
+	historyEmbeddingBaseURL   = "https://embedding.example/v1"
+	toolApprovalManual        = "manual"
+	toolApprovalAuto          = "auto"
+	toolApprovalUnsupported   = "unsupported"
+	configFalseValue          = "false"
 )
 
 func TestGetZevDir(t *testing.T) {
@@ -23,16 +31,23 @@ func TestGetZevDir(t *testing.T) {
 	t.Run("home available", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv(homeEnv, home)
-		if got, want := GetZevDir(), filepath.Join(home, ".zev"); got != want {
+		got, err := GetZevDir()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := filepath.Join(home, ".zev"); got != want {
 			t.Errorf("GetZevDir() = %q, want %q", got, want)
 		}
 	})
-	t.Run("home unavailable", func(t *testing.T) {
-		t.Setenv(homeEnv, "")
-		if got := GetZevDir(); got != ".zev" {
-			t.Errorf("GetZevDir() = %q, want .zev", got)
-		}
-	})
+	for _, home := range []string{"", ".", "relative-home", "../parent-home"} {
+		t.Run("untrusted home="+home, func(t *testing.T) {
+			t.Setenv(homeEnv, home)
+			got, err := GetZevDir()
+			if got != "" || !errors.Is(err, ErrInvalidHome) {
+				t.Errorf("GetZevDir() = %q, %v; want empty path and ErrInvalidHome", got, err)
+			}
+		})
+	}
 }
 
 func TestDefaultConfig(t *testing.T) {
@@ -50,6 +65,90 @@ func TestDefaultConfig(t *testing.T) {
 	}
 	if cfg.OpenAIBaseURL != "https://api.openai.com/v1" {
 		t.Errorf("expected default base_url=https://api.openai.com/v1, got %s", cfg.OpenAIBaseURL)
+	}
+}
+
+func TestDefaultToolConfig(t *testing.T) {
+	t.Parallel()
+	cfg := DefaultConfig()
+
+	if !cfg.ToolsEnabled {
+		t.Error("tools must be enabled by default")
+	}
+	if cfg.ToolApprovalMode != toolApprovalManual {
+		t.Errorf("tool approval mode = %q, want %s", cfg.ToolApprovalMode, toolApprovalManual)
+	}
+}
+
+func TestToolConfigEnvFilePrecedenceAndRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	previous := SetConfigPathForTests(path)
+	t.Cleanup(func() { SetConfigPathForTests(previous) })
+
+	want := DefaultConfig()
+	want.ToolsEnabled = false
+	want.ToolApprovalMode = toolApprovalAuto
+	if err := Save(want); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	for _, key := range []string{"TOOLS_ENABLED", toolApprovalModeEnv} {
+		t.Setenv(key, "")
+		if err := os.Unsetenv(key); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := Load()
+	if err != nil {
+		t.Fatalf("Load after Save failed: %v", err)
+	}
+	if got.ToolsEnabled != want.ToolsEnabled || got.ToolApprovalMode != want.ToolApprovalMode {
+		t.Fatalf("tool config did not round-trip: got enabled=%v mode=%q", got.ToolsEnabled, got.ToolApprovalMode)
+	}
+
+	t.Setenv("TOOLS_ENABLED", "true")
+	t.Setenv(toolApprovalModeEnv, "bypass")
+	got, err = Load()
+	if err != nil {
+		t.Fatalf("Load with environment overrides failed: %v", err)
+	}
+	if !got.ToolsEnabled || got.ToolApprovalMode != "bypass" {
+		t.Fatalf("environment did not override file: got enabled=%v mode=%q", got.ToolsEnabled, got.ToolApprovalMode)
+	}
+}
+
+//nolint:paralleltest // Mutates the global config path.
+func TestToolApprovalModeValidationIsAlwaysApplied(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	previous := SetConfigPathForTests(path)
+	t.Cleanup(func() { SetConfigPathForTests(previous) })
+	for _, mode := range []string{"", toolApprovalUnsupported, "AUTO"} {
+		t.Run(mode, func(t *testing.T) {
+			_, err := parseValues(map[string]string{
+				"TOOLS_ENABLED":           configFalseValue,
+				toolApprovalModeEnv:       mode,
+				historySemanticEnabledEnv: configFalseValue,
+			})
+			if err == nil {
+				t.Fatal("invalid tool approval mode was accepted")
+			}
+			if !strings.Contains(err.Error(), "invalid tool policy") || strings.Contains(err.Error(), "history embedding") {
+				t.Fatalf("unexpected validation error: %v", err)
+			}
+		})
+	}
+
+	cfg := DefaultConfig()
+	cfg.ToolApprovalMode = toolApprovalUnsupported
+	if err := Save(cfg); err == nil || !strings.Contains(err.Error(), "invalid tool policy") {
+		t.Fatalf("Save accepted invalid tool approval mode: %v", err)
+	}
+
+	if err := os.WriteFile(path, []byte("TOOL_APPROVAL_MODE="+toolApprovalUnsupported+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "invalid tool policy") {
+		t.Fatalf("Load accepted invalid tool approval mode: %v", err)
 	}
 }
 
@@ -74,7 +173,7 @@ func TestDefaultHistoryEmbeddingConfig(t *testing.T) {
 func TestParseHistoryEmbeddingConfig(t *testing.T) {
 	t.Parallel()
 	cfg, err := parseValues(map[string]string{
-		"HISTORY_SEMANTIC_ENABLED":     "true",
+		historySemanticEnabledEnv:      "true",
 		"HISTORY_EMBEDDING_PROVIDER":   historyEmbeddingProvider,
 		"HISTORY_EMBEDDING_BASE_URL":   historyEmbeddingBaseURL,
 		"HISTORY_EMBEDDING_MODEL":      "embed-model",
@@ -93,7 +192,7 @@ func TestParseHistoryEmbeddingConfig(t *testing.T) {
 func TestHistoryEmbeddingValidationOnlyWhenEnabled(t *testing.T) {
 	t.Parallel()
 	invalid := map[string]string{
-		"HISTORY_EMBEDDING_PROVIDER":   "unsupported",
+		"HISTORY_EMBEDDING_PROVIDER":   toolApprovalUnsupported,
 		"HISTORY_EMBEDDING_BASE_URL":   "",
 		"HISTORY_EMBEDDING_MODEL":      "",
 		"HISTORY_EMBEDDING_DIMENSIONS": "0",
@@ -102,7 +201,7 @@ func TestHistoryEmbeddingValidationOnlyWhenEnabled(t *testing.T) {
 	if _, err := parseValues(invalid); err != nil {
 		t.Fatalf("disabled invalid embedding config rejected: %v", err)
 	}
-	invalid["HISTORY_SEMANTIC_ENABLED"] = "true"
+	invalid[historySemanticEnabledEnv] = "true"
 	if _, err := parseValues(invalid); err == nil {
 		t.Fatal("enabled invalid embedding config accepted")
 	}
@@ -113,9 +212,8 @@ func TestLoadConfigWithMissing(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".zevrc")
 
-	originalGetConfigPath := getConfigPath
-	getConfigPath = func() string { return configPath }
-	t.Cleanup(func() { getConfigPath = originalGetConfigPath })
+	originalGetConfigPath := SetConfigPathForTests(configPath)
+	t.Cleanup(func() { SetConfigPathForTests(originalGetConfigPath) })
 
 	cfg, err := Load()
 	if err != nil {
@@ -132,16 +230,16 @@ func TestSaveConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".zevrc")
 
-	originalGetConfigPath := getConfigPath
-	getConfigPath = func() string { return configPath }
-	t.Cleanup(func() { getConfigPath = originalGetConfigPath })
+	originalGetConfigPath := SetConfigPathForTests(configPath)
+	t.Cleanup(func() { SetConfigPathForTests(originalGetConfigPath) })
 
 	cfg := &Config{
-		LLMProvider:   "gemini",
-		GeminiAPIKey:  "test-key",
-		GeminiModel:   "gemini-3.1-flash-lite",
-		OpenAIModel:   "gpt-5.6-luna",
-		OpenAIBaseURL: "https://api.openai.com/v1",
+		LLMProvider:      "gemini",
+		GeminiAPIKey:     "test-key",
+		GeminiModel:      "gemini-3.1-flash-lite",
+		OpenAIModel:      "gpt-5.6-luna",
+		OpenAIBaseURL:    "https://api.openai.com/v1",
+		ToolApprovalMode: toolApprovalManual,
 	}
 
 	if err := Save(cfg); err != nil {
@@ -171,12 +269,12 @@ func TestSaveConfig(t *testing.T) {
 //nolint:paralleltest // Mutates the global config path.
 func TestSaveConfigRoundTripsHistoryEmbedding(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config")
-	previous := getConfigPath
-	getConfigPath = func() string { return configPath }
-	t.Cleanup(func() { getConfigPath = previous })
+	previous := SetConfigPathForTests(configPath)
+	t.Cleanup(func() { SetConfigPathForTests(previous) })
 
 	want := &Config{
 		HistorySemanticEnabled:     true,
+		ToolApprovalMode:           toolApprovalManual,
 		HistoryEmbeddingProvider:   historyEmbeddingProvider,
 		HistoryEmbeddingBaseURL:    historyEmbeddingBaseURL,
 		HistoryEmbeddingModel:      "embedding-model",

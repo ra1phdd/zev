@@ -525,8 +525,11 @@ func validateSearch(request *SearchRequest) error {
 	if !utf8.ValidString(request.Query) || !utf8.ValidString(request.ExactCommand) {
 		return fmt.Errorf("%w: query must be UTF-8", ErrInvalid)
 	}
-	if strings.TrimSpace(request.Query) == "" && request.ExactCommand == "" {
+	if strings.TrimSpace(request.Query) == "" && strings.TrimSpace(request.ExactCommand) == "" {
 		return fmt.Errorf("%w: empty search query", ErrInvalid)
+	}
+	if request.ExactCommand != "" && strings.TrimSpace(request.ExactCommand) == "" {
+		return fmt.Errorf("%w: empty exact command", ErrInvalid)
 	}
 	if !request.From.IsZero() && !request.To.IsZero() && !request.From.Before(request.To) {
 		return fmt.Errorf("%w: empty date interval", ErrInvalid)

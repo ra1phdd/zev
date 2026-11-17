@@ -7,6 +7,14 @@ import (
 	"testing"
 )
 
+func cosineForTest(query []float32, blob []byte, dimensions int) (float64, error) {
+	norm, err := vectorNorm(query, dimensions)
+	if err != nil {
+		return 0, err
+	}
+	return cosineBlob(query, norm, blob, dimensions)
+}
+
 func TestVectorEncodingAndCosine(t *testing.T) {
 	t.Parallel()
 	for _, vector := range [][]float32{nil, {0, 0}, {float32(math.NaN()), 1}, {float32(math.Inf(1)), 1}} {
@@ -18,11 +26,11 @@ func TestVectorEncodingAndCosine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	score, err := Cosine([]float32{3, 4}, blob, 2)
+	score, err := cosineForTest([]float32{3, 4}, blob, 2)
 	if err != nil || math.Abs(score-1) > 1e-6 {
 		t.Fatalf("cosine %v, %v", score, err)
 	}
-	if _, err := Cosine([]float32{1, 2}, blob[:7], 2); err == nil {
+	if _, err := cosineForTest([]float32{1, 2}, blob[:7], 2); err == nil {
 		t.Fatal("accepted wrong blob size")
 	}
 }

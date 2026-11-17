@@ -1,10 +1,8 @@
 package list
 
-import (
-	"strings"
+import "github.com/ra1phdd/zev/internal/core/domain"
 
-	"github.com/ra1phdd/zev/internal/core/domain"
-)
+const refinementMarker = "::REFINE_QUERY::"
 
 // CommandItem adapts a non-nil domain command for list display.
 type CommandItem struct {
@@ -13,7 +11,7 @@ type CommandItem struct {
 
 // Title returns the command, or its explanation for an internal action.
 func (i CommandItem) Title() string {
-	if strings.HasPrefix(i.Cmd.Command, "::") {
+	if i.Cmd.Command == refinementMarker {
 		return i.Cmd.ShortExplanation
 	}
 	return i.Cmd.Command
@@ -21,7 +19,7 @@ func (i CommandItem) Title() string {
 
 // Description returns the explanation, or an empty string for internal actions.
 func (i CommandItem) Description() string {
-	if strings.HasPrefix(i.Cmd.Command, "::") {
+	if i.Cmd.Command == refinementMarker {
 		return ""
 	}
 	return i.Cmd.ShortExplanation

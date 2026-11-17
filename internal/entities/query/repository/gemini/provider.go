@@ -62,14 +62,14 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	userMessage := prompt
 
 	requestBody := map[string]any{
-		"system_instruction": map[string]any{
+		geminiJSONSystem: map[string]any{
 			geminiJSONParts: []map[string]string{
 				{geminiJSONText: systemPrompt},
 			},
 		},
-		"contents": []map[string]any{
+		geminiJSONContents: []map[string]any{
 			{
-				"role": "user",
+				"role": geminiRoleUser,
 				geminiJSONParts: []map[string]string{
 					{geminiJSONText: userMessage},
 				},
@@ -141,9 +141,9 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	contents := make([]map[string]any, 0, len(history.Messages))
 
 	for _, msg := range history.Messages {
-		role := "user"
-		if msg.Role == "assistant" {
-			role = "model" // Gemini использует "model" вместо "assistant"
+		role := geminiRoleUser
+		if msg.Role == geminiRoleAssistant {
+			role = geminiRoleModel
 		}
 		contents = append(contents, map[string]any{
 			"role": role,
@@ -154,12 +154,12 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	}
 
 	requestBody := map[string]any{
-		"system_instruction": map[string]any{
+		geminiJSONSystem: map[string]any{
 			geminiJSONParts: []map[string]string{
 				{geminiJSONText: history.SystemPrompt},
 			},
 		},
-		"contents":         contents,
+		geminiJSONContents: contents,
 		"generationConfig": geminiResponseSchema,
 	}
 

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -79,6 +80,7 @@ func (s *Service) List() ([]domain.Alias, error) {
 		result = append(result, alias)
 	}
 
+	slices.SortFunc(result, func(a, b domain.Alias) int { return strings.Compare(a.Name, b.Name) })
 	return result, nil
 }
 

@@ -39,6 +39,11 @@ absent from `~/.zev/config`.
 | `HISTORY_SEMANTIC_ENABLED` | `false` |
 | `HISTORY_EMBEDDING_MAX_BYTES` | `32768` |
 | `CONTEXT_ENABLED` | `true` |
+| `TOOLS_ENABLED` | `true` |
+| `TOOL_APPROVAL_MODE` | `manual` |
+
+The user home must resolve to an absolute path. A missing or relative home is an
+error; Zev never falls back to `.zev` inside the current project.
 
 ## Privacy controls
 
@@ -59,6 +64,82 @@ setup output. Provider diagnostics omit raw request/response bodies, credentials
 endpoint URLs; this does not redact ordinary command output or enabled history.
 Installers fail closed unless the downloaded archive has exactly one
 matching SHA-256 entry and the computed digest matches it.
+
+## Model tools
+
+Model tools are enabled by default through `TOOLS_ENABLED=true`. `TOOL_APPROVAL_MODE`
+accepts `manual`, `auto`, or `bypass`; the value is validated even when tools are disabled.
+Environment variables override the config file, and the `--tools`, `--no-tools`, and
+`--tool-approval` flags override both.
+
+Tools are disabled for a query when `--no-context` is used or `CONTEXT_ENABLED=false`,
+so local working-directory information cannot leak through tool execution. An explicit
+`--tools` flag overrides that privacy default. In `--print` and `--json` modes, `--tools`
+must be supplied explicitly; these modes never open the TUI, even on a terminal. A manual
+tool request in machine mode is returned to the model as denied with an explanation to
+choose `auto` or `bypass` explicitly.
+
+The model receives a native `exec` function with `command`, `args` and `reason`. Arguments
+are an exact argv array, not an implicitly evaluated shell string. Native tool-capable
+models/endpoints are required; use `--no-tools` when an endpoint rejects function calling.
+OpenAI-compatible/Ollama, OpenCode, Anthropic and Gemini adapters support this exchange.
+
+- `manual` shows every request and the fixed working directory on stderr and requires
+  the literal `yes`. Empty input, refusal, cancellation, or an unavailable terminal never
+  authorizes execution. Approval applies to this invocation only.
+- `auto` first enforces the local read-only policy, then makes a **separate request to the
+  configured provider/model** for every admitted invocation. The reviewer has no tools,
+  primary conversation, or file output; it sees only the command arguments, reason and
+  root. Only an unambiguous JSON approval permits execution. Unsafe verdicts, network
+  errors and malformed responses deny the call and return an explanation to the main
+  model so it can adapt. A model verdict alone is not a security boundary.
+- `bypass` permits arbitrary executables with the current user's permissions, without
+  approval or a reviewer, and prints a warning to stderr. Explicit shell invocations
+  such as `sh -c` are possible in manual/bypass. This is **not a sandbox**: these modes
+  can modify files, use the network, or disclose secrets. The subprocess receives a
+  minimal environment instead of Zev's provider keys/headers; this does not stop it from
+  reading accessible files. Executables are resolved from system directories; specify an
+  absolute path for other tools. stdin is closed; interactive commands are not supported.
+
+Auto uses builtins, not PATH executables: `pwd` (no arguments), `ls [directory]`,
+`cat file`, and `head file` / `head -n N file` (`1 <= N <= 1000`). No other flags,
+pipelines, substitutions or recursive traversal are accepted. Paths stay inside the
+canonical initial working directory; symlinks and sensitive names/components (including
+`.env*`, `.git`, `.ssh`, credential/token/private-key files) are rejected. `ls` lists at
+most 1024 entries without following links. Files must be regular and not multiply linked.
+Filename filtering is conservative, not a secret-content detector: ordinary source files
+can still contain sensitive data. Do not enable tools in an untrusted or secret-bearing
+project without considering what will be sent to the provider.
+
+```bash
+zev query --tool-approval manual "inspect this project"
+zev query --tool-approval auto "find the right build command"
+zev query --print --tools --tool-approval auto "find the right test command"
+zev continue --tool-approval auto "look into the error"
+zev query --no-tools "show disk usage"
+# Explicitly opt out of approval and safety review:
+zev query --tools --tool-approval bypass "inspect this project"
+```
+
+Persistent settings in `~/.zev/config` use the same dotenv format:
+
+```dotenv
+TOOLS_ENABLED=true
+TOOL_APPROVAL_MODE=manual
+```
+
+Fixed budgets: **8 calls per response, 10 seconds per local execution, 30 seconds per
+review, 2 minutes per tool loop, 32 KiB combined stdout/stderr per call**, and 256 KiB of
+aggregate serialized tool results. These are cancellation deadlines, not hard wall-clock
+limits: process cleanup may take longer, and a blocked kernel/filesystem call cannot be
+interrupted by this in-process adapter. On the call limit the model is asked to finish without
+new tools. Output may be truncated; owned child processes are cleaned up on cancellation.
+Tool calls add tokens/cost. Intermediate tool/review data is ephemeral, not written to
+query history, although a final model answer can repeat inspected information.
+`--print`/`--json` never execute the final suggested command; only an explicit `--tools`
+opt-in permits context tool execution. `doctor`, alias resolution and script inspection
+never invoke model tools. Native Windows runtime behavior has not been verified;
+cross-compilation alone is not evidence of native correctness.
 
 ## Variables
 
@@ -136,6 +217,11 @@ embedding requests. See [History](HISTORY.md) for commands, coverage and candida
 | `HTTP_HEADERS` | Comma-separated `Key:Value` pairs added to every provider request. Key case is preserved |
 | Retry policy | Provider requests retry up to 3 times for HTTP `429` and `5xx` responses. Backoff is exponential (`1s`, `2s`, `4s`); a valid `Retry-After` header can extend the delay, and the delay is capped at 30 seconds. Retries are logged at warning level; the final failure is logged at error level. |
 
+Provider redirects are accepted only within the initial origin (scheme, host and
+port). Cross-origin redirects are rejected before a request reaches the other
+endpoint, including requests with SDK credentials or custom `HTTP_HEADERS`.
+The header map is snapshotted when the client is created.
+
 ## Provider request retries
 
 All five providers use the same retrying HTTP client for both single queries and
@@ -194,7 +280,8 @@ zev --json --context-file README.md "find the relevant command"
 
 `--context-file` and `-cf` may be repeated. Paths are resolved relative to the current
 working directory and must remain below it. Only regular files are accepted; directories,
-symlinks, `.env` files, private keys and credential-like files are rejected before any
+symlinks, `.env` files, private keys and credential-like files or directories
+(including `.aws`, `.docker`, `.ssh` and `.kube`) are rejected before any
 provider request. Each file is limited to 64 KiB and the request total to 256 KiB.
 Use `--allow-sensitive-context` only when a specific sensitive file is intentionally
 selected; symlinks remain rejected. A context-file failure returns before network access,
@@ -224,7 +311,8 @@ zev script show <name>
 ```
 
 `alias edit` opens the stored alias template and saves it after the editor exits
-successfully. `script edit` opens the registered Bash script through the configured
+successfully, provided its template has not changed since editing began; a stale
+editor cannot overwrite a newer template. Alias listings are sorted by name. `script edit` opens the registered Bash script through the configured
 editor (`$SCRIPT_EDITOR`, `$EDITOR`, `nano`, `vim`, or `vi`). `script show` writes the
 exact script body to stdout without executing it; it uses direct safe file reading rather
 than launching an external shell command.

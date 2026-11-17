@@ -268,7 +268,7 @@ func TestHistoryOpenAndSearchRealStore(t *testing.T) {
 			t.Errorf("close history: %v", err)
 		}
 	})
-	result, err := store.Search(t.Context(), service.SearchRequest{Query: historyTestQuery, Mode: "lexical", Fuzzy: "auto", Limit: 20})
+	result, err := store.Search(t.Context(), service.SearchRequest{Query: historyTestQuery, Mode: historySearchModeLexical, Fuzzy: toolModeAuto, Limit: 20})
 	if err != nil {
 		t.Fatal(err)
 	}

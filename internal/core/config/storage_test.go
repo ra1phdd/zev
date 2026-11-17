@@ -14,10 +14,9 @@ import (
 //nolint:paralleltest // Mutates the global config path.
 func TestConfigUpdateConcurrent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config")
-	previous := getConfigPath
-	getConfigPath = func() string { return path }
-	t.Cleanup(func() { getConfigPath = previous })
-	if err := Save(&Config{OpenAIModel: "start"}); err != nil {
+	previous := SetConfigPathForTests(path)
+	t.Cleanup(func() { SetConfigPathForTests(previous) })
+	if err := Save(&Config{OpenAIModel: "start", ToolApprovalMode: toolApprovalManual}); err != nil {
 		t.Fatal(err)
 	}
 	const count = 40
@@ -47,9 +46,8 @@ func TestConfigUpdateConcurrent(t *testing.T) {
 //nolint:paralleltest // Mutates the global config path.
 func TestConfigUpdatePersistsDisabledSettings(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config")
-	previous := getConfigPath
-	getConfigPath = func() string { return path }
-	t.Cleanup(func() { getConfigPath = previous })
+	previous := SetConfigPathForTests(path)
+	t.Cleanup(func() { SetConfigPathForTests(previous) })
 	if err := Update(func(cfg *Config) error {
 		cfg.HistoryEnabled = false
 		cfg.ContextEnabled = false
@@ -62,7 +60,7 @@ func TestConfigUpdatePersistsDisabledSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, key := range []string{"HISTORY_ENABLED", "CONTEXT_ENABLED"} {
-		if values[key] != "false" {
+		if values[key] != configFalseValue {
 			t.Errorf("%s = %q, want false", key, values[key])
 		}
 	}
@@ -73,9 +71,8 @@ func TestConfigUpdateFailurePreservesFile(t *testing.T) {
 	for _, content := range []string{"OPENAI_MODEL=original\n", "invalid [ config\n"} {
 		t.Run(content, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config")
-			previous := getConfigPath
-			getConfigPath = func() string { return path }
-			t.Cleanup(func() { getConfigPath = previous })
+			previous := SetConfigPathForTests(path)
+			t.Cleanup(func() { SetConfigPathForTests(previous) })
 			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 				t.Fatal(err)
 			}

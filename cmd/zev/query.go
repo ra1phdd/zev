@@ -68,6 +68,10 @@ type parsedFlags struct {
 	JSON                  bool
 	Option                int
 	OptionSet             bool
+	Tools                 bool
+	NoTools               bool
+	ToolApproval          string
+	ToolApprovalSet       bool
 	ParseError            string
 }
 
@@ -92,7 +96,7 @@ func setupLogger(verbosity int) *slog.Logger {
 }
 
 func newContinueCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:                "continue [clarification]",
 		Short:              locale.Text("Continue the latest usable conversation"),
 		Args:               cobra.ArbitraryArgs,
@@ -101,6 +105,8 @@ func newContinueCmd() *cobra.Command {
 			return runQuery(cmd, append([]string{"--continue"}, args...))
 		},
 	}
+	registerToolFlags(cmd)
+	return cmd
 }
 
 func newQueryCmd() *cobra.Command {
@@ -114,10 +120,13 @@ func newQueryCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&injectFlag, "inject", false, locale.Text("Inject selected command into terminal (default)"))
 	cmd.Flags().BoolVar(&noHistoryFlag, "no-history", false, locale.Text("Do not persist this query in history"))
 	cmd.Flags().BoolVar(&noContextFlag, "no-context", false, locale.Text("Do not send local environment context"))
+	registerToolFlags(cmd)
 	cmd.DisableFlagParsing = true
 	cmd.Flags().Bool("print", false, locale.Text("Print the chosen command without executing it"))
 	cmd.Flags().Bool("json", false, locale.Text("Output command options as schema version 1 JSON"))
 	cmd.Flags().Int("option", 1, locale.Text("Choose a 1-based command option in machine mode"))
+	cmd.Flags().StringArray("context-file", nil, locale.Text("Attach a project context file (repeatable; short form: -cf)"))
+	cmd.Flags().Bool("allow-sensitive-context", false, locale.Text("Allow explicitly requested sensitive context paths; symlinks remain forbidden"))
 	cmd.MarkFlagsMutuallyExclusive("execute", "inject")
 	return cmd
 }
@@ -167,6 +176,21 @@ func parseArgsFlags(args []string) parsedFlags {
 			result.NoHistory = true
 		case arg == "--no-context":
 			result.NoContext = true
+		case arg == "--tools":
+			result.Tools = true
+		case arg == "--no-tools":
+			result.NoTools = true
+		case arg == "--tool-approval":
+			result.ToolApprovalSet = true
+			if i+1 >= len(args) {
+				result.ParseError = "--tool-approval requires a mode"
+				continue
+			}
+			i++
+			result.ToolApproval = args[i]
+		case strings.HasPrefix(arg, "--tool-approval="):
+			result.ToolApprovalSet = true
+			result.ToolApproval = strings.TrimPrefix(arg, "--tool-approval=")
 		case arg == "--continue":
 			result.Continue = true
 		case arg == "--allow-sensitive-context":
@@ -291,6 +315,11 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	if err != nil {
 		return fmt.Errorf(locale.Text("failed to create provider: %w"), err)
 	}
+	provider, err = configureQueryTools(cmd, toolProviderParams{Config: cfg, Flags: flags, Provider: provider})
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, closeQueryTools(provider)) }()
 	logger.Debug("Provider created", "name", provider.Name(), "model", provider.Model())
 	s := newQuerySessionWithProjectContext(queryservice.New(provider), cmd, userPrompt, projectContext)
 	s.provider, s.model = provider.Name(), provider.Model()
@@ -331,7 +360,10 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 }
 
 func openQueryHistory(ctx context.Context) (*historyrepo.Store, error) {
-	dir := config.GetZevDir()
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return nil, fmt.Errorf("resolve Zev directory: %w", err)
+	}
 	if err := filestore.ValidateDirectory(dir); err != nil {
 		return nil, fmt.Errorf("validate history directory: %w", err)
 	}
@@ -348,7 +380,11 @@ func openQueryHistory(ctx context.Context) (*historyrepo.Store, error) {
 func executeNamedQuery(ctx context.Context, userPrompt string, logger *slog.Logger) (bool, error) {
 	parts := strings.Fields(userPrompt)
 	name, args := parts[0], parts[1:]
-	aliasSvc := aliasservice.New(aliasrepo.New(config.GetZevDir()))
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return true, fmt.Errorf("resolve Zev directory: %w", err)
+	}
+	aliasSvc := aliasservice.New(aliasrepo.New(dir))
 	resolved, err := aliasSvc.Resolve(name, args)
 	if err == nil {
 		logger.Debug("Alias resolved", "name", name)
@@ -360,7 +396,7 @@ func executeNamedQuery(ctx context.Context, userPrompt string, logger *slog.Logg
 	if err != nil && !errors.Is(err, aliasservice.ErrAliasNotFound) {
 		return true, fmt.Errorf("resolve alias: %w", err)
 	}
-	scriptSvc := scriptservice.New(scriptrepo.New(config.GetZevDir()))
+	scriptSvc := scriptservice.New(scriptrepo.New(dir))
 	if err := scriptSvc.Execute(ctx, name, args); err != nil {
 		if errors.Is(err, scriptservice.ErrScriptNotFound) {
 			return false, nil

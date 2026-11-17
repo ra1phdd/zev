@@ -14,7 +14,7 @@ import (
 func TestEditorUsesIsolatedCopy(t *testing.T) {
 	t.Setenv("SKIP_EDITOR", "1")
 	svc, dir := newTestService(t)
-	if err := svc.Create(safeScriptName, "original"); err != nil {
+	if err := svc.CreateContext(t.Context(), safeScriptName, "original"); err != nil {
 		t.Fatal(err)
 	}
 	outside := filepath.Join(t.TempDir(), "sentinel")
@@ -39,7 +39,7 @@ func TestEditorUsesIsolatedCopy(t *testing.T) {
 func TestEditorCommitsAtomicSave(t *testing.T) {
 	t.Setenv("SKIP_EDITOR", "1")
 	svc, dir := newTestService(t)
-	if err := svc.Create(safeScriptName, "original"); err != nil {
+	if err := svc.CreateContext(t.Context(), safeScriptName, "original"); err != nil {
 		t.Fatal(err)
 	}
 	editor := filepath.Join(t.TempDir(), "editor")
@@ -60,7 +60,7 @@ func TestEditorCommitsAtomicSave(t *testing.T) {
 func TestEditorCancelledContext(t *testing.T) {
 	t.Setenv("SKIP_EDITOR", "1")
 	svc, _ := newTestService(t)
-	if err := svc.Create(safeScriptName, "original"); err != nil {
+	if err := svc.CreateContext(t.Context(), safeScriptName, "original"); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())

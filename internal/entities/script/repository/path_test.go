@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +26,7 @@ const (
 	metadataSymlink = "metadata symlink"
 )
 
-func TestSaveAllRejectsUnsafePathsWithoutEffects(t *testing.T) {
+func TestCreateRejectsUnsafePathsWithoutEffects(t *testing.T) {
 	t.Parallel()
 	for _, attack := range []string{metadataSymlink, "invalid script path", "scripts directory symlink", ancestorSymlink} {
 		t.Run(attack, func(t *testing.T) {
@@ -54,9 +55,9 @@ func TestSaveAllRejectsUnsafePathsWithoutEffects(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			err := repo.SaveAll(map[string]domain.Script{safeName: {Name: safeName, ScriptFile: file}})
+			err := repo.Create(t.Context(), domain.Script{Name: safeName, ScriptFile: file}, []byte("unsafe"))
 			if err == nil {
-				t.Errorf("SaveAll accepted %s", attack)
+				t.Errorf("Create accepted %s", attack)
 			}
 			if data, err := os.ReadFile(filepath.Clean(sentinel)); err != nil || string(data) != "untouched" {
 				t.Errorf("external sentinel changed: %q, %v", data, err)
@@ -87,7 +88,27 @@ func TestLoadAllRejectsUnsafeMetadata(t *testing.T) {
 	}
 }
 
-func TestValidateScriptPathRejectsSymlinksAndNonRegularFiles(t *testing.T) {
+func TestOpenScriptReturnsPinnedHandle(t *testing.T) {
+	t.Parallel()
+	repo := New(testDir(t))
+	if err := repo.Create(t.Context(), domain.Script{Name: safeName, ScriptFile: safeFile}, []byte("body")); err != nil {
+		t.Fatal(err)
+	}
+	file, err := repo.OpenScript(t.Context(), safeFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, readErr := io.ReadAll(file)
+	closeErr := file.Close()
+	if readErr != nil || closeErr != nil {
+		t.Fatalf("read or close pinned script: read=%v close=%v", readErr, closeErr)
+	}
+	if string(data) != "body" {
+		t.Fatalf("script = %q, want body", data)
+	}
+}
+
+func TestOpenScriptRejectsSymlinksAndNonRegularFiles(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"file symlink", "dangling symlink", "internal symlink", "directory file", "scripts symlink", "nested symlink", ancestorSymlink} {
 		t.Run(kind, func(t *testing.T) {
@@ -134,8 +155,15 @@ func TestValidateScriptPathRejectsSymlinksAndNonRegularFiles(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if path, err := New(dir).ValidateScriptPath(file); err == nil {
-				t.Errorf("accepted %s: %s", kind, path)
+			opened, err := New(dir).OpenScript(t.Context(), file)
+			if opened != nil {
+				if err := opened.Close(); err != nil {
+					t.Error(err)
+				}
+				t.Errorf("returned a handle for %s", kind)
+			}
+			if err == nil {
+				t.Errorf("accepted %s", kind)
 			}
 		})
 	}

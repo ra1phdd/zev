@@ -58,7 +58,11 @@ func newScriptShowCmd() *cobra.Command {
 }
 
 func runScriptShow(cmd *cobra.Command, args []string) error {
-	repo := repository.New(config.GetZevDir())
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return fmt.Errorf("resolve Zev directory: %w", err)
+	}
+	repo := repository.New(dir)
 	svc := service.New(repo)
 
 	name := args[0]
@@ -78,7 +82,11 @@ func newScriptEditCmd() *cobra.Command {
 }
 
 func runScriptEdit(cmd *cobra.Command, args []string) error {
-	if err := service.New(repository.New(config.GetZevDir())).OpenEditor(cmd.Context(), args[0]); err != nil {
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return fmt.Errorf("resolve Zev directory: %w", err)
+	}
+	if err := service.New(repository.New(dir)).OpenEditor(cmd.Context(), args[0]); err != nil {
 		return fmt.Errorf(locale.Text("edit script %q: %w"), args[0], err)
 	}
 	if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text("✓ Script %q updated successfully\n"), args[0]); err != nil {
@@ -98,7 +106,11 @@ func newScriptRemoveCmd() *cobra.Command {
 }
 
 func runScriptCreate(cmd *cobra.Command, args []string) error {
-	repo := repository.New(config.GetZevDir())
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return fmt.Errorf("resolve Zev directory: %w", err)
+	}
+	repo := repository.New(dir)
 	svc := service.New(repo)
 
 	name := args[0]
@@ -118,7 +130,11 @@ func runScriptCreate(cmd *cobra.Command, args []string) error {
 }
 
 func runScriptList(cmd *cobra.Command, _ []string) error {
-	repo := repository.New(config.GetZevDir())
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return fmt.Errorf("resolve Zev directory: %w", err)
+	}
+	repo := repository.New(dir)
 	svc := service.New(repo)
 
 	scripts, err := svc.List()
@@ -151,7 +167,11 @@ func runScriptList(cmd *cobra.Command, _ []string) error {
 }
 
 func runScriptRemove(cmd *cobra.Command, args []string) error {
-	repo := repository.New(config.GetZevDir())
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return fmt.Errorf("resolve Zev directory: %w", err)
+	}
+	repo := repository.New(dir)
 	svc := service.New(repo)
 
 	name := args[0]

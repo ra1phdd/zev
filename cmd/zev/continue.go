@@ -146,6 +146,12 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 		closeContinuationStore(store, logger)
 		return fmt.Errorf(locale.Text("failed to create provider: %w"), err)
 	}
+	provider, err = configureQueryTools(cmd, toolProviderParams{Config: cfg, Flags: flags, Provider: provider})
+	if err != nil {
+		closeContinuationStore(store, logger)
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, closeQueryTools(provider)) }()
 	envContext := queryservice.New(provider).GetEnvContext()
 	if !cfg.ContextEnabled || flags.NoContext {
 		envContext = queryLocalContextDisabled

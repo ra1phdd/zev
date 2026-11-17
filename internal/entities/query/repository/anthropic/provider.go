@@ -14,9 +14,11 @@ import (
 
 // Provider calls Anthropic and decodes query options.
 type Provider struct {
-	client  *anthropic.Client
-	model   string
-	baseURL string
+	client     *anthropic.Client
+	httpClient *http.Client
+	apiKey     string
+	model      string
+	baseURL    string
 }
 
 // New creates an Anthropic provider.
@@ -41,9 +43,11 @@ func New(apiKey, model, baseURL string, httpClient *http.Client) (*Provider, err
 	)
 
 	return &Provider{
-		client:  client,
-		model:   model,
-		baseURL: baseURL,
+		client:     client,
+		httpClient: repository.WithResponseBodyLimit(httpClient),
+		apiKey:     apiKey,
+		model:      model,
+		baseURL:    baseURL,
 	}, nil
 }
 
@@ -83,9 +87,9 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 
 	for _, msg := range history.Messages {
 		switch msg.Role {
-		case "user":
+		case roleUser:
 			messages = append(messages, anthropic.NewUserTextMessage(msg.Content))
-		case "assistant":
+		case roleAssistant:
 			messages = append(messages, anthropic.NewAssistantTextMessage(msg.Content))
 		}
 	}

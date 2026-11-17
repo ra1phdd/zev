@@ -122,6 +122,16 @@ SQLite history — Unreleased. Query lifecycle, автоматическая JSO
   временная копия очищается.
 - `HISTORY_ENABLED` и `CONTEXT_ENABLED` по умолчанию `true`; флаги `--no-history`
   и `--no-context` отключают соответствующее поведение для одного запроса.
+  `TOOLS_ENABLED` по умолчанию `true`, `TOOL_APPROVAL_MODE` — `manual`; допустимы
+  `manual`, `auto` и `bypass`, причём режим проверяется даже при отключённых инструментах.
+  При `--no-context` или `CONTEXT_ENABLED=false` инструменты по умолчанию отключаются,
+  но явный `--tools` переопределяет это ограничение. В `--print`/`--json` `--tools`
+  требуется явно; machine mode не открывает TUI, а manual-вызов возвращает модели отказ.
+  В интерактивном manual требуется буквальное `yes` в stderr; auto ограничен `pwd`,
+  `ls`, `cat`, `head` с поддерживаемыми флагами, bypass предупреждает в stderr и
+  не является sandbox или security guarantee. Tool-обмен эфемерен и не записывается
+  в историю, но может увеличить токены/стоимость и раскрыть низкоуровневые секреты.
+  Лимиты вызовов, таймаута и вывода фиксированы; native Windows runtime не проверен.
   `HISTORY_SEMANTIC_ENABLED` по умолчанию `false`; при включении требуется отдельный
   `openai-compatible` provider, base URL, model, positive dimensions, API key (если нужен)
   и `HISTORY_EMBEDDING_MAX_BYTES` (default `32768`). Отключение истории не удаляет записи,

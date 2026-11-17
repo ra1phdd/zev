@@ -14,9 +14,8 @@ import (
 // Config loading uses a test-local path and process environment.
 func TestLoadDoesNotMutateEnvironment(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config")
-	previous := getConfigPath
-	getConfigPath = func() string { return path }
-	t.Cleanup(func() { getConfigPath = previous })
+	previous := SetConfigPathForTests(path)
+	t.Cleanup(func() { SetConfigPathForTests(previous) })
 	t.Setenv("OPENAI_MODEL", "")
 	if err := os.Unsetenv("OPENAI_MODEL"); err != nil {
 		t.Fatal(err)
@@ -46,9 +45,8 @@ func TestLoadDoesNotMutateEnvironment(t *testing.T) {
 //nolint:paralleltest // Mutates the global config path.
 func TestSaveQuotesValuesWithoutRecordInjection(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config")
-	previous := getConfigPath
-	getConfigPath = func() string { return path }
-	t.Cleanup(func() { getConfigPath = previous })
+	previous := SetConfigPathForTests(path)
+	t.Cleanup(func() { SetConfigPathForTests(previous) })
 	value := " key # \"quoted\" \\path $VARIABLE\nLLM_PROVIDER=attacker\r\nend "
 	cfg := DefaultConfig()
 	cfg.OpenAIAPIKey = value
@@ -68,9 +66,8 @@ func TestSaveQuotesValuesWithoutRecordInjection(t *testing.T) {
 func TestConfigErrorsHideValues(t *testing.T) {
 	const secret = "synthetic-private-secret"
 	path := filepath.Join(t.TempDir(), "config")
-	previous := getConfigPath
-	getConfigPath = func() string { return path }
-	t.Cleanup(func() { getConfigPath = previous })
+	previous := SetConfigPathForTests(path)
+	t.Cleanup(func() { SetConfigPathForTests(previous) })
 	t.Setenv("HTTP_HEADERS", secret)
 	_, err := Load()
 	if err == nil || strings.Contains(err.Error(), secret) {

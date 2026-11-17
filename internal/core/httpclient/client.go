@@ -2,30 +2,100 @@
 package httpclient
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
-// New creates an HTTP client with custom headers and retry handling.
-func New(headers map[string]string, logger ...*slog.Logger) *http.Client {
-	if headers == nil {
-		headers = make(map[string]string)
-	}
+const (
+	maxRedirects           = 10
+	userAgentHeader        = "User-Agent"
+	blockedRedirectTrailer = "\x00zev-blocked-redirect"
+)
 
-	if _, ok := headers["User-Agent"]; !ok {
-		headers["User-Agent"] = "zev/1.0"
+// ErrCrossOriginRedirect indicates that a redirect changed the request origin.
+var ErrCrossOriginRedirect = errors.New("cross-origin redirect blocked")
+
+// ErrTooManyRedirects indicates that the redirect chain exceeded its bound.
+var ErrTooManyRedirects = errors.New("redirect limit exceeded")
+
+// New creates an HTTP client with a snapshot of the custom headers, retry
+// handling, and same-origin redirects bounded to ten requests.
+func New(headers map[string]string, logger ...*slog.Logger) *http.Client {
+	ownedHeaders := cloneHeaders(headers)
+	if !hasHeader(ownedHeaders, userAgentHeader) {
+		ownedHeaders[userAgentHeader] = "zev/1.0"
 	}
 
 	transport := &headersTransport{
-		headers: headers,
+		headers: ownedHeaders,
 		base:    newRetryTransport(http.DefaultTransport, firstLogger(logger), nil),
 	}
 
 	return &http.Client{
-		Transport: transport,
-		Timeout:   30 * time.Second,
+		Transport:     transport,
+		Timeout:       30 * time.Second,
+		CheckRedirect: checkRedirect,
+	}
+}
+
+func cloneHeaders(headers map[string]string) map[string]string {
+	owned := make(map[string]string, len(headers)+1)
+	maps.Copy(owned, headers)
+	return owned
+}
+
+func hasHeader(headers map[string]string, wanted string) bool {
+	for key := range headers {
+		if strings.EqualFold(key, wanted) {
+			return true
+		}
+	}
+	return false
+}
+
+func checkRedirect(req *http.Request, via []*http.Request) error {
+	if isBlockedRedirect(req.Response) {
+		return ErrCrossOriginRedirect
+	}
+	if len(via) >= maxRedirects {
+		return ErrTooManyRedirects
+	}
+	if len(via) == 0 || sameOrigin(via[len(via)-1].URL, req.URL) {
+		return nil
+	}
+	return ErrCrossOriginRedirect
+}
+
+func isBlockedRedirect(resp *http.Response) bool {
+	return resp != nil && resp.Trailer[blockedRedirectTrailer] != nil
+}
+
+func sameOrigin(first, next *url.URL) bool {
+	if first == nil || next == nil {
+		return false
+	}
+	return strings.EqualFold(first.Scheme, next.Scheme) &&
+		strings.EqualFold(first.Hostname(), next.Hostname()) &&
+		effectivePort(first) == effectivePort(next)
+}
+
+func effectivePort(u *url.URL) string {
+	if port := u.Port(); port != "" {
+		return port
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http":
+		return "80"
+	case "https":
+		return "443"
+	default:
+		return ""
 	}
 }
 
@@ -45,10 +115,35 @@ func (t *headersTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	reqCopy := req.Clone(req.Context())
 
 	for key, value := range t.headers {
-		reqCopy.Header[key] = []string{value}
+		reqCopy.Header.Set(key, value)
 	}
 
-	return wrapRoundTripResponse(t.base.RoundTrip(reqCopy))
+	resp, err := wrapRoundTripResponse(t.base.RoundTrip(reqCopy))
+	if err != nil || resp == nil || !isRedirectResponse(resp) {
+		return resp, err
+	}
+
+	location := resp.Header.Get("Location")
+	target, parseErr := reqCopy.URL.Parse(location)
+	if location != "" && parseErr == nil && !sameOrigin(reqCopy.URL, target) {
+		// net/http includes the redirect Location in CheckRedirect errors. Keep
+		// that error safe while preserving the original redirect classification.
+		if resp.Header == nil {
+			resp.Header = make(http.Header)
+		}
+		resp.Header.Set("Location", "/")
+		resp.Trailer = http.Header{blockedRedirectTrailer: {"1"}}
+	}
+	return resp, nil
+}
+
+func isRedirectResponse(resp *http.Response) bool {
+	switch resp.StatusCode {
+	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+		return true
+	default:
+		return false
+	}
 }
 
 func wrapRoundTripResponse(resp *http.Response, err error) (*http.Response, error) {

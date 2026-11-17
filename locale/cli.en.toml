@@ -688,6 +688,21 @@ other = "lexical index profile is stale; rebuild required Semantic search unavai
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["limit must not exceed 1000"]
+other = "limit must not exceed 1000"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Attach a project context file (repeatable; short form: -cf)"]
+other = "Attach a project context file (repeatable; short form: -cf)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Allow explicitly requested sensitive context paths; symlinks remain forbidden"]
+other = "Allow explicitly requested sensitive context paths; symlinks remain forbidden"
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["limit must be positive"]
 other = "limit must be positive"
 leftDelim = "[[["

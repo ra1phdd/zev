@@ -21,7 +21,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ra1phdd/zev/internal/core/domain"
-	"github.com/ra1phdd/zev/internal/core/filestore"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
 )
 
@@ -69,26 +68,6 @@ type legacyRunMetadata struct {
 type legacyRun struct {
 	ID, Fingerprint, Status string
 	Metadata                legacyRunMetadata
-}
-
-// importLegacy must finish before Open publishes the store. The legacy lock
-// fences compatible JSONL writers through snapshot verification and activation.
-func (s *Store) importLegacy(ctx context.Context, path string) error {
-	path, err := filepath.Abs(path)
-	if err != nil {
-		return fmt.Errorf("resolve migration path: %w", err)
-	}
-	source := filepath.Join(filepath.Dir(path), "history")
-	if source == path {
-		return fmt.Errorf("%w: legacy source conflicts with database", service.ErrInvalid)
-	}
-	if err := filestore.ValidateDirectory(filepath.Dir(source)); err != nil {
-		return fmt.Errorf("validate migration directory: %w", err)
-	}
-	if err := filestore.WithLockContext(ctx, source, func() error { return s.importLegacyLocked(ctx, source) }); err != nil {
-		return fmt.Errorf("lock legacy migration: %w", err)
-	}
-	return nil
 }
 
 func (s *Store) importLegacyLocked(ctx context.Context, source string) (err error) {

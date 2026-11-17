@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,8 +12,28 @@ import (
 	"time"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/filestore"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
 )
+
+// importLegacy lets tests rerun migration under the legacy writer lock.
+func (s *Store) importLegacy(ctx context.Context, path string) error {
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolve migration path: %w", err)
+	}
+	source := filepath.Join(filepath.Dir(path), "history")
+	if source == path {
+		return fmt.Errorf("%w: legacy source conflicts with database", service.ErrInvalid)
+	}
+	if err := filestore.ValidateDirectory(filepath.Dir(source)); err != nil {
+		return fmt.Errorf("validate migration directory: %w", err)
+	}
+	if err := filestore.WithLockContext(ctx, source, func() error { return s.importLegacyLocked(ctx, source) }); err != nil {
+		return fmt.Errorf("lock legacy migration: %w", err)
+	}
+	return nil
+}
 
 func closeImportTest(t *testing.T, closer io.Closer) {
 	t.Helper()

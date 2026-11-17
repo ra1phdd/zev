@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-const userAgentHeader = "User-Agent"
-
 func TestNew(t *testing.T) {
 	t.Parallel()
 
@@ -62,9 +60,9 @@ func TestCustomHeaders(t *testing.T) {
 	t.Parallel()
 
 	headers := map[string]string{
-		userAgentHeader: "custom-agent/2.0",
-		"X-Custom":      "custom-value",
-		"Authorization": "Bearer token123",
+		userAgentHeader:     "custom-agent/2.0",
+		"X-Custom":          "custom-value",
+		authorizationHeader: "Bearer token123",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

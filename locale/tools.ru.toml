@@ -1,0 +1,39 @@
+["Enable model context tools (required explicitly in --print/--json)"]
+other = "Включить инструменты контекста модели (для --print/--json требуется явно)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Disable model context tools"]
+other = "Отключить инструменты контекста модели"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Tool approval policy: manual, auto or bypass (overrides config)"]
+other = "Режим подтверждения инструментов: manual, auto или bypass (приоритет над конфигом)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["--tools and --no-tools cannot be used together"]
+other = "--tools и --no-tools нельзя использовать вместе"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["--tool-approval must be manual, auto or bypass"]
+other = "--tool-approval должен быть manual, auto или bypass"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Type yes to approve this tool call; anything else denies it."]
+other = "Введите yes для разрешения этого вызова; любой другой ответ означает отказ."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Model requests a local command. Working directory: %q\n%s"]
+other = "Модель запрашивает запуск локальной команды. Рабочий каталог: %q\n%s"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["Warning: tool bypass permits arbitrary commands with your user permissions, without safety review or confirmation."]
+other = "Предупреждение: bypass разрешает произвольные команды с вашими правами, без проверки безопасности и подтверждения."
+leftDelim = "[[["
+rightDelim = "]]]"

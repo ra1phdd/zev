@@ -18,7 +18,7 @@ var version = "dev"
 
 var verbosityLevel int
 
-func main() {
+func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:                "zev [query]",
 		Short:              locale.Text("Natural language terminal command suggestions"),
@@ -29,7 +29,10 @@ func main() {
 		SilenceErrors:      true,
 		DisableFlagParsing: true, // Preserve flags intended for aliases.
 	}
-	rootCmd.TraverseChildren = true
+	// Find preserves pre-subcommand flags for the query's manual parser; Traverse
+	// would discard them when DisableFlagParsing is set on the root.
+	rootCmd.TraverseChildren = false
+	registerToolFlags(rootCmd)
 
 	rootCmd.PersistentFlags().CountVarP(&verbosityLevel, "verbose", "v", locale.Text("Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)"))
 
@@ -42,7 +45,11 @@ func main() {
 	rootCmd.AddCommand(newScriptCmd())
 	rootCmd.AddCommand(newVersionCmd())
 	localizeCommandHelp(rootCmd)
+	return rootCmd
+}
 
+func main() {
+	rootCmd := newRootCmd()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	err := rootCmd.ExecuteContext(ctx)
 	stop()

@@ -119,6 +119,9 @@ func defaultDoctorDeps() doctorDeps {
 }
 
 func runDoctor(cmd *cobra.Command, options doctorOptions, deps doctorDeps) error {
+	if err := validateMachineFlags(parsedFlags{Print: options.Print, JSON: options.JSON, Option: 1}); err != nil {
+		return err
+	}
 	report, cfg := collectDoctorReport(cmd.Context(), deps)
 	interactive := doctorShouldRunNetwork(options, report) && !options.Confirm
 	if interactive {
@@ -195,7 +198,6 @@ func doctorSkippedNetworkCheck() doctorCheck {
 	return doctorCheck{Name: doctorCheckNetwork, Status: doctorStatusSkipped, Message: "not checked; no network request was sent", ActionableMessage: "rerun with --confirm to test the provider"}
 }
 
-//nolint:gocognit // This report intentionally enumerates independent local diagnostics in one stable order.
 func collectDoctorReport(ctx context.Context, deps doctorDeps) (doctorReport, *config.Config) {
 	report := doctorReport{SchemaVersion: 1, Checks: []doctorCheck{}}
 	cfg, configErr := deps.loadConfig()
@@ -216,25 +218,7 @@ func collectDoctorReport(ctx context.Context, deps doctorDeps) (doctorReport, *c
 	} else {
 		addDoctorCheck(&report, doctorCheck{Name: doctorCheckProvider, Status: doctorStatusSkipped, Message: "provider checks skipped because configuration is unavailable", ActionableMessage: "fix configuration first"})
 	}
-	zevDir := config.GetZevDir()
-	if err := deps.checkDirectory(zevDir); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			addDoctorCheck(&report, doctorCheck{Name: doctorCheckZevDir, Status: doctorStatusWarning, Message: "~/.zev does not exist yet", ActionableMessage: "run zev setup or create a private ~/.zev directory"})
-		} else {
-			addDoctorCheck(&report, doctorCheck{Name: doctorCheckZevDir, Status: doctorStatusError, Message: "~/.zev is not accessible or private", ActionableMessage: "fix the directory type, ownership and permissions"})
-		}
-	} else {
-		addDoctorCheck(&report, doctorCheck{Name: doctorCheckZevDir, Status: doctorStatusOK, Message: "~/.zev is accessible and private", ActionableMessage: doctorActionNone})
-	}
-	if err := deps.checkHistory(ctx, filepath.Join(zevDir, "history.db")); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			addDoctorCheck(&report, doctorCheck{Name: doctorCheckHistory, Status: doctorStatusWarning, Message: "history database is not initialized", ActionableMessage: "run a query once to initialize local history"})
-		} else {
-			addDoctorCheck(&report, doctorCheck{Name: doctorCheckHistory, Status: doctorStatusError, Message: "history database could not be read", ActionableMessage: "check history.db permissions/schema or recover the legacy history file"})
-		}
-	} else {
-		addDoctorCheck(&report, doctorCheck{Name: doctorCheckHistory, Status: doctorStatusOK, Message: "history database is readable", ActionableMessage: doctorActionNone})
-	}
+	appendDoctorStorageChecks(ctx, &report, deps)
 	if err := checkDoctorCLIModes(); err != nil {
 		addDoctorCheck(&report, doctorCheck{Name: "cli_modes", Status: doctorStatusError, Message: "machine CLI modes are unavailable", ActionableMessage: "check zev --print, zev --json and --option parsing"})
 	} else {
@@ -247,6 +231,33 @@ func collectDoctorReport(ctx context.Context, deps doctorDeps) (doctorReport, *c
 	}
 	finalizeDoctorReport(&report)
 	return report, cfg
+}
+
+func appendDoctorStorageChecks(ctx context.Context, report *doctorReport, deps doctorDeps) {
+	zevDir, err := config.GetZevDir()
+	if err != nil {
+		addDoctorCheck(report, doctorCheck{Name: doctorCheckZevDir, Status: doctorStatusError, Message: err.Error(), ActionableMessage: "set the home environment variable to an absolute trusted directory"})
+		addDoctorCheck(report, doctorCheck{Name: doctorCheckHistory, Status: doctorStatusSkipped, Message: "history check skipped because the home directory is invalid", ActionableMessage: "fix the home environment variable first"})
+		return
+	}
+	if err := deps.checkDirectory(zevDir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			addDoctorCheck(report, doctorCheck{Name: doctorCheckZevDir, Status: doctorStatusWarning, Message: "~/.zev does not exist yet", ActionableMessage: "run zev setup or create a private ~/.zev directory"})
+		} else {
+			addDoctorCheck(report, doctorCheck{Name: doctorCheckZevDir, Status: doctorStatusError, Message: "~/.zev is not accessible or private", ActionableMessage: "fix the directory type, ownership and permissions"})
+		}
+	} else {
+		addDoctorCheck(report, doctorCheck{Name: doctorCheckZevDir, Status: doctorStatusOK, Message: "~/.zev is accessible and private", ActionableMessage: doctorActionNone})
+	}
+	if err := deps.checkHistory(ctx, filepath.Join(zevDir, "history.db")); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			addDoctorCheck(report, doctorCheck{Name: doctorCheckHistory, Status: doctorStatusWarning, Message: "history database is not initialized", ActionableMessage: "run a query once to initialize local history"})
+		} else {
+			addDoctorCheck(report, doctorCheck{Name: doctorCheckHistory, Status: doctorStatusError, Message: "history database could not be read", ActionableMessage: "check history.db permissions/schema or recover the legacy history file"})
+		}
+	} else {
+		addDoctorCheck(report, doctorCheck{Name: doctorCheckHistory, Status: doctorStatusOK, Message: "history database is readable", ActionableMessage: doctorActionNone})
+	}
 }
 
 func appendProviderChecks(report *doctorReport, cfg *config.Config) {
