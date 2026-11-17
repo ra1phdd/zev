@@ -355,10 +355,10 @@ or `;` alone do not mark a command dangerous. Warnings for destructive operation
 shell execution from pipeline input, substitutions and output redirection remain;
 provider-supplied warnings are preserved. Absence of a warning is not a safety guarantee.
 
-Translations live in root `locale/*.toml` and are embedded into the binary. No locale
+Translations live in root `locale/query.*.toml` and `locale/{cli,tools,ui}.*.toml` and are embedded into the binary. No locale
 files are needed beside the installed executable. Add translations to the matching
 English/Russian catalogs, keeping stable message IDs, printf placeholders, and CLI tokens intact.
-Go code references named constants from `locale/keys.go`, not English sentences; changing
+Go code references named constants from `internal/core/locale/keys.go`, not English sentences; changing
 an English translation does not change its message ID.
 Machine JSON keys/statuses, suggested commands, script contents, provider responses, and
 saved history are not translated. Lower-level system/library errors may remain English.

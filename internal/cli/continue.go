@@ -12,12 +12,12 @@ import (
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/core/httpclient"
+	"github.com/ra1phdd/zev/internal/core/locale"
 	historyrepo "github.com/ra1phdd/zev/internal/entities/history/repository"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/ra1phdd/zev/internal/entities/query/repository"
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
 	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
-	"github.com/ra1phdd/zev/locale"
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
 	"github.com/spf13/cobra"
 )

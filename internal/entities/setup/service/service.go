@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/ra1phdd/zev/internal/core/config"
-	"github.com/ra1phdd/zev/locale"
+	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/ra1phdd/zev/pkg/tui/list"
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
 )

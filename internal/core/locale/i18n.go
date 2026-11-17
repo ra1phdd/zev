@@ -2,18 +2,25 @@
 package locale
 
 import (
-	"embed"
 	"io/fs"
 	"os"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
+	"github.com/ra1phdd/zev"
 	"golang.org/x/text/language"
 )
 
-//go:embed *.toml
-var files embed.FS
+func mustCatalogFiles() fs.FS {
+	files, err := fs.Sub(zev.LocaleFiles, "locale")
+	if err != nil {
+		panic(err)
+	}
+	return files
+}
+
+var files = mustCatalogFiles()
 
 var (
 	bundle     = newBundle()
@@ -42,10 +49,10 @@ func newSourceKeys() map[string]Key {
 		panic(err)
 	}
 	for _, path := range paths {
-		if path != "en.toml" && !strings.HasSuffix(path, ".en.toml") {
+		if !strings.HasSuffix(path, ".en.toml") {
 			continue
 		}
-		data, err := files.ReadFile(path)
+		data, err := fs.ReadFile(files, path)
 		if err != nil {
 			panic(err)
 		}

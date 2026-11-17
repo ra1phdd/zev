@@ -7,10 +7,10 @@ import (
 	"text/tabwriter"
 
 	"github.com/ra1phdd/zev/internal/core/config"
+	"github.com/ra1phdd/zev/internal/core/locale"
 	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
 	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
-	"github.com/ra1phdd/zev/locale"
 	"github.com/spf13/cobra"
 )
 

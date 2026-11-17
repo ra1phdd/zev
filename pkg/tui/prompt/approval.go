@@ -6,7 +6,7 @@ import (
 	"io"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/ra1phdd/zev/locale"
+	"github.com/ra1phdd/zev/internal/core/locale"
 )
 
 // ApprovalOptions identifies the exact action and the diagnostic output stream.

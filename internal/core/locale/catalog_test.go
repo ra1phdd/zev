@@ -17,7 +17,7 @@ func TestCatalogsHaveMatchingMessagesAndFormatVerbs(t *testing.T) {
 	}
 	catalogs := map[string]map[string]map[string]string{"en": {}, "ru": {}}
 	for _, path := range paths {
-		data, readErr := files.ReadFile(path)
+		data, readErr := fs.ReadFile(files, path)
 		if readErr != nil {
 			t.Fatal(readErr)
 		}

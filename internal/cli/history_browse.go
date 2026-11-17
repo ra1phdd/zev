@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
-	"github.com/ra1phdd/zev/locale"
 	"github.com/ra1phdd/zev/pkg/tui/list"
 	"github.com/spf13/cobra"
 )

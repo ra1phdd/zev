@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a reproducible problem in Zev
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues first. Do not include API keys, tokens, personal data, or private command history.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the actual behaviour and the behaviour you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: Include the smallest safe command sequence and configuration details.
+      placeholder: |
+        1. Run `...`
+        2. Configure `...`
+        3. See `...`
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Zev version
+      placeholder: "1.0.0 or output of `zev version`"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system and architecture
+      placeholder: "macOS 15 arm64, Ubuntu 24.04 amd64, Windows ..."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Paste a redacted error or diagnostic output. Remove secrets and private data.
+      render: text
+    validations:
+      required: false

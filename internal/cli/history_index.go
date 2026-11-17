@@ -8,9 +8,9 @@ import (
 
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/core/httpclient"
+	"github.com/ra1phdd/zev/internal/core/locale"
 	historyclient "github.com/ra1phdd/zev/internal/entities/history/client"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
-	"github.com/ra1phdd/zev/locale"
 	"github.com/spf13/cobra"
 )
 

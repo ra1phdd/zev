@@ -63,7 +63,7 @@ func TestAllCatalogEntriesUseNamedStableIDs(t *testing.T) {
 	}
 	catalogIDs := make(map[string]struct{})
 	for _, path := range paths {
-		data, readErr := files.ReadFile(path)
+		data, readErr := fs.ReadFile(files, path)
 		if readErr != nil {
 			t.Fatal(readErr)
 		}
@@ -133,7 +133,7 @@ func loadTestCatalogs(t *testing.T) map[string]map[string]map[string]string {
 	t.Helper()
 	catalogs := map[string]map[string]map[string]string{"en": {}, "ru": {}}
 	for _, path := range []string{"ui.en.toml", "ui.ru.toml", "tools.en.toml", "tools.ru.toml"} {
-		data, err := files.ReadFile(path)
+		data, err := fs.ReadFile(files, path)
 		if err != nil {
 			t.Fatal(err)
 		}

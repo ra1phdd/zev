@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
-	"github.com/ra1phdd/zev/locale"
+	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/ra1phdd/zev/pkg/tui/list"
 )
 

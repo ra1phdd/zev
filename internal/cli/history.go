@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/ra1phdd/zev/locale"
+	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/spf13/cobra"
 )
 

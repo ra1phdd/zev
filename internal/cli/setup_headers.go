@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/ra1phdd/zev/internal/core/config"
-	"github.com/ra1phdd/zev/locale"
+	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
 	"github.com/spf13/cobra"
 )

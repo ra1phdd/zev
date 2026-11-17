@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest an improvement to Zev
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues first. For provider, TUI, configuration, storage, execution, security, or architecture changes, explain the trade-offs clearly.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What user problem or workflow gap does this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behaviour you would like, including an example if useful.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches or workarounds did you consider?
+    validations:
+      required: false
+  - type: textarea
+    id: scope
+    attributes:
+      label: Additional context
+      description: Add compatibility concerns, screenshots, links, or constraints. Do not include secrets.
+    validations:
+      required: false

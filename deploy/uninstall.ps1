@@ -3,7 +3,9 @@
     Zev uninstaller for Windows — removes the zev.exe binary.
 
 .DESCRIPTION
-    Removes the zev binary from the installation directory.
+    Removes the zev binary from the installation directory and asks whether to
+    remove configuration, history, aliases and scripts from ~/.zev (default: keep).
+    Set ZEV_REMOVE_CONFIG=1 to explicitly remove this directory without prompting.
 
     Run it from PowerShell:
         irm https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.ps1 | iex
@@ -42,8 +44,35 @@ if (-not (Test-Path -LiteralPath $binary)) {
     exit 0
 }
 
+$configDir = Join-Path $HOME '.zev'
+$removeConfig = $false
+if (Test-Path -LiteralPath $configDir -PathType Container) {
+    if ($env:ZEV_REMOVE_CONFIG -eq '1') {
+        $removeConfig = $true
+    }
+    else {
+        try {
+            $answer = Read-Host "Remove configuration and user data in $configDir? This deletes history, aliases and scripts [y/N]"
+            if ($answer -match '^(?i:y|yes)$') {
+                $removeConfig = $true
+            }
+            else {
+                Write-Info "Keeping $configDir"
+            }
+        }
+        catch {
+            Write-Info "Keeping $configDir (non-interactive uninstall)"
+        }
+    }
+}
+
 Write-Info "Removing $binary"
 Remove-Item -LiteralPath $binary -Force
+
+if ($removeConfig) {
+    Write-Info "Removing $configDir"
+    Remove-Item -LiteralPath $configDir -Recurse -Force
+}
 
 Write-Info "Uninstalled"
 

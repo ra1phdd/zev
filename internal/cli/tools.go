@@ -12,9 +12,9 @@ import (
 
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/locale"
 	toolrepo "github.com/ra1phdd/zev/internal/entities/tool/repository"
 	toolservice "github.com/ra1phdd/zev/internal/entities/tool/service"
-	"github.com/ra1phdd/zev/locale"
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"

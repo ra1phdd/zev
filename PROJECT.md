@@ -304,8 +304,8 @@ GoReleaser уже использует `-s -w` и `-trimpath`.
   Disabled query history не открывает БД. CLI semantic composition, index maintenance
   и cursor input доступны; детали — в [Истории](docs/ru/HISTORY.md). Полный cosine scan
   имеет сложность O(N × dimensions), постоянная задержка не гарантирована.
-- CLI/TUI используют именованные ключи из `locale/keys.go`; английские и русские
-  тексты находятся в embedded TOML-каталогах `locale/`, а не в местах вызова.
+- CLI/TUI используют именованные ключи из `internal/core/locale/keys.go`; английские и русские
+  тексты находятся в TOML-каталогах `locale/`, встраиваемых через корневой `embed.go`, а не в местах вызова.
 
 Это описание существующих ограничений, а не разрешение ослаблять проверки или
 расширять scope изменений. Изменение исполнения команд, контекстов или файловых
@@ -318,7 +318,7 @@ GoReleaser уже использует `-s -w` и `-trimpath`.
 - [История](docs/ru/HISTORY.md) — постоянное хранилище, миграция, поиск и semantic opt-in.
 - [Спецификация алиасов и скриптов](docs/ru/ALIASES-SCRIPTS-SPEC.md) — draft-контракт метаданных, CLI и миграции.
 - [Архитектура](docs/ru/ARCHITECTURE.md) — пакеты и порт провайдера.
-- [Разработка](docs/ru/DEVELOPMENT.md) и [участие](docs/ru/CONTRIBUTING.md) — команды и правила.
+- [Разработка](docs/ru/DEVELOPMENT.md) и [участие](CONTRIBUTING.ru.md) — команды и правила.
 - [CHANGELOG.md](CHANGELOG.md) — пользовательские изменения по существующим релизам.
 - [DELICIOUS.md](DELICIOUS.md) — индекс ADR; сейчас список решений пуст.
 - Go-контракт провайдера — [domain/provider.go](internal/core/domain/provider.go),

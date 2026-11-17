@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ra1phdd/zev/internal/core/config"
-	"github.com/ra1phdd/zev/locale"
+	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/spf13/cobra"
 )
 

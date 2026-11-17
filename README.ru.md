@@ -6,6 +6,7 @@
     <img src="https://img.shields.io/badge/Go-1.27+-00ADD8?style=flat&logo=go&logoColor=white" alt="Go">
     <img src="https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat" alt="Платформы">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="Лицензия">
+    <a href="https://github.com/ra1phdd/zev/actions/workflows/ci.yml"><img src="https://github.com/ra1phdd/zev/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
 <img src="assets/zev.ru.gif" width="346" alt="Zev в действии">
@@ -194,7 +195,7 @@ export OLLAMA_MODEL=qwen2.5-coder
 - [Архитектура](docs/ru/ARCHITECTURE.md) — карта пакетов, путь запроса, контракты
   провайдеров
 - [Разработка](docs/ru/DEVELOPMENT.md) — make-цели, TDD, соглашения проекта
-- [Contributing](docs/ru/CONTRIBUTING.md) — как предложить и принять изменение
+- [Contributing](CONTRIBUTING.ru.md) — как предложить и принять изменение
 - [Профиль проекта](PROJECT.md) — факты о репозитории и эксплуатационные ограничения
 - [Changelog](CHANGELOG.md) — история релизов
 
@@ -222,6 +223,13 @@ curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.s
 irm https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.ps1 | iex
 ```
 
+Деинсталлятор спросит, удалять ли также `~/.zev` (в Windows — `%USERPROFILE%\.zev`).
+Ответьте `y`, только если нужно удалить конфигурацию, историю, алиасы и скрипты;
+по умолчанию они сохраняются. Для неинтерактивного запуска задайте
+`ZEV_REMOVE_CONFIG=1`, чтобы явно удалить этот каталог. В shell-конвейере передайте
+переменную процессу, который запускает скрипт:
+`curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.sh | ZEV_REMOVE_CONFIG=1 bash`.
+
 Или удалите бинарник вручную:
 
 ```bash
@@ -234,10 +242,42 @@ REM Windows
 del %LOCALAPPDATA%\Programs\zev\zev.exe
 ```
 
-## Contributing
+## Контрибуция
 
-Приветствуем вклад — читайте [гайд по участию](docs/ru/CONTRIBUTING.md).
+Приветствуем вклад — читайте [гайд по участию](CONTRIBUTING.ru.md).
 
 ## Лицензия
 
 Проект лицензирован по MIT License — см. файл [LICENSE](LICENSE).
+
+## THIRD_PARTY
+
+Zev использует следующие прямые сторонние Go-модули. Версии зафиксированы в
+[`go.mod`](go.mod); [`go.sum`](go.sum) содержит контрольные суммы модулей. На каждую зависимость
+распространяются её собственные лицензия и уведомления об авторских правах.
+
+| Зависимость | Версия | Лицензия |
+|---|---:|---|
+| [BurntSushi/toml](https://github.com/BurntSushi/toml) | `v1.6.0` | MIT |
+| [whatlanggo](https://github.com/abadojack/whatlanggo) | `v1.0.1` | MIT |
+| [clipboard](https://github.com/atotto/clipboard) | `v0.1.4` | BSD-3-Clause |
+| [env](https://github.com/caarlos0/env) | `v11.4.1` | MIT |
+| [Bubbles](https://github.com/charmbracelet/bubbles) | `v1.0.0` | MIT |
+| [Bubble Tea](https://github.com/charmbracelet/bubbletea) | `v1.3.10` | MIT |
+| [Lip Gloss](https://github.com/charmbracelet/lipgloss) | `v1.1.0` | MIT |
+| [google/uuid](https://github.com/google/uuid) | `v1.6.0` | BSD-3-Clause |
+| [godotenv](https://github.com/joho/godotenv) | `v1.5.1` | MIT |
+| [snowball](https://github.com/kljensen/snowball) | `v0.10.0` | MIT |
+| [go-anthropic](https://github.com/liushuangls/go-anthropic) | `v2.25.0` | Apache-2.0 |
+| [go-i18n](https://github.com/nicksnyder/go-i18n) | `v2.7.0` | MIT |
+| [go-openai](https://github.com/sashabaranov/go-openai) | `v1.43.0` | Apache-2.0 |
+| [Cobra](https://github.com/spf13/cobra) | `v1.10.2` | Apache-2.0 |
+| [x/sys](https://pkg.go.dev/golang.org/x/sys) | `v0.49.0` | BSD-3-Clause |
+| [x/term](https://pkg.go.dev/golang.org/x/term) | `v0.47.0` | BSD-3-Clause |
+| [x/text](https://pkg.go.dev/golang.org/x/text) | `v0.43.0` | BSD-3-Clause |
+| [yaml.v3](https://github.com/go-yaml/yaml) | `v3.0.1` | MIT и Apache-2.0 |
+| [modernc.org/sqlite](https://gitlab.com/cznic/sqlite) | `v1.62.0` | BSD-3-Clause |
+
+Тексты лицензий и уведомления об авторских правах предоставлены соответствующими
+проектами. Таблица содержит прямые зависимости приложения; транзитивные зависимости
+разрешаются и фиксируются через Go-файлы модулей.

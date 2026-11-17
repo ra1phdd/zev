@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add contributor onboarding guides in English and Russian, a pull request template,
+  issue templates and a GitHub Actions verification workflow.
+
 - Add English and Russian CLI/TUI localization using embedded TOML catalogs in `locale/` and `go-i18n`.
 
 - Add `zev continue` and `zev query --continue` to restore the latest usable conversation with optional project context and command-error input.
@@ -37,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Configure with `TOOLS_ENABLED`/`TOOL_APPROVAL_MODE` or CLI flags; machine output
   requires explicit `--tools` and retains its stdout and final-command delivery contracts.
 - Add a demo animation to the English and Russian READMEs.
+- Add an explicit uninstall prompt for removing the user `.zev` configuration and data directory;
+  default uninstall keeps it, while `ZEV_REMOVE_CONFIG=1` opts into deletion.
 - Document the repository's actual architecture, configuration, storage, release
   workflow and operational limitations in `PROJECT.md`.
 - Add explicit formatting, race-test and tagged-test Make targets, with manual-test
@@ -44,6 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Move localization Go code into `internal/core/locale`, keep only TOML catalogs in `locale/`,
+  and rename the query catalogs to `query.en.toml` and `query.ru.toml`.
 - Refresh the README demos with separate English and Russian GIFs, unified JetBrains Mono Bold
   typography (16 pt commands and 14 pt secondary text), macOS-style window controls,
   non-overlapping command prompts and full command-description selection.

@@ -6,6 +6,7 @@
     <img src="https://img.shields.io/badge/Go-1.27+-00ADD8?style=flat&logo=go&logoColor=white" alt="Go">
     <img src="https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat" alt="Platforms">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+    <a href="https://github.com/ra1phdd/zev/actions/workflows/ci.yml"><img src="https://github.com/ra1phdd/zev/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
 <img src="assets/zev.gif" width="346" alt="Zev in action">
@@ -192,7 +193,7 @@ export OLLAMA_MODEL=qwen2.5-coder
 - [Aliases and scripts specification](docs/en/ALIASES-SCRIPTS-SPEC.md) — planned metadata, CLI, migration and argument contracts
 - [Architecture](docs/en/ARCHITECTURE.md) — package map, query flow, provider contracts
 - [Development](docs/en/DEVELOPMENT.md) — make targets, TDD workflow, conventions
-- [Contributing](docs/en/CONTRIBUTING.md) — how to propose and land a change
+- [Contributing](CONTRIBUTING.md) — how to propose and land a change
 - [Project profile](PROJECT.md) — repository facts and operational limitations
 - [Changelog](CHANGELOG.md) — release history
 
@@ -220,6 +221,12 @@ curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.s
 irm https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.ps1 | iex
 ```
 
+The uninstaller asks whether to remove `~/.zev` (or the Windows `%USERPROFILE%\.zev`)
+too. Answer `y` only if you want to delete configuration, history, aliases and scripts;
+the default is to keep them. For non-interactive use, set `ZEV_REMOVE_CONFIG=1` to remove
+that directory explicitly. In a shell pipeline, pass it to the shell running the script:
+`curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.sh | ZEV_REMOVE_CONFIG=1 bash`.
+
 Or manually remove the binary:
 
 ```bash
@@ -234,8 +241,40 @@ del %LOCALAPPDATA%\Programs\zev\zev.exe
 
 ## Contributing
 
-Contributions are welcome — read the [Contributing Guide](docs/en/CONTRIBUTING.md).
+Contributions are welcome — read the [Contributing Guide](CONTRIBUTING.md).
 
 ## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file.
+
+## THIRD_PARTY
+
+Zev uses the following direct third-party Go modules. Versions are pinned in
+[`go.mod`](go.mod); [`go.sum`](go.sum) records module checksums.
+Each dependency remains subject to its own license and copyright notices.
+
+| Dependency | Version | License |
+|---|---:|---|
+| [BurntSushi/toml](https://github.com/BurntSushi/toml) | `v1.6.0` | MIT |
+| [whatlanggo](https://github.com/abadojack/whatlanggo) | `v1.0.1` | MIT |
+| [clipboard](https://github.com/atotto/clipboard) | `v0.1.4` | BSD-3-Clause |
+| [env](https://github.com/caarlos0/env) | `v11.4.1` | MIT |
+| [Bubbles](https://github.com/charmbracelet/bubbles) | `v1.0.0` | MIT |
+| [Bubble Tea](https://github.com/charmbracelet/bubbletea) | `v1.3.10` | MIT |
+| [Lip Gloss](https://github.com/charmbracelet/lipgloss) | `v1.1.0` | MIT |
+| [google/uuid](https://github.com/google/uuid) | `v1.6.0` | BSD-3-Clause |
+| [godotenv](https://github.com/joho/godotenv) | `v1.5.1` | MIT |
+| [snowball](https://github.com/kljensen/snowball) | `v0.10.0` | MIT |
+| [go-anthropic](https://github.com/liushuangls/go-anthropic) | `v2.25.0` | Apache-2.0 |
+| [go-i18n](https://github.com/nicksnyder/go-i18n) | `v2.7.0` | MIT |
+| [go-openai](https://github.com/sashabaranov/go-openai) | `v1.43.0` | Apache-2.0 |
+| [Cobra](https://github.com/spf13/cobra) | `v1.10.2` | Apache-2.0 |
+| [x/sys](https://pkg.go.dev/golang.org/x/sys) | `v0.49.0` | BSD-3-Clause |
+| [x/term](https://pkg.go.dev/golang.org/x/term) | `v0.47.0` | BSD-3-Clause |
+| [x/text](https://pkg.go.dev/golang.org/x/text) | `v0.43.0` | BSD-3-Clause |
+| [yaml.v3](https://github.com/go-yaml/yaml) | `v3.0.1` | MIT and Apache-2.0 |
+| [modernc.org/sqlite](https://gitlab.com/cznic/sqlite) | `v1.62.0` | BSD-3-Clause |
+
+License texts and copyright notices are provided by the respective upstream
+projects. This table covers direct application dependencies; transitive dependencies
+are resolved and integrity-pinned through the Go module files.

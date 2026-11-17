@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Zev uninstaller for Linux and macOS — removes the zev binary.
+# Zev uninstaller for Linux and macOS — removes the binary and optionally user data.
+# Set ZEV_REMOVE_CONFIG=1 to explicitly remove ~/.zev without prompting.
 #
 #   curl -fsSL https://raw.githubusercontent.com/ra1phdd/zev/main/deploy/uninstall.sh | bash
 #   PREFIX=$HOME/.local/bin curl -fsSL .../uninstall.sh | bash
@@ -40,12 +41,41 @@ else
 	SUDO=""
 fi
 
+config_dir=""
+if [ -n "${HOME:-}" ]; then
+	config_dir="$HOME/.zev"
+fi
+remove_config=false
+if [ -n "$config_dir" ] && [ -d "$config_dir" ]; then
+	if [ "${ZEV_REMOVE_CONFIG:-}" = "1" ]; then
+		remove_config=true
+	elif { exec 3<> /dev/tty; } 2>/dev/null; then
+		printf 'Remove configuration and user data in %s? This deletes history, aliases and scripts [y/N] ' "$config_dir" >&3
+		if IFS= read -r answer <&3; then
+			case "$answer" in
+				y|Y|yes|YES|Yes) remove_config=true ;;
+				*) info "Keeping $config_dir" ;;
+			esac
+		else
+			info "Keeping $config_dir (no confirmation received)"
+		fi
+		exec 3>&-
+	else
+		info "Keeping $config_dir (non-interactive uninstall)"
+	fi
+fi
+
 info "Removing $binary"
 
 if [ -n "$SUDO" ]; then
 	$SUDO rm -f "$binary"
 else
 	rm -f "$binary"
+fi
+
+if [ "$remove_config" = true ]; then
+	info "Removing $config_dir"
+	rm -rf -- "$config_dir"
 fi
 
 info "Uninstalled"

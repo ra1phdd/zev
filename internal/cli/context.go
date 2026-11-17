@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/ra1phdd/zev/internal/core/contextfile"
-	"github.com/ra1phdd/zev/locale"
+	"github.com/ra1phdd/zev/internal/core/locale"
 )
 
 func projectContextSection(value string) string {

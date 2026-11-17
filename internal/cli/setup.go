@@ -3,8 +3,8 @@ package cli
 import (
 	"fmt"
 
+	"github.com/ra1phdd/zev/internal/core/locale"
 	setupservice "github.com/ra1phdd/zev/internal/entities/setup/service"
-	"github.com/ra1phdd/zev/locale"
 	"github.com/spf13/cobra"
 )
 

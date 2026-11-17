@@ -10,6 +10,7 @@ import (
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/core/httpclient"
+	"github.com/ra1phdd/zev/internal/core/locale"
 	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
 	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
@@ -17,7 +18,6 @@ import (
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
 	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
 	scriptrepo "github.com/ra1phdd/zev/internal/entities/script/repository"
-	"github.com/ra1phdd/zev/locale"
 	"github.com/spf13/cobra"
 )
 

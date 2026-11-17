@@ -156,7 +156,7 @@ are in `AGENTS.md` and `CLAUDE.md`. The short version:
 - Functions with more than three arguments take a named parameter struct, with
   `context.Context` always first and never inside the struct.
 - CLI routing and presentation live in `internal/cli`; `cmd/zev` is a thin launcher.
-- Locale call sites use named constants from `locale/keys.go`; translated text lives
+- Locale call sites use named constants from `internal/core/locale/keys.go`; translated text lives
   in the English/Russian TOML catalogs. Technical guides belong in `docs/`.
 
 ## Architecture reference

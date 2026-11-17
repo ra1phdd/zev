@@ -205,7 +205,7 @@ func runShellFixture(t *testing.T, checksumKind, archiveKind string, hideHasher 
 	}
 	return executeFixture(t, filepath.Join(repoRoot(t), "deploy", "install.sh"), []string{"-v", installerVersion}, map[string]string{
 		"PATH":                path,
-		"PREFIX":              prefix,
+		prefixEnv:             prefix,
 		fixtureDirEnv:         fixtureDir,
 		"ZEV_INSTALL_LOG":     filepath.Join(root, "install.log"),
 		"ZEV_TEST_NO_NETWORK": "1",
@@ -227,7 +227,7 @@ func runShellFixtureWithVersion(t *testing.T, version string) fixtureResult {
 	mustChmod(t, filepath.Join(binDir, "curl"), filepath.Join(binDir, "install"))
 	return executeFixture(t, filepath.Join(repoRoot(t), "deploy", "install.sh"), []string{"-v", version}, map[string]string{
 		"PATH":            binDir + string(os.PathListSeparator) + os.Getenv("PATH"),
-		"PREFIX":          prefix,
+		prefixEnv:         prefix,
 		fixtureDirEnv:     fixtureDir,
 		"ZEV_INSTALL_LOG": filepath.Join(root, "install.log"),
 	})
@@ -290,7 +290,7 @@ func executeFixture(t *testing.T, script string, args []string, extra map[string
 			installLog = string(data)
 		}
 	}
-	prefix := extra["PREFIX"]
+	prefix := extra[prefixEnv]
 	if prefix == "" {
 		prefix = extra["ZEV_PREFIX"]
 	}
