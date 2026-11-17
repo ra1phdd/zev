@@ -183,6 +183,26 @@ are 0 for success, 2 for arguments/selection errors, 3 for provider/configuratio
 aliases without execution. Saved scripts are not printed automatically; use `zev script show
 <name>` to inspect their body.
 
+
+## `zev doctor`
+
+`zev doctor` first performs local-only checks: configuration loading, selected provider,
+required model, API-key configuration, base URL syntax, execution mode, shell/editor
+availability, private `~/.zev` permissions, read-only history access and CLI mode parsing.
+It does not claim that a configured key works; only an explicitly confirmed network check can
+verify provider functionality.
+
+```bash
+zev doctor             # static checks, then interactive yes/no confirmation
+zev doctor --print     # static checks only, human-readable output
+zev doctor --json      # static checks only, schema-versioned JSON
+zev doctor --confirm   # static checks plus one real provider request
+zev doctor --json --confirm
+```
+
+JSON uses `schema_version: 1`, top-level `status`, `checks` and `actionable_message`.
+Doctor never prints API keys, custom header values, provider URLs or response bodies.
+
 ## Command execution mode
 
 `zev setup mode` controls how suggestions are handled:

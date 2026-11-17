@@ -35,6 +35,7 @@ func main() {
 	rootCmd.AddCommand(newQueryCmd())
 	rootCmd.AddCommand(newHistoryCmd())
 	rootCmd.AddCommand(newSetupCmd())
+	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.AddCommand(newAliasCmd())
 	rootCmd.AddCommand(newScriptCmd())
 	rootCmd.AddCommand(newVersionCmd())

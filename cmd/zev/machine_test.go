@@ -124,7 +124,7 @@ func TestMachineFlags(t *testing.T) {
 		code   int
 	}{
 		{args: []string{machinePrintFlag, historyValidationQuery}, option: 1},
-		{args: []string{"--json", machineOptionFlag, "2", historyValidationQuery}, option: 2},
+		{args: []string{historyJSONFlag, machineOptionFlag, "2", historyValidationQuery}, option: 2},
 		{args: []string{machinePrintFlag, "--option=3", historyValidationQuery}, option: 3},
 		{args: []string{machinePrintFlag, machineOptionFlag, "0", historyValidationQuery}, code: 2},
 		{args: []string{machinePrintFlag, machineOptionFlag, "oops", historyValidationQuery}, code: 2},
