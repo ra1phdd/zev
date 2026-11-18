@@ -39,6 +39,9 @@ jobs:
       - name: Run race tests
         run: make test-race
 
+      - name: Run end-to-end and deployment integration tests
+        run: make test-e2e
+
       - name: Build
         run: make build
 

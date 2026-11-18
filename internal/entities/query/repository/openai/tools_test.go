@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
@@ -269,6 +270,9 @@ func TestCompleteToolTurnNetworkError(t *testing.T) {
 	turn, err := provider.CompleteToolTurn(t.Context(), domain.ToolRequest{EnableTools: true})
 	if err == nil || turn != nil {
 		t.Fatalf("network failure = (%+v, %v), want error and no turn", turn, err)
+	}
+	if strings.Contains(err.Error(), url) || strings.Contains(err.Error(), toolKey) {
+		t.Fatalf("network error leaked endpoint or credential: %v", err)
 	}
 }
 

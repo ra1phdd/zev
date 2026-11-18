@@ -221,20 +221,10 @@ CRUD и named execution. `zev --help`, `version` и query, завершивши�
 не создают metadata files. Если active file отсутствует, считается пустое хранилище;
 если он read-only или malformed, операция завершается без записи.
 
-После успешной миграции хотя бы одной записи при первом interactive startup Zev показывает
-локализованное сообщение с количеством migrated aliases/scripts и спрашивает:
-`Generate descriptions and argument metadata automatically with the configured AI? [y/N]`.
-По умолчанию — No. Offer записывается в migration marker и показывается не более одного
-раза. При согласии Zev генерирует недостающие metadata для migrated records в deterministic
-name order по правилам §7. Ошибка отдельного field предупреждается и оставляет field пустым;
-ошибка одной записи не откатывает migration и не останавливает следующие. Offer не
-показывается в `--help`, `version`, migration-only recovery или non-interactive invocation.
-Non-interactive startup сообщает о миграции в stderr без вопросов и оставляет предложение
-до следующего интерактивного запуска. Одно подтверждение разрешает передачу выбранных
-мигрированных записей и сохранение корректных generated fields; отдельных consent/candidate
-диалогов для каждой записи нет. Существующие непустые metadata сохраняются. Отмена
-останавливает обогащение, не откатывая миграцию и уже записанные metadata; предложение
-автоматически не повторяется.
+После успешной миграции записи остаются пригодными без AI-обогащения. Одноразовое
+post-migration enrichment, durable offer state и bulk consent перенесены в следующий
+вертикальный срез; этот релиз их не заявляет.
+Предложение об обогащении в этом релизе не показывается, не сохраняется и не выполняется.
 
 Каждый migrator использует ровно тот же canonical lock identity и lock order, что и
 соответствующий repository. Гарантии распространяются на cooperating writers; произвольная

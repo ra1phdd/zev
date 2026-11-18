@@ -3,16 +3,20 @@ package service
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/entities/script/repository"
 )
 
-const safeScriptName = "safe"
+const (
+	safeScriptName        = "safe"
+	testScriptName        = "test"
+	testScriptDescription = "Test script"
+)
 
-// newTestService создаёт сервис скриптов с репозиторием во временной директории.
-// t.TempDir() уникален для каждого теста, поэтому тесты изолированы и не
-// разделяют глобальное состояние.
+// newTestService creates an isolated script service and storage directory.
 func newTestService(t *testing.T) (*Service, string) {
 	t.Helper()
 
@@ -25,24 +29,20 @@ func newTestService(t *testing.T) (*Service, string) {
 }
 
 func TestServiceCreate(t *testing.T) {
+	t.Parallel()
 	svc, tmpDir := newTestService(t)
 
-	// Пропускаем открытие редактора в тестах
-	t.Setenv("SKIP_EDITOR", "1")
-
-	// Создаём скрипт
-	err := svc.CreateContext(t.Context(), "test", "Test script")
+	err := svc.Create(t.Context(), domain.Script{Name: testScriptName, ScriptFile: "test.sh", Description: testScriptDescription}, []byte("#!/bin/bash\nexit 0\n"))
 	if err != nil {
 		t.Fatalf("Failed to create script: %v", err)
 	}
 
-	// Проверяем, что файл создан
 	scriptPath := filepath.Join(tmpDir, "script_files", "test.sh")
-	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-		t.Error("Script file was not created")
+	body, err := os.ReadFile(filepath.Clean(scriptPath))
+	if err != nil || string(body) != "#!/bin/bash\nexit 0\n" {
+		t.Fatalf("created body = %q, error = %v", body, err)
 	}
 
-	// Проверяем метаданные
 	scripts, err := svc.List()
 	if err != nil {
 		t.Fatalf("Failed to list scripts: %v", err)
@@ -52,32 +52,28 @@ func TestServiceCreate(t *testing.T) {
 		t.Fatalf("Expected 1 script, got %d", len(scripts))
 	}
 
-	if scripts[0].Name != "test" || scripts[0].Description != "Test script" {
+	if scripts[0].Name != testScriptName || scripts[0].Description != testScriptDescription {
 		t.Errorf("Unexpected script metadata: %+v", scripts[0])
 	}
 }
 
 func TestServiceRemove(t *testing.T) {
+	t.Parallel()
 	svc, tmpDir := newTestService(t)
 
-	t.Setenv("SKIP_EDITOR", "1")
-
-	// Создаём и удаляем скрипт
-	if err := svc.CreateContext(t.Context(), "test", "Test script"); err != nil {
+	if err := svc.Create(t.Context(), domain.Script{Name: testScriptName, ScriptFile: "test.sh", Description: testScriptDescription}, []byte("#!/bin/bash\nexit 0\n")); err != nil {
 		t.Fatalf("Failed to create script: %v", err)
 	}
 
-	if err := svc.Remove("test"); err != nil {
+	if err := svc.Remove(testScriptName); err != nil {
 		t.Fatalf("Failed to remove script: %v", err)
 	}
 
-	// Проверяем, что файл удалён
 	scriptPath := filepath.Join(tmpDir, "script_files", "test.sh")
 	if _, err := os.Stat(scriptPath); !os.IsNotExist(err) {
 		t.Error("Script file was not removed")
 	}
 
-	// Проверяем, что метаданные удалены
 	scripts, err := svc.List()
 	if err != nil {
 		t.Fatalf("Failed to list scripts: %v", err)
@@ -89,16 +85,14 @@ func TestServiceRemove(t *testing.T) {
 }
 
 func TestServiceList(t *testing.T) {
+	t.Parallel()
 	svc, _ := newTestService(t)
 
-	t.Setenv("SKIP_EDITOR", "1")
-
-	// Создаём несколько скриптов
-	if err := svc.CreateContext(t.Context(), "script1", "First script"); err != nil {
-		t.Fatalf("Failed to create script1: %v", err)
+	if err := svc.Create(t.Context(), domain.Script{Name: "zeta", ScriptFile: "zeta.sh", Description: "Last script"}, []byte("exit 0\n")); err != nil {
+		t.Fatalf("Failed to create zeta: %v", err)
 	}
-	if err := svc.CreateContext(t.Context(), "script2", "Second script"); err != nil {
-		t.Fatalf("Failed to create script2: %v", err)
+	if err := svc.Create(t.Context(), domain.Script{Name: "alpha", ScriptFile: "alpha.sh", Description: "First script"}, []byte("exit 0\n")); err != nil {
+		t.Fatalf("Failed to create alpha: %v", err)
 	}
 
 	scripts, err := svc.List()
@@ -108,5 +102,29 @@ func TestServiceList(t *testing.T) {
 
 	if len(scripts) != 2 {
 		t.Errorf("Expected 2 scripts, got %d", len(scripts))
+	}
+	if len(scripts) == 2 && (scripts[0].Name != "alpha" || scripts[1].Name != "zeta") {
+		t.Fatalf("scripts are not sorted by name: %#v", scripts)
+	}
+}
+
+func TestExecuteValidatesRequiredArgumentsBeforeLaunch(t *testing.T) {
+	t.Parallel()
+	svc, _ := newTestService(t)
+	script := domain.Script{
+		Name:       safeScriptName,
+		ScriptFile: safeScriptFile,
+		Arguments:  []domain.Argument{{Name: "environment", Description: "target environment", Required: true}},
+	}
+	marker := filepath.Join(t.TempDir(), "launched")
+	if err := svc.repo.Create(t.Context(), script, []byte("#!/bin/bash\ntouch "+marker+"\nexit 0\n")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.Execute(t.Context(), safeScriptName, nil); err == nil || !strings.Contains(err.Error(), `script "safe" requires argument 1: environment — target environment`) {
+		t.Fatalf("Execute() error = %v, want required argument diagnostic", err)
+	}
+	if _, statErr := os.Stat(marker); !os.IsNotExist(statErr) {
+		t.Fatalf("script launched before required-argument validation: %v", statErr)
 	}
 }

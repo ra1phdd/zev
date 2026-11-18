@@ -32,13 +32,11 @@ func CheckReadable(ctx context.Context, path string) (err error) {
 	if err != nil {
 		return fmt.Errorf("resolve history: %w", err)
 	}
-	u := url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}
-	q := u.Query()
+	q := url.Values{}
 	q.Set("mode", "ro")
 	q.Add("_pragma", "query_only(1)")
 	q.Add("_pragma", "busy_timeout(1000)")
-	u.RawQuery = q.Encode()
-	db, err := sql.Open("sqlite", u.String())
+	db, err := sql.Open("sqlite", historySQLiteURL(abs, q))
 	if err != nil {
 		return fmt.Errorf("open read-only history: %w", err)
 	}

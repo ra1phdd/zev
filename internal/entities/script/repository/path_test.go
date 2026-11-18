@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/metadata"
 )
 
 func testDir(t *testing.T) string {
@@ -22,6 +23,7 @@ func testDir(t *testing.T) string {
 const (
 	safeName        = "safe"
 	safeFile        = "safe.sh"
+	scriptBody      = "body"
 	ancestorSymlink = "ancestor symlink"
 	metadataSymlink = "metadata symlink"
 )
@@ -88,13 +90,17 @@ func TestLoadAllRejectsUnsafeMetadata(t *testing.T) {
 	}
 }
 
-func TestOpenScriptReturnsPinnedHandle(t *testing.T) {
+func TestOpenScriptPinnedReturnsPinnedHandle(t *testing.T) {
 	t.Parallel()
 	repo := New(testDir(t))
 	if err := repo.Create(t.Context(), domain.Script{Name: safeName, ScriptFile: safeFile}, []byte("body")); err != nil {
 		t.Fatal(err)
 	}
-	file, err := repo.OpenScript(t.Context(), safeFile)
+	scripts, err := repo.LoadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := repo.OpenScriptPinned(t.Context(), scripts[safeName], nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,12 +109,12 @@ func TestOpenScriptReturnsPinnedHandle(t *testing.T) {
 	if readErr != nil || closeErr != nil {
 		t.Fatalf("read or close pinned script: read=%v close=%v", readErr, closeErr)
 	}
-	if string(data) != "body" {
+	if string(data) != scriptBody {
 		t.Fatalf("script = %q, want body", data)
 	}
 }
 
-func TestOpenScriptRejectsSymlinksAndNonRegularFiles(t *testing.T) {
+func TestOpenScriptPinnedRejectsSymlinksAndNonRegularFiles(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"file symlink", "dangling symlink", "internal symlink", "directory file", "scripts symlink", "nested symlink", ancestorSymlink} {
 		t.Run(kind, func(t *testing.T) {
@@ -155,7 +161,15 @@ func TestOpenScriptRejectsSymlinksAndNonRegularFiles(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			opened, err := New(dir).OpenScript(t.Context(), file)
+			script := domain.Script{Name: safeName, ScriptFile: file, RecordID: "550e8400-e29b-41d4-a716-446655440000"}
+			encoded, err := metadata.EncodeScripts(map[string]domain.Script{safeName: script})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "scripts"), encoded, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			opened, err := New(dir).OpenScriptPinned(t.Context(), script, nil)
 			if opened != nil {
 				if err := opened.Close(); err != nil {
 					t.Error(err)

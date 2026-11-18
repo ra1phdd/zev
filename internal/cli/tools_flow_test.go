@@ -134,7 +134,7 @@ func writeToolHTTPResponse(t *testing.T, w io.Writer, content string) {
 	}
 }
 
-func TestToolPolicyCancellationBeforeProvider(t *testing.T) {
+func TestToolSettingsRespectPrivacyAndExplicitOptIn(t *testing.T) {
 	t.Parallel()
 	cfg := config.DefaultConfig()
 	enabled, mode := resolveToolSettings(cfg, parsedFlags{NoContext: true})

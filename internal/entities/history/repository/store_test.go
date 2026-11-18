@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+const historyWindowsOS = "windows"
+
 func TestOpenDoesNotImportLegacySource(t *testing.T) {
 	t.Parallel()
 	dir := filepath.Join(t.TempDir(), "zev")
@@ -50,7 +52,7 @@ func TestOpenCreatesPrivateDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm()&0o077 != 0 {
+	if runtime.GOOS != historyWindowsOS && info.Mode().Perm()&0o077 != 0 {
 		t.Fatalf("database permissions: %o", info.Mode().Perm())
 	}
 	var version int
@@ -102,7 +104,7 @@ func TestOpenSecuresExistingDatabaseSidecars(t *testing.T) {
 		if statErr != nil {
 			t.Fatal(statErr)
 		}
-		if info.Mode().Perm()&0o077 != 0 {
+		if runtime.GOOS != historyWindowsOS && info.Mode().Perm()&0o077 != 0 {
 			t.Fatalf("%s permissions: %o", name, info.Mode().Perm())
 		}
 	}

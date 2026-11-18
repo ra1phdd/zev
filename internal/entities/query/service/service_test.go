@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
@@ -16,13 +18,17 @@ const (
 
 // mockProvider для тестов.
 type mockProvider struct {
-	name     string
-	model    string
-	response *domain.OptionsResponse
-	err      error
+	name       string
+	model      string
+	response   *domain.OptionsResponse
+	err        error
+	prompt     string
+	envContext string
 }
 
-func (m *mockProvider) GetOptions(_ context.Context, _ string, _ string) (*domain.OptionsResponse, error) {
+func (m *mockProvider) GetOptions(_ context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
+	m.prompt = prompt
+	m.envContext = envContext
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -53,6 +59,10 @@ func TestGetOptions(t *testing.T) {
 				ShortExplanation: "List all files",
 				IsDangerous:      false,
 			},
+			{
+				Command:     "rm -rf ./tmp",
+				IsDangerous: false,
+			},
 		},
 		IsValid: true,
 	}
@@ -69,11 +79,17 @@ func TestGetOptions(t *testing.T) {
 		t.Fatalf("GetOptions failed: %v", err)
 	}
 
-	if len(resp.Commands) != 1 {
-		t.Errorf("expected 1 command, got %d", len(resp.Commands))
+	if mock.prompt != "list files" || mock.envContext == "" {
+		t.Fatalf("provider request prompt=%q env=%q", mock.prompt, mock.envContext)
+	}
+	if len(resp.Commands) != 2 {
+		t.Fatalf("expected 2 commands, got %d", len(resp.Commands))
 	}
 	if resp.Commands[0].Command != testCommand {
 		t.Errorf("expected command='ls -la', got %s", resp.Commands[0].Command)
+	}
+	if !resp.Commands[1].IsDangerous || resp.Commands[1].DangerousExplanation == "" {
+		t.Fatalf("local safety validation did not mark dangerous command: %+v", resp.Commands[1])
 	}
 }
 
@@ -104,8 +120,7 @@ func TestGetEnvContext(t *testing.T) {
 	if ctx == "" {
 		t.Error("expected non-empty env context")
 	}
-	// Проверяем, что содержит OS
-	if len(ctx) < 5 {
-		t.Errorf("expected env context to contain OS info, got: %s", ctx)
+	if !strings.Contains(ctx, "OS: "+runtime.GOOS) || !strings.Contains(ctx, "Architecture: "+runtime.GOARCH) {
+		t.Fatalf("expected env context to contain OS and architecture, got: %s", ctx)
 	}
 }

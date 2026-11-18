@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -115,13 +116,15 @@ func TestQueryPrivacyControls(t *testing.T) {
 }
 
 func TestQuerySessionCancellationBeforeUI(t *testing.T) {
-	t.Parallel()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	cmd := &cobra.Command{}
 	cmd.SetContext(ctx)
 	err := runSetupHeaders(cmd, nil)
-	if err == nil {
-		t.Fatal("canceled header setup succeeded")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled header setup error = %v, want context.Canceled", err)
 	}
 }

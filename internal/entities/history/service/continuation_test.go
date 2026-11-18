@@ -3,6 +3,7 @@ package service_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -220,8 +221,11 @@ func TestRestoreConversationSelectionContext(t *testing.T) {
 			if tc.executionError != "" && !strings.Contains(content, "[COMMAND_ERROR]\n"+tc.executionError+"\n[/COMMAND_ERROR]") {
 				t.Fatalf("missing error context: %q", content)
 			}
-			if tc.exit != nil && !strings.Contains(content, "Observed exit code: ") {
-				t.Fatalf("missing exit code: %q", content)
+			if tc.exit != nil {
+				wantExit := fmt.Sprintf("Observed exit code: %d", *tc.exit)
+				if !strings.Contains(content, wantExit) {
+					t.Fatalf("missing exit code %q: %q", wantExit, content)
+				}
 			}
 			if strings.Contains(content, "was executed") || strings.Contains(content, "ran successfully") {
 				t.Fatalf("unobserved execution claim: %q", content)

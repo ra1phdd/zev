@@ -13,13 +13,19 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
+const editableBodyFixture = "original complete script"
+
 func createEditableScript(t *testing.T) (*Repository, *os.File) {
 	t.Helper()
 	r := New(testDir(t))
-	if err := r.Create(t.Context(), domain.Script{Name: safeName, ScriptFile: safeFile}, []byte("original complete script")); err != nil {
+	if err := r.Create(t.Context(), domain.Script{Name: safeName, ScriptFile: safeFile}, []byte(editableBodyFixture)); err != nil {
 		t.Fatal(err)
 	}
-	original, err := r.OpenScript(t.Context(), safeFile)
+	script, _, err := r.CaptureScript(t.Context(), safeName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original, err := r.OpenScriptPinned(t.Context(), script, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,19 +37,55 @@ func createEditableScript(t *testing.T) (*Repository, *os.File) {
 	return r, original
 }
 
-func TestReplaceScriptRejectsConcurrentStaleEditors(t *testing.T) {
-	t.Parallel()
-	r, original := createEditableScript(t)
-	second := New(filepath.Dir(r.scriptsYAMLPath))
-	stale, err := second.OpenScript(t.Context(), safeFile)
+func captureEditableSource(t *testing.T, r *Repository) BodySnapshot {
+	t.Helper()
+	_, source, err := r.CaptureScript(t.Context(), safeName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := stale.Close(); err != nil {
-			t.Error(err)
+	return source
+}
+
+func TestOpenScriptPinnedHoldsStoreLockThroughOpen(t *testing.T) {
+	t.Parallel()
+	r, _ := createEditableScript(t)
+	all, err := r.LoadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := all[safeName]
+	removeStarted := make(chan struct{})
+	removeDone := make(chan error, 1)
+	file, err := r.OpenScriptPinned(t.Context(), script, func(domain.Script) error {
+		go func() {
+			close(removeStarted)
+			removeDone <- r.Remove(safeName)
+		}()
+		<-removeStarted
+		select {
+		case err := <-removeDone:
+			return fmt.Errorf("remove completed before pinned open returned: %w", err)
+		default:
+			return nil
 		}
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(file)
+	if closeErr := file.Close(); err != nil || closeErr != nil || string(body) != editableBodyFixture {
+		t.Fatalf("pinned body = %q, read=%v close=%v", body, err, closeErr)
+	}
+	if err := <-removeDone; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReplaceScriptRejectsConcurrentStaleEditors(t *testing.T) {
+	t.Parallel()
+	r, original := createEditableScript(t)
+	source := captureEditableSource(t, r)
+	second := New(filepath.Dir(r.scriptsYAMLPath))
 	type result struct {
 		content string
 		err     error
@@ -51,12 +93,12 @@ func TestReplaceScriptRejectsConcurrentStaleEditors(t *testing.T) {
 	results := make(chan result, 2)
 	start := make(chan struct{})
 	var wg sync.WaitGroup
-	for i, file := range []*os.File{original, stale} {
+	for i := range 2 {
 		wg.Go(func() {
 			<-start
 			content := []string{"first edit", "second edit"}[i]
 			repo := []*Repository{r, second}[i]
-			results <- result{content: content, err: repo.ReplaceScript(t.Context(), safeFile, file, []byte(content))}
+			results <- result{content: content, err: repo.ReplaceScript(t.Context(), ReplaceParams{Source: source, Body: []byte(content)})}
 		})
 	}
 	close(start)
@@ -78,7 +120,7 @@ func TestReplaceScriptRejectsConcurrentStaleEditors(t *testing.T) {
 		t.Fatalf("winning edit = %q, error = %v, want %q", data, err, winner)
 	}
 	data, err = io.ReadAll(original)
-	if err != nil || string(data) != "original complete script" {
+	if err != nil || string(data) != editableBodyFixture {
 		t.Fatalf("pinned original changed: %q, error = %v", data, err)
 	}
 	info, err := os.Stat(filepath.Join(r.scriptsDir, safeFile))
@@ -96,7 +138,8 @@ func TestReplaceScriptFailurePreservesPreviousFile(t *testing.T) {
 	for _, stage := range []string{"write", "sync", "rename"} {
 		t.Run(stage, func(t *testing.T) {
 			t.Parallel()
-			r, original := createEditableScript(t)
+			r, _ := createEditableScript(t)
+			source := captureEditableSource(t, r)
 			r.replaceWrite = (*os.File).Write
 			r.replaceSync = (*os.File).Sync
 			r.replaceRename = (*os.Root).Rename
@@ -113,11 +156,11 @@ func TestReplaceScriptFailurePreservesPreviousFile(t *testing.T) {
 			case "rename":
 				r.replaceRename = func(*os.Root, string, string) error { return failure }
 			}
-			if err := r.ReplaceScript(t.Context(), safeFile, original, []byte("replacement")); err == nil {
+			if err := r.ReplaceScript(t.Context(), ReplaceParams{Source: source, Body: []byte("replacement")}); err == nil {
 				t.Fatal("replacement succeeded despite injected failure")
 			}
 			data, err := os.ReadFile(filepath.Clean(filepath.Join(r.scriptsDir, safeFile)))
-			if err != nil || string(data) != "original complete script" {
+			if err != nil || string(data) != editableBodyFixture {
 				t.Fatalf("previous file changed: %q, error = %v", data, err)
 			}
 			entries, err := os.ReadDir(r.scriptsDir)

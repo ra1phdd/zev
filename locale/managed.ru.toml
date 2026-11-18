@@ -1,0 +1,6 @@
+["managed.help_alone"]
+other = "Справка сущности должна быть единственным аргументом перед --"
+["managed.missing_argument"]
+other = "%s %q требует аргумент %d: %s — %s\nиспользование: %s\nсправка: zev %s --help"
+["managed.entity_help"]
+other = "%s %s\n%s\nИсточник: %s\nДиалект: argv-safe (алиасы); Bash argv (скрипты)\nИспользование: %s\nПример: %s\nПозиция\tИмя\tОбязательный\tОписание\n"

@@ -30,9 +30,9 @@ make build
 | `make install` | `go install` into `$GOPATH/bin` |
 | `make test` | `go vet ./...` followed by `go test ./...` |
 | `make test-race` | `go test -race ./...` |
-| `make test-integration` | Tests with the `integration` build tag |
+| `make test-integration` | Compatibility alias for the black-box `e2e` gate |
 | `make test-e2e` | Tests with the `e2e` build tag |
-| `make test-manual ALLOW_MANUAL_TESTS=1` | Explicitly authorized manual tests, refused in CI |
+| `make test-manual ALLOW_MANUAL_TESTS=1` | Explicitly authorized manual tests; fails clearly when no manual-tagged tests are defined and is refused in CI |
 | `make lint` | Check gofmt/gofumpt/goimports, run golangci-lint with fixes, report dead code for `APP` |
 | `make fmt` | Apply gofmt, goimports and gofumpt |
 | `make check` | Lint + tests |
@@ -122,17 +122,35 @@ Committing with open linter findings is not allowed.
 ## Tests
 
 - Unit tests are fast and isolated, and live next to the code they cover.
-- Integration tests use the `integration` build tag:
+- Black-box integration and end-to-end tests live under `e2e/` and use the `e2e` build tag:
 
 ```bash
 make test-integration
 ```
 
 Unit tests live next to their packages and do not require provider credentials or a
-running LLM. Black-box tests live in `e2e/` behind the `e2e` tag; `make test-e2e`
-builds and exercises the actual CLI with isolated homes and local HTTP fixtures.
+running LLM. Black-box integration and end-to-end tests live in `e2e/` behind the `e2e`
+tag; `make test-e2e` builds and exercises the actual CLI plus deployment fixtures with
+isolated homes and local HTTP/shell fixtures. `make test-integration` is a compatibility
+alias for this gate. Deployment fixtures require Bash, PowerShell (`pwsh`), and the
+standard archive/checksum utilities; missing prerequisites fail explicitly rather
+than reporting a verified installation.
 Use `make test-race` separately for concurrency checks. Do not run manual tests
 without explicit authorization.
+
+Metadata tests use local HTTP fixtures to verify provider routing/authentication,
+request payloads, response-body cleanup, cancellation and UTF-8/size/depth limits.
+Setup tests persist all five provider configurations in an isolated home, including
+Ollama without an API-key prompt. Built-binary metadata tests cover explicit generation,
+readback in another process, per-field failure fallback and network-free ordinary CRUD.
+Unix alias execution tests cover shell selection, exit status and interrupt handling.
+These fixtures do not contact a real LLM or prove the quality of generated metadata.
+
+Keep test-only helpers in `*_test.go`; tests in another package should use public
+behavior with isolated configuration rather than importing a test-only helper.
+Before deleting a deadcode candidate, check production and test references plus
+platform/tagged callers. Compare `deadcode ./cmd/zev`, `deadcode -test ./cmd/zev`
+and `deadcode -test ./...` for the supported platforms.
 
 Hardening tests cover provider response limits, history/terminal validation,
 cooperative file updates and post-commit errors, confined script paths and stale

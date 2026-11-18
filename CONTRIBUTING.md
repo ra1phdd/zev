@@ -115,8 +115,11 @@ make clean
 `git diff` after it runs. The `deadcode` output is a report to investigate, not an
 automatic instruction to delete exported or platform-specific code.
 
-Integration, e2e, and manual tests are separate from the default unit suite. Manual
-tests require explicit authorization and must not run in CI:
+Integration, e2e, and manual tests are separate from the default unit suite. The repository's
+black-box integration scenarios live under `e2e/` and use the `e2e` build tag; the legacy
+`make test-integration` target is a compatibility alias for `make test-e2e`. Manual tests
+require explicit authorization and must not run in CI. If no tests carry the `manual`
+tag, the target fails clearly instead of reporting a false green result:
 
 ```bash
 make test-integration

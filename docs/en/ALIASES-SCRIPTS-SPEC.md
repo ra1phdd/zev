@@ -224,20 +224,11 @@ and named execution. `zev --help`, `version`, and a query that ends before named
 not create metadata files. A missing active file means an empty store; a read-only or
 malformed file ends the operation without writing.
 
-After a successful migration that converted at least one record, the first interactive Zev
-startup shows a localized message with the number of migrated aliases/scripts and asks:
-`Generate descriptions and argument metadata automatically with the configured AI? [y/N]`.
-The default is No. This offer is recorded in the migration marker and is shown at most once.
-If the user accepts, Zev generates missing metadata for migrated records in deterministic
-name order, using the metadata-generation rules in §7. Each field failure warns and leaves
-that field empty; one failed record never rolls back migration or prevents later records.
-The offer is not shown during `--help`, `version`, migration-only recovery, or a non-interactive
-invocation. Non-interactive startup reports migration on stderr without prompting and keeps
-the offer pending for the next interactive startup. The single bulk confirmation covers
-sending the selected migrated records and saving valid generated fields; it does not open
-per-record consent or candidate-review dialogs. Existing nonempty metadata is preserved.
-Cancellation stops enrichment without undoing migration or already saved metadata; the offer
-is not automatically repeated.
+After a successful migration, migrated records remain usable without AI enrichment. The
+post-migration one-time enrichment offer, durable offer state, and bulk consent flow are
+deferred to a follow-up slice; this release does not claim to provide them.
+
+The deferred enrichment flow is not shown, persisted, or attempted by this release.
 
 Each migrator uses exactly the same canonical lock identity and lock order as its repository.
 Guarantees apply to cooperating writers; arbitrary writes that bypass the lock are outside

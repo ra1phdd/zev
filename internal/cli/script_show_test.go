@@ -19,7 +19,7 @@ func TestScriptShowPrintsExactBodyWithoutExecutingIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := "#!/usr/bin/env bash\nprintf 'marker' > " + filepath.Join(home, "marker") + "\n"
-	if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte("safe:\n  script: safe.sh\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte("version: 2\nscripts:\n  safe:\n    recordID: 550e8400-e29b-41d4-a716-446655440000\n    script: safe.sh\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "script_files", scriptShowFixture+".sh"), []byte(body), 0o700); err != nil { //nolint:gosec // Test fixture uses an isolated temporary directory.
@@ -81,7 +81,7 @@ func TestScriptShowReturnsOutputError(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "script_files"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte("safe:\n  script: safe.sh\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte("version: 2\nscripts:\n  safe:\n    recordID: 550e8400-e29b-41d4-a716-446655440000\n    script: safe.sh\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "script_files", scriptShowFixture+".sh"), []byte("body"), 0o700); err != nil { //nolint:gosec // Test fixture uses an isolated temporary directory.

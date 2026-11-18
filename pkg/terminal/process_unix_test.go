@@ -14,8 +14,7 @@ import (
 )
 
 func TestExecuteCancellationKillsShellDescendants(t *testing.T) {
-	t.Parallel()
-
+	t.Setenv("SHELL", "/bin/sh")
 	readyPath := filepath.Join(t.TempDir(), "child-pid")
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)

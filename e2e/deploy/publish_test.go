@@ -1,3 +1,5 @@
+//go:build e2e
+
 package deploy_test
 
 import (
@@ -12,6 +14,7 @@ import (
 
 func TestReleasePublicationOrderAndFailures(t *testing.T) {
 	t.Parallel()
+	requireBash(t)
 	for _, scenario := range []struct {
 		name       string
 		corrupt    bool

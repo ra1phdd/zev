@@ -2,13 +2,14 @@ package repository_test
 
 import (
 	"testing"
+
+	"github.com/ra1phdd/zev/internal/entities/query/repository"
 )
 
 func TestUserPromptTemplateContainsOnlyPromptPlaceholder(t *testing.T) {
 	t.Parallel()
 
-	got := "list files"
-	if got != "list files" {
-		t.Fatalf("user prompt = %q, want %q", got, "list files")
+	if repository.UserPromptTemplate != "%s" {
+		t.Fatalf("user prompt template = %q, want only %%s placeholder", repository.UserPromptTemplate)
 	}
 }

@@ -1,3 +1,5 @@
+//go:build e2e
+
 package deploy_test
 
 import (
@@ -88,7 +90,8 @@ func TestReleaseEntrypointsUseGatedPublisher(t *testing.T) {
 
 func TestReleaseGateFailurePreventsTagAndArtifactPublication(t *testing.T) {
 	t.Parallel()
-	for _, gate := range []string{releaseSuccess, "fmt", "lint", "test", "test-race", "build", "dirty", "tag-conflict", "goreleaser", "hook-dirty", "checksum", releasePush} {
+	requireBash(t)
+	for _, gate := range []string{releaseSuccess, "fmt", "lint", "test", "test-race", "test-e2e", "build", "dirty", "untracked", "untracked-toml", "tag-conflict", "goreleaser", "hook-dirty", "hook-untracked", "hook-untracked-toml", "checksum", releasePush} {
 		t.Run(gate, func(t *testing.T) {
 			t.Parallel()
 			root := t.TempDir()
@@ -114,6 +117,10 @@ printf 'make %s\n' "$*" >> "$ZEV_PUBLICATION_LOG"
 set -eu
 case "$1" in
   diff) [ "$ZEV_FAIL_GATE" != dirty ] && [ ! -f DIRTY ]; exit $? ;;
+  ls-files)
+    if [ "$ZEV_FAIL_GATE" = untracked ] || { [ "$ZEV_FAIL_GATE" = hook-untracked ] && [ -f UNTRACKED ]; }; then printf 'internal/cli/untracked.go\n'; fi
+    if [ "$ZEV_FAIL_GATE" = untracked-toml ] || { [ "$ZEV_FAIL_GATE" = hook-untracked-toml ] && [ -f UNTRACKED_TOML ]; }; then printf 'locale/untracked.toml\n'; fi
+    exit 0 ;;
   rev-parse)
     if [ "$ZEV_FAIL_GATE" = tag-conflict ] && [ "$2" = v1.2.3 ]; then printf conflicting; exit 0; fi
     if [ "$2" = HEAD ]; then printf head; exit 0; fi
@@ -130,6 +137,8 @@ printf 'goreleaser %s\n' "$*" >> "$ZEV_PUBLICATION_LOG"
 [ "$ZEV_FAIL_GATE" != goreleaser ]
 if [ "$ZEV_FAIL_GATE" = checksum ]; then printf corrupt > dist/zev_1.2.3_linux_amd64.tar.gz; fi
 if [ "$ZEV_FAIL_GATE" = hook-dirty ]; then printf dirty > DIRTY; fi
+if [ "$ZEV_FAIL_GATE" = hook-untracked ]; then printf untracked > UNTRACKED; fi
+if [ "$ZEV_FAIL_GATE" = hook-untracked-toml ]; then printf untracked > UNTRACKED_TOML; fi
 `,
 				"gh": `#!/bin/sh
 set -eu
@@ -149,10 +158,14 @@ printf 'gh %s\n' "$*" >> "$ZEV_PUBLICATION_LOG"
 				t.Fatalf("release error = %v, output: %s", err, output)
 			}
 			calls, err := os.ReadFile(log) //nolint:gosec // Log path is private to this test's temporary directory.
-			if err != nil {
+			if err != nil && !os.IsNotExist(err) {
 				t.Fatal(err)
 			}
 			published := strings.Contains(string(calls), "git push") || strings.Contains(string(calls), "gh release")
+			preTagGate := gate == "fmt" || gate == "lint" || gate == "test" || gate == "test-race" || gate == "test-e2e" || gate == "build" || gate == "dirty" || gate == "untracked" || gate == "untracked-toml" || gate == "tag-conflict"
+			if preTagGate && strings.Contains(string(calls), "git tag") {
+				t.Fatalf("failed %s gate created a tag: %s", gate, calls)
+			}
 			if gate != releaseSuccess && gate != releasePush && published {
 				t.Fatalf("failed %s gate published: %s", gate, calls)
 			}
@@ -160,7 +173,7 @@ printf 'gh %s\n' "$*" >> "$ZEV_PUBLICATION_LOG"
 				t.Fatalf("failed tag push published artifacts: %s", calls)
 			}
 			if gate == releaseSuccess {
-				want := fmt.Sprintf("make fmt\nmake lint\nmake test\nmake test-race\nmake build VERSION=%s\ngit tag -a v%s -m Release v%s\ngoreleaser release --clean --skip=publish\ngit push origin v%s\ngh release create v%s dist/checksums.txt --draft --verify-tag --title v%s --generate-notes\ngh release upload v%s dist/%s\ngh release edit v%s --draft=false\n", installerVersion, installerVersion, installerVersion, installerVersion, installerVersion, installerVersion, installerVersion, archive, installerVersion)
+				want := fmt.Sprintf("make fmt\nmake lint\nmake test\nmake test-race\nmake test-e2e\nmake build VERSION=%s\ngit tag -a v%s -m Release v%s\ngoreleaser release --clean --skip=publish\ngit push origin v%s\ngh release create v%s dist/checksums.txt --draft --verify-tag --title v%s --generate-notes\ngh release upload v%s dist/%s\ngh release edit v%s --draft=false\n", installerVersion, installerVersion, installerVersion, installerVersion, installerVersion, installerVersion, installerVersion, archive, installerVersion)
 				if string(calls) != want {
 					t.Fatalf("release sequence:\n%s\nwant:\n%s", calls, want)
 				}

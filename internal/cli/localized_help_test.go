@@ -18,7 +18,7 @@ func TestRussianHelpKeepsCommandTokens(t *testing.T) {
 	if err := root.Help(); err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"Использование:", "Доступные команды:", historyValidationQuery, "--help"} {
+	for _, expected := range []string{"Использование:", "Доступные команды:", historyValidationQuery, entityHelpFlag} {
 		if !strings.Contains(out.String(), expected) {
 			t.Errorf("help missing %q: %s", expected, out.String())
 		}

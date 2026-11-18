@@ -331,15 +331,6 @@ func getConfigPath() (string, error) {
 	return filepath.Join(dir, "config"), nil
 }
 
-// SetConfigPathForTests overrides the config path and returns its previous override.
-// An empty path restores home-based resolution. Nonempty paths must be absolute.
-// It changes global state and must not be called concurrently with config operations.
-func SetConfigPathForTests(newPath string) string {
-	old := configPathForTests
-	configPathForTests = newPath
-	return old
-}
-
 // ErrInvalidHome indicates that the platform home environment variable is missing
 // or not absolute. Callers can classify resolution failures with errors.Is.
 var ErrInvalidHome = errors.New("home directory must be set to an absolute path")

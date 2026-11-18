@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add managed aliases and scripts with strict v2 metadata, argv-safe execution, descriptions,
+  ordered positional arguments, CRUD/help/machine flows, and crash-recoverable migration/publication.
+  Legacy data is archived only after verified migration; keep a backup before upgrading and do not
+  downgrade to a version that cannot read the v2 store. Optional metadata generation is explicit and
+  never required for successful migration. Post-migration bulk enrichment and its one-time
+  startup consent are deferred to a follow-up release slice.
+
 - Add contributor onboarding guides in English and Russian, a pull request template,
   issue templates and a GitHub Actions verification workflow.
 
@@ -46,6 +53,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workflow and operational limitations in `PROJECT.md`.
 - Add explicit formatting, race-test and tagged-test Make targets, with manual-test
   authorization and CI guards, formatter/tool preflight checks and deadcode reporting.
+- Harden tests against ambient configuration and deployment environment, make Windows
+  permission assertions platform-aware, strengthen YAML/lexical/security boundaries,
+  remove tautological domain tests, and fail the manual gate when no manual tests exist.
+- Add offline metadata boundary/provider tests, persisted setup coverage for all five providers,
+  and built-binary metadata generation/fallback and Unix alias execution checks.
 
 ### Changed
 
@@ -67,6 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   migrator; opening the SQLite repository no longer imports or archives legacy data.
 - Move black-box CLI and migration-concurrency tests into `e2e/`; `make test-e2e`
   builds and exercises the actual executable. Move the tool adapter guide into docs.
+- Move deployment-script integration tests into `e2e/deploy/` and include them in
+  `make test-e2e`; preserve `make test-integration` as an alias for that gate.
+  Deployment fixtures require Bash and PowerShell explicitly, outside the unit suite.
 - Add opt-in `HISTORY_SEMANTIC_ENABLED=false` and separate OpenAI-compatible embedding
   settings, including the 32768-byte input limit and remote-text disclosure. Both query
   recording and explicit history commands invoke the explicit legacy migrator when needed.
@@ -126,6 +141,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   editor saves rather than overwriting a newer cooperating edit. Serialize script
   metadata/body changes with rollback for pre-commit failures, without claiming
   crash-atomic multi-file transactions.
+- Classify migration archive publication marker failures as committed-but-unknown,
+  remove completed migration markers during recovery, and reject shell re-evaluation
+  and Bash reserved-word alias templates before persistence.
+- Refuse Windows script execution until a verified handle-safe Bash transport exists;
+  do not pass script bodies through a shell command-line fallback.
+- Build SQLite file URIs correctly for Windows drive and UNC paths so migrated
+  history databases open and persist query history on native Windows.
 - Propagate CLI signal cancellation through provider calls, retry waits, TUI input,
   editors and command execution; clean up owned process groups/jobs and preserve
   child exit errors. Detached Unix children and externally brokered processes are

@@ -18,15 +18,11 @@ import (
 	"github.com/ra1phdd/zev/internal/core/filestore"
 	"github.com/ra1phdd/zev/internal/core/httpclient"
 	"github.com/ra1phdd/zev/internal/core/locale"
-	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
-	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
 	historyrepo "github.com/ra1phdd/zev/internal/entities/history/repository"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/ra1phdd/zev/internal/entities/query/repository"
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
 	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
-	scriptrepo "github.com/ra1phdd/zev/internal/entities/script/repository"
-	scriptservice "github.com/ra1phdd/zev/internal/entities/script/service"
 	"github.com/ra1phdd/zev/pkg/terminal"
 	"github.com/ra1phdd/zev/pkg/tui/list"
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
@@ -242,6 +238,15 @@ func parseArgsFlags(args []string) parsedFlags {
 }
 
 func runQuery(cmd *cobra.Command, args []string) error {
+	if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
+		if err := cmd.Help(); err != nil {
+			return fmt.Errorf("show query help: %w", err)
+		}
+		return nil
+	}
+	if handled, err := dispatchOriginalArgs(cmd, args); handled {
+		return err
+	}
 	parsed := parseArgsFlags(args)
 	configured, err := config.LoadUILanguage()
 	if err != nil {
@@ -313,9 +318,6 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 		return errors.New(locale.Text(locale.KeyQueryPromptCannotEmpty))
 	}
 	locale.UpdateRequestLanguage(userPrompt)
-	if handled, err := executeNamedQuery(cmd.Context(), userPrompt, logger); handled {
-		return err
-	}
 	httpClient := httpclient.New(cfg.HTTPHeaders, logger)
 	provider, err := factory.NewProvider(cfg, httpClient)
 	if err != nil {
@@ -382,35 +384,6 @@ func openQueryHistory(ctx context.Context) (*historyrepo.Store, error) {
 		return nil, fmt.Errorf("open history database: %w", err)
 	}
 	return store, nil
-}
-
-func executeNamedQuery(ctx context.Context, userPrompt string, logger *slog.Logger) (bool, error) {
-	parts := strings.Fields(userPrompt)
-	name, args := parts[0], parts[1:]
-	dir, err := config.GetZevDir()
-	if err != nil {
-		return true, fmt.Errorf("resolve Zev directory: %w", err)
-	}
-	aliasSvc := aliasservice.New(aliasrepo.New(dir))
-	resolved, err := aliasSvc.Resolve(name, args)
-	if err == nil {
-		logger.Debug("Alias resolved", "name", name)
-		if err := terminal.Execute(ctx, resolved); err != nil {
-			return true, fmt.Errorf("execute alias: %w", err)
-		}
-		return true, nil
-	}
-	if err != nil && !errors.Is(err, aliasservice.ErrAliasNotFound) {
-		return true, fmt.Errorf("resolve alias: %w", err)
-	}
-	scriptSvc := scriptservice.New(scriptrepo.New(dir))
-	if err := scriptSvc.Execute(ctx, name, args); err != nil {
-		if errors.Is(err, scriptservice.ErrScriptNotFound) {
-			return false, nil
-		}
-		return true, fmt.Errorf("execute script: %w", err)
-	}
-	return true, nil
 }
 
 // querySession owns only the active conversation and its interactive UI seams.

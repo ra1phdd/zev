@@ -22,6 +22,8 @@ func multipleLinks(info os.FileInfo) bool {
 
 func checkOpenedFile(*os.File) error { return nil }
 
+func requireCombinedTransactionSupport() error { return nil }
+
 func syncRootDirectory(root *os.Root) (err error) {
 	file, err := root.OpenFile(".", os.O_RDONLY|directoryFlags, 0)
 	if err != nil {

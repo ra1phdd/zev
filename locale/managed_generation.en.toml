@@ -1,0 +1,24 @@
+["managed.generation_warning"]
+other = "Warning: could not generate %s; preserving the previous value: %v\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["managed.remote_endpoint"]
+other = "remote endpoint"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["managed.local_endpoint"]
+other = "local address (may proxy remote traffic)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["managed.generation_disclosure"]
+other = "AI metadata request: provider=%s destination=%s (%s), %d UTF-8 bytes\nComplete source and supplied metadata that may be transmitted:\n%s\nGenerated fields will also be supplied to subsequent metadata requests.\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["managed.generation_confirm"]
+other = "Type yes to authorize transmission and save valid generated metadata"
+leftDelim = "[[["
+rightDelim = "]]]"

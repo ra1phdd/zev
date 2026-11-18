@@ -12,9 +12,8 @@ import (
 )
 
 func TestEditorUsesIsolatedCopy(t *testing.T) {
-	t.Setenv("SKIP_EDITOR", "1")
 	svc, dir := newTestService(t)
-	if err := svc.CreateContext(t.Context(), safeScriptName, "original"); err != nil {
+	if err := svc.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, []byte("original\n")); err != nil {
 		t.Fatal(err)
 	}
 	outside := filepath.Join(t.TempDir(), "sentinel")
@@ -36,10 +35,29 @@ func TestEditorUsesIsolatedCopy(t *testing.T) {
 	}
 }
 
-func TestEditorCommitsAtomicSave(t *testing.T) {
-	t.Setenv("SKIP_EDITOR", "1")
+func TestEditorRejectsInPlaceSourceRewrite(t *testing.T) {
 	svc, dir := newTestService(t)
-	if err := svc.CreateContext(t.Context(), safeScriptName, "original"); err != nil {
+	if err := svc.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, []byte("original\n")); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(dir, "script_files", safeScriptFile)
+	editor := filepath.Join(t.TempDir(), "editor")
+	source := fmt.Sprintf("#!/bin/sh\nset -eu\nprintf 'concurrent\\n' > %q\nprintf 'stale edit\\n' > \"$1\"\n", scriptPath)
+	if err := os.WriteFile(editor, []byte(source), 0o700); err != nil { //nolint:gosec // The private editor fixture must be executable.
+		t.Fatal(err)
+	}
+	t.Setenv("SCRIPT_EDITOR", editor)
+	if err := svc.OpenEditor(t.Context(), safeScriptName); err == nil {
+		t.Fatal("stale editor overwrote an in-place body rewrite")
+	}
+	if body, err := os.ReadFile(filepath.Clean(scriptPath)); err != nil || string(body) != "concurrent\n" {
+		t.Fatalf("concurrent body lost: %q, %v", body, err)
+	}
+}
+
+func TestEditorCommitsAtomicSave(t *testing.T) {
+	svc, dir := newTestService(t)
+	if err := svc.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, []byte("original\n")); err != nil {
 		t.Fatal(err)
 	}
 	editor := filepath.Join(t.TempDir(), "editor")
@@ -58,9 +76,9 @@ func TestEditorCommitsAtomicSave(t *testing.T) {
 }
 
 func TestEditorCancelledContext(t *testing.T) {
-	t.Setenv("SKIP_EDITOR", "1")
+	t.Parallel()
 	svc, _ := newTestService(t)
-	if err := svc.CreateContext(t.Context(), safeScriptName, "original"); err != nil {
+	if err := svc.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, []byte("original\n")); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())

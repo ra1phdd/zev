@@ -115,8 +115,21 @@ func TestAutoReviewIsIsolatedAndRequiredBeforeEveryExecution(t *testing.T) {
 				t.Fatalf("executed=%d restricted=%t", e.executed, e.restricted)
 			}
 			review := p.requests[1]
-			if review.EnableTools || len(review.Messages) != 0 || review.History.SystemPrompt != reviewInstructions || len(review.History.Messages) != 1 || strings.Contains(review.History.Messages[0].Content, "private conversation") {
+			if review.EnableTools || len(review.Messages) != 0 || review.History.SystemPrompt != reviewInstructions || len(review.History.Messages) != 1 {
 				t.Fatalf("review not isolated %+v", review)
+			}
+			var envelope struct {
+				Root    string             `json:"root"`
+				Request domain.ExecRequest `json:"request"`
+			}
+			if err := json.Unmarshal([]byte(review.History.Messages[0].Content), &envelope); err != nil {
+				t.Fatalf("review payload is not valid JSON: %v", err)
+			}
+			if envelope.Root != fixtureProjectRoot || envelope.Request.Command != "cat" || len(envelope.Request.Args) != 1 || envelope.Request.Args[0] != "README.md" || envelope.Request.Reason != "Understand the project" {
+				t.Fatalf("review payload = %+v", envelope)
+			}
+			if strings.Contains(review.History.Messages[0].Content, "private conversation") || strings.Contains(review.History.Messages[0].Content, "private primary instructions") {
+				t.Fatal("review payload leaked primary conversation")
 			}
 		})
 	}

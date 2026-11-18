@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -30,13 +31,13 @@ func TestCommandOutputErrors(t *testing.T) {
 	}{
 		{name: "version", newCommand: newVersionCmd},
 		{name: "empty aliases", newCommand: newAliasListCmd},
-		{name: "alias table", newCommand: newAliasListCmd, aliases: "hello: echo hello\n"},
+		{name: "alias table", newCommand: newAliasListCmd, aliases: "version: 2\naliases:\n  hello:\n    template: echo hello\n"},
 		{name: "add alias", newCommand: newAliasAddCmd, args: []string{name, "echo hello"}},
-		{name: "remove alias", newCommand: newAliasRemoveCmd, args: []string{name}, aliases: "hello: echo hello\n"},
+		{name: "remove alias", newCommand: newAliasRemoveCmd, args: []string{name}, aliases: "version: 2\naliases:\n  hello:\n    template: echo hello\n"},
 		{name: "empty scripts", newCommand: newScriptListCmd},
-		{name: "script table", newCommand: newScriptListCmd, scripts: "hello:\n  script: hello.sh\n  description: greeting\n"},
-		{name: "create script", newCommand: newScriptCreateCmd, args: []string{name, "greeting"}},
-		{name: "remove script", newCommand: newScriptRemoveCmd, args: []string{name}, scripts: "hello:\n  script: hello.sh\n"},
+		{name: "script table", newCommand: newScriptListCmd, scripts: "version: 2\nscripts:\n  hello:\n    recordID: 550e8400-e29b-41d4-a716-446655440000\n    script: hello.sh\n    description: greeting\n"},
+		{name: "create script", newCommand: newScriptCreateCmd, args: []string{name, "greeting", managedBodyStdinFlag}},
+		{name: "remove script", newCommand: newScriptRemoveCmd, args: []string{name}, scripts: "version: 2\nscripts:\n  hello:\n    recordID: 550e8400-e29b-41d4-a716-446655440000\n    script: hello.sh\n"},
 		{name: "empty history", newCommand: newHistoryCmd},
 	}
 	for _, tt := range tests {
@@ -60,6 +61,7 @@ func TestCommandOutputErrors(t *testing.T) {
 			}
 			outputErr := errors.New("output unavailable")
 			cmd := tt.newCommand()
+			cmd.SetIn(strings.NewReader("#!/bin/bash\n"))
 			cmd.SetOut(failingOutput{err: outputErr})
 			cmd.SetErr(io.Discard)
 			cmd.SetArgs(tt.args)

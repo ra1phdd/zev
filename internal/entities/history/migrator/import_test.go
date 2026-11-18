@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -179,7 +180,10 @@ func TestImportLegacyPreservesRecordsAndArchives(t *testing.T) {
 		t.Fatalf("archive changed: %v", err)
 	}
 	info, err := os.Stat(archives[0])
-	if err != nil || info.Mode().Perm()&0o077 != 0 {
+	if err != nil {
+		t.Fatalf("archive permissions: %v %v", info, err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		t.Fatalf("archive permissions: %v %v", info, err)
 	}
 	importTestCount(t, s, `SELECT count(*) FROM conversations`, 2)

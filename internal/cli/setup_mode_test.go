@@ -5,13 +5,12 @@ import (
 	"errors"
 	"io"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/config"
 )
 
-// Tests change the process environment and global configuration path.
+// Tests isolate the configuration through process-wide HOME and USERPROFILE.
 func TestSetupMode(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -43,9 +42,9 @@ func TestSetupMode(t *testing.T) {
 			if err := os.Unsetenv("COMMAND_EXECUTION_MODE"); err != nil {
 				t.Fatal(err)
 			}
-			path := filepath.Join(t.TempDir(), "config")
-			originalPath := config.SetConfigPathForTests(path)
-			t.Cleanup(func() { config.SetConfigPathForTests(originalPath) })
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
 
 			if err := config.Save(config.DefaultConfig()); err != nil {
 				t.Fatalf("failed to save default config: %v", err)

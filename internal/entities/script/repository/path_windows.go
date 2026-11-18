@@ -17,6 +17,12 @@ const (
 	directoryFlags = 0
 )
 
+// requireCombinedTransactionSupport gates operations whose body and metadata
+// replacements need durable directory synchronization.
+func requireCombinedTransactionSupport() error {
+	return errors.New("combined script transactions require durable directory synchronization, unavailable on Windows")
+}
+
 // Windows has no portable directory flush through os.File.Sync; file contents
 // are synced, but a successful rename does not promise power-loss durability.
 func syncRootDirectory(_ *os.Root) error { return nil }

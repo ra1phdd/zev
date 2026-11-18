@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
+//nolint:paralleltest // Pins the process-wide SHELL for POSIX command fixtures.
 func TestExecuteCancelledContext(t *testing.T) {
-	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	if err := Execute(ctx, "true"); !errors.Is(err, context.Canceled) {
@@ -17,8 +17,8 @@ func TestExecuteCancelledContext(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-	t.Parallel()
-
+	// Commands use the configured shell; pin POSIX syntax for this table.
+	t.Setenv("SHELL", "/bin/sh")
 	tests := []struct {
 		name    string
 		command string
@@ -53,8 +53,6 @@ func TestExecute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			err := Execute(t.Context(), tt.command)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)

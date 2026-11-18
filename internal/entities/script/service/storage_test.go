@@ -7,18 +7,19 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/entities/script/repository"
 )
 
 func TestCrossInstanceCreateRemove(t *testing.T) {
-	t.Setenv("SKIP_EDITOR", "1")
+	t.Parallel()
 	_, dir := newTestService(t)
 	const count = 24
 	var wg sync.WaitGroup
 	errs := make(chan error, count)
 	for i := range count {
 		wg.Go(func() {
-			errs <- New(repository.New(dir)).CreateContext(t.Context(), fmt.Sprintf("script%d", i), "test")
+			errs <- New(repository.New(dir)).Create(t.Context(), domain.Script{Name: fmt.Sprintf("script%d", i), ScriptFile: fmt.Sprintf("script%d.sh", i)}, []byte("exit 0\n"))
 		})
 	}
 	wg.Wait()
@@ -57,11 +58,11 @@ func TestCrossInstanceCreateRemove(t *testing.T) {
 }
 
 func TestCorruptMetadataPreserved(t *testing.T) {
-	t.Setenv("SKIP_EDITOR", "1")
+	t.Parallel()
 	for _, operation := range []string{createOperation, removeOperation} {
 		t.Run(operation, func(t *testing.T) {
 			svc, dir := newTestService(t)
-			if err := svc.CreateContext(t.Context(), safeScriptName, "test"); err != nil {
+			if err := svc.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, []byte("exit 0\n")); err != nil {
 				t.Fatal(err)
 			}
 			path := filepath.Join(dir, "scripts")
@@ -71,7 +72,7 @@ func TestCorruptMetadataPreserved(t *testing.T) {
 			}
 			var err error
 			if operation == createOperation {
-				err = svc.CreateContext(t.Context(), "new", "test")
+				err = svc.Create(t.Context(), domain.Script{Name: newScriptName, ScriptFile: "new.sh"}, []byte("exit 0\n"))
 			} else {
 				err = svc.Remove(safeScriptName)
 			}

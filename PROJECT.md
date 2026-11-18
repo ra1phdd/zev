@@ -52,6 +52,10 @@ SQLite history — Unreleased. Query lifecycle, автоматическая JSO
 | `pkg/tui/list`, `pkg/tui/prompt` | Списки выбора, предупреждения и ввод с переносом строк |
 | `pkg/terminal` | Выполнение через shell и платформенная вставка команды в терминал |
 
+Общий HTTP-клиент сохраняет заголовки на время вызова, но redirects не следует:
+redirect response возвращается вызывающему коду, а cross-origin redirect отклоняется до
+контакта с новым origin. Это сохраняет привязку интерактивного consent к раскрытым URL и body.
+
 Реальный путь запроса в [internal/cli/query.go](internal/cli/query.go):
 
 1. Ручной разбор флагов сохраняет возможность передавать флаги алиасам.
@@ -67,6 +71,12 @@ SQLite history — Unreleased. Query lifecycle, автоматическая JSO
    текущем SQLite-диалоге. Ответы и варианты команд сохраняются отдельными записями;
    каждое уточнение — отдельным user message до следующего вызова провайдера. Сбой
    открытия/сохранения истории выводится как предупреждение, не останавливая query.
+
+Корневой dispatch разбирает исходный `argv` до соединения слов в prompt. Built-in-команды
+имеют приоритет над alias/script; корневые flags и `--help`, стоящие до имени, не передают
+управление entity, а `name -- ...` передаёт хвост буквально. Явные `zev query` и
+`zev continue` сохраняют query/provider path: `zev query --print <alias>` выполняет
+ровно один named machine lookup и печатает результат без выполнения alias.
 
 Структура следует vertical slices + ports/adapters. Оркестрация диалога, выбор и
 выполнение находятся в CLI, не в `query/service`; CLI делегирует постоянную историю
@@ -236,10 +246,14 @@ make clean
 - `make dev` использует `-vv`; `make watch` требует `entr` и запускает `make run`.
 
 Unit-тесты находятся рядом с кодом в `*_test.go`, включая `internal/cli`, используют
-`testing` и локальные заглушки/`httptest`. Сквозные сценарии находятся в `e2e/` с тегом
-`e2e`; `make test-e2e` собирает настоящий CLI в отдельном owned-каталоге внутри `bin/`
-и проверяет его с изолированным HOME и локальными HTTP fixtures. `make test-manual ALLOW_MANUAL_TESTS=1`
-требует отдельного разрешения и запрещён при заданном `CI`.
+`testing` и локальные заглушки/`httptest`. Сквозные сценарии CLI и интеграционные
+сценарии установщиков/релиза находятся в `e2e/` с тегом `e2e`; `make test-e2e` собирает
+настоящий CLI в отдельном owned-каталоге внутри `bin/` и запускает все e2e-пакеты с
+изолированным HOME и локальными HTTP/shell fixtures. `make test-integration` оставлен
+совместимым псевдонимом для этого gate. Обычный `make test` не требует shell-инструментов
+для deployment fixtures. Этот gate запускается в CI и перед release publication.
+`make test-manual ALLOW_MANUAL_TESTS=1` требует отдельного разрешения и запрещён при
+заданном `CI`.
 Существующего target для генерации исходников нет.
 
 ## Сборка и выпуск
@@ -252,8 +266,10 @@ GoReleaser уже использует `-s -w` и `-trimpath`.
 [GitHub workflow](.github/workflows/release.yml) запускается при изменении `VERSION`
 в `main` или вручную и устанавливает закреплённые версии релизных инструментов.
 Он и `make release` используют [deploy/release.sh](deploy/release.sh):
-`make fmt`, `make lint`, `make test`, `make test-race`, `make build VERSION=<version>`
-выполняются до создания или push тега. Изменения отслеживаемых файлов относительно
+`make fmt`, `make lint`, `make test`, `make test-race`, `make test-e2e`, `make build VERSION=<version>`
+выполняются до создания или push тега. До hooks и после build/GoReleaser проверяются
+и tracked изменения, и untracked relevant source (включая `.go`); такой source блокирует
+выпуск. Изменения отслеживаемых файлов относительно
 `HEAD` после проверок и hooks сборки останавливают выпуск. Существующий тег должен
 указывать на `HEAD`; принудительной замены нет. Затем GoReleaser собирает с `--skip=publish`,
 [deploy/publish-release.sh](deploy/publish-release.sh) проверяет архивы по checksums,
@@ -316,11 +332,9 @@ GoReleaser уже использует `-s -w` и `-trimpath`.
 - [README.ru.md](README.ru.md) / [README.md](README.md) — использование и установка.
 - [Конфигурация](docs/ru/CONFIGURATION.md) — параметры и файлы данных.
 - [История](docs/ru/HISTORY.md) — постоянное хранилище, миграция, поиск и semantic opt-in.
-- [Спецификация алиасов и скриптов](docs/ru/ALIASES-SCRIPTS-SPEC.md) — draft-контракт метаданных, CLI и миграции.
 - [Архитектура](docs/ru/ARCHITECTURE.md) — пакеты и порт провайдера.
 - [Разработка](docs/ru/DEVELOPMENT.md) и [участие](CONTRIBUTING.ru.md) — команды и правила.
 - [CHANGELOG.md](CHANGELOG.md) — пользовательские изменения по существующим релизам.
-- [DELICIOUS.md](DELICIOUS.md) — индекс ADR; сейчас список решений пуст.
 - Go-контракт провайдера — [domain/provider.go](internal/core/domain/provider.go),
   JSON ответа — [domain/command.go](internal/core/domain/command.go).
 - Контракт истории — [history/service/types.go](internal/entities/history/service/types.go),

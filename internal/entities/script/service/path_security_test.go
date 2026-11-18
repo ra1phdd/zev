@@ -5,11 +5,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/entities/script/repository"
 )
 
 const (
 	safeScriptFile   = "safe.sh"
+	newScriptName    = "new"
 	executeOperation = "execute"
 	createOperation  = "create"
 	removeOperation  = "remove"
@@ -18,7 +20,7 @@ const (
 )
 
 func TestServiceRejectsUnsafeScriptFiles(t *testing.T) {
-	t.Setenv("SKIP_EDITOR", "1")
+	t.Parallel()
 	for _, attack := range []string{"traversal", "absolute", "file symlink", "directory file", "scripts symlink", "nested symlink", ancestorSymlink, metadataSymlink} {
 		for _, operation := range []string{createOperation, executeOperation, removeOperation, "list"} {
 			t.Run(attack+"/"+operation, func(t *testing.T) {
@@ -83,7 +85,7 @@ func TestServiceRejectsUnsafeScriptFiles(t *testing.T) {
 				}
 				switch operation {
 				case createOperation:
-					err = svc.CreateContext(t.Context(), "new", "unsafe")
+					err = svc.Create(t.Context(), domain.Script{Name: newScriptName, ScriptFile: "new.sh", Description: "unsafe"}, []byte("exit 0\n"))
 				case executeOperation:
 					err = svc.Execute(t.Context(), safeScriptName, []string{sentinel})
 				case removeOperation:
@@ -109,7 +111,7 @@ func TestServiceRejectsUnsafeScriptFiles(t *testing.T) {
 }
 
 func TestCreateDoesNotOverwriteUnregisteredFile(t *testing.T) {
-	t.Setenv("SKIP_EDITOR", "1")
+	t.Parallel()
 	svc, dir := newTestService(t)
 	if err := os.Mkdir(filepath.Join(dir, "script_files"), 0o700); err != nil {
 		t.Fatal(err)
@@ -118,7 +120,7 @@ func TestCreateDoesNotOverwriteUnregisteredFile(t *testing.T) {
 	if err := os.WriteFile(path, []byte("sentinel"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.CreateContext(t.Context(), safeScriptName, "new"); err == nil {
+	if err := svc.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile, Description: "replacement"}, []byte("exit 0\n")); err == nil {
 		t.Error("Create overwrote an existing file")
 	}
 	if data, err := os.ReadFile(filepath.Clean(path)); err != nil || string(data) != "sentinel" {
@@ -127,15 +129,15 @@ func TestCreateDoesNotOverwriteUnregisteredFile(t *testing.T) {
 }
 
 func TestCreateRejectsUnsafeNames(t *testing.T) {
-	t.Setenv("SKIP_EDITOR", "1")
-	for _, name := range []string{"../sentinel", "nested/../../sentinel", "/absolute", "", ".", "..", "nested/child", `nested\child`} {
+	t.Parallel()
+	for _, name := range []string{"../sentinel", "nested/../../sentinel", "/absolute", "", ".", "..", "nested/child", `nested\child`, "query", "name with spaces", "colon:name"} {
 		t.Run(name, func(t *testing.T) {
 			svc, dir := newTestService(t)
 			sentinel := filepath.Join(dir, "sentinel.sh")
 			if err := os.WriteFile(sentinel, []byte("untouched"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := svc.CreateContext(t.Context(), name, "unsafe"); err == nil {
+			if err := svc.Create(t.Context(), domain.Script{Name: name, ScriptFile: safeScriptFile, Description: "unsafe"}, []byte("exit 0\n")); err == nil {
 				t.Errorf("Create(%q) succeeded", name)
 			}
 			data, err := os.ReadFile(filepath.Clean(sentinel))

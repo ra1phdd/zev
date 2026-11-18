@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"os/exec"
 
 	"github.com/ra1phdd/zev/internal/core/config"
@@ -58,12 +57,12 @@ func Execute(ctx context.Context, root *cobra.Command) int {
 	if configured, err := config.LoadUILanguage(); err == nil {
 		defer locale.SetLanguage(configured, "")()
 	}
-	err := root.ExecuteContext(ctx)
+	err := managedStorageError(root.ExecuteContext(ctx))
 	if err == nil {
 		return 0
 	}
 	if machineErr, ok := errors.AsType[*machineExitError](err); ok {
-		if _, writeErr := fmt.Fprintf(os.Stderr, locale.Text(locale.KeyQueryErrorMessage), err); writeErr != nil {
+		if _, writeErr := fmt.Fprintf(root.ErrOrStderr(), locale.Text(locale.KeyQueryErrorMessage), err); writeErr != nil {
 			slog.Error("Failed to write command error", "error", writeErr)
 		}
 		return machineErr.code
@@ -71,7 +70,7 @@ func Execute(ctx context.Context, root *cobra.Command) int {
 	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		return exitErr.ExitCode()
 	}
-	if _, writeErr := fmt.Fprintf(os.Stderr, locale.Text(locale.KeyQueryErrorMessage), err); writeErr != nil {
+	if _, writeErr := fmt.Fprintf(root.ErrOrStderr(), locale.Text(locale.KeyQueryErrorMessage), err); writeErr != nil {
 		slog.Error("Failed to write command error", "error", writeErr)
 	}
 	return 1

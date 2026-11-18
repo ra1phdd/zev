@@ -30,9 +30,9 @@ make build
 | `make install` | `go install` в `$GOPATH/bin` |
 | `make test` | `go vet ./...`, затем `go test ./...` |
 | `make test-race` | `go test -race ./...` |
-| `make test-integration` | Тесты с build tag `integration` |
+| `make test-integration` | Совместимый псевдоним black-box-проверки `e2e` |
 | `make test-e2e` | Тесты с build tag `e2e` |
-| `make test-manual ALLOW_MANUAL_TESTS=1` | Явно разрешённые manual-тесты; в CI запрещены |
+| `make test-manual ALLOW_MANUAL_TESTS=1` | Явно разрешённые manual-тесты; при отсутствии manual-тестов завершается явной ошибкой, в CI запрещено |
 | `make lint` | Проверка gofmt/gofumpt/goimports, golangci-lint с автоисправлениями, отчёт deadcode для `APP` |
 | `make fmt` | Применить gofmt, goimports и gofumpt |
 | `make check` | Линтер + тесты |
@@ -124,17 +124,35 @@ make check
 ## Тесты
 
 - Юнит-тесты быстрые и изолированные, лежат рядом с проверяемым кодом.
-- Integration-тесты используют build tag `integration`:
+- Black-box integration- и e2e-тесты находятся в `e2e/` и используют build tag `e2e`:
 
 ```bash
 make test-integration
 ```
 
 Unit-тесты расположены рядом со своими пакетами и не требуют ключей провайдеров
-или запущенной LLM. Сквозные тесты находятся в `e2e/` с тегом `e2e`;
-`make test-e2e` собирает и проверяет настоящий CLI с изолированным HOME и локальным HTTP. Для
-проверки гонок отдельно запускайте `make test-race`. Manual-тесты требуют
+или запущенной LLM. Black-box integration- и e2e-тесты находятся в `e2e/` с тегом
+`e2e`; `make test-e2e` собирает и проверяет настоящий CLI и deployment fixtures с
+изолированным HOME и локальными HTTP/shell fixtures. `make test-integration` —
+совместимый псевдоним этого gate. Deployment fixtures требуют Bash, PowerShell (`pwsh`)
+и стандартные архивные/hash-утилиты; отсутствие обязательной инфраструктуры приводит
+к явной ошибке, а не к сообщению об успешной проверке установки.
+Для проверки гонок отдельно запускайте `make test-race`. Manual-тесты требуют
 явного разрешения.
+
+Metadata-тесты используют локальные HTTP fixtures для проверки выбора провайдера,
+авторизации, payload запросов, закрытия response body, отмены и лимитов UTF-8/размера/глубины.
+Setup-тесты сохраняют настройки всех пяти провайдеров в изолированном HOME, включая
+Ollama без запроса API-ключа. Тесты настоящего бинарника проверяют явную генерацию metadata,
+чтение другим процессом, независимый fallback полей и обычный CRUD без сети.
+Unix-тесты выполнения алиасов проверяют выбор shell, exit status и обработку interrupt.
+Эти fixtures не обращаются к настоящей LLM и не доказывают качество сгенерированных metadata.
+
+Test-only helpers размещайте в `*_test.go`; тесты другого пакета должны использовать
+публичное поведение с изолированной конфигурацией, а не импортировать test-only helper.
+Перед удалением кандидата deadcode проверяйте production/test references и платформенные
+пути с build tags. Сопоставляйте `deadcode ./cmd/zev`, `deadcode -test ./cmd/zev`
+и `deadcode -test ./...` для поддерживаемых платформ.
 
 Hardening-тесты покрывают лимиты ответов провайдеров, проверку истории/терминала,
 кооперативные файловые обновления и post-commit ошибки, ограниченные пути скриптов,

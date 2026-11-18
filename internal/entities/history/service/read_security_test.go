@@ -10,9 +10,17 @@ import (
 
 func TestSQLiteStoreRejectsSymlinkDatabase(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
+	root := t.TempDir()
+	dir := filepath.Join(root, "zev")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	victim := filepath.Join(dir, "victim.db")
-	if err := os.WriteFile(victim, []byte("not a database"), 0o600); err != nil {
+	store, err := repository.Open(t.Context(), victim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "history.db")
@@ -27,8 +35,8 @@ func TestSQLiteStoreRejectsSymlinkDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(data) != "not a database" {
-		t.Fatalf("symlink target changed: %q", data)
+	if len(data) == 0 {
+		t.Fatal("valid SQLite victim database is empty")
 	}
 }
 

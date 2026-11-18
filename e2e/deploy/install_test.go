@@ -1,3 +1,5 @@
+//go:build e2e
+
 package deploy_test
 
 import (
@@ -179,6 +181,7 @@ type fixtureResult struct {
 
 func runShellFixture(t *testing.T, checksumKind, archiveKind string, hideHasher bool) fixtureResult {
 	t.Helper()
+	requireBash(t)
 	root := t.TempDir()
 	fixtureDir := filepath.Join(root, "downloads")
 	binDir := filepath.Join(root, "bin")
@@ -214,6 +217,7 @@ func runShellFixture(t *testing.T, checksumKind, archiveKind string, hideHasher 
 
 func runShellFixtureWithVersion(t *testing.T, version string) fixtureResult {
 	t.Helper()
+	requireBash(t)
 	root := t.TempDir()
 	fixtureDir := filepath.Join(root, "downloads")
 	binDir := filepath.Join(root, "bin")
@@ -443,7 +447,14 @@ func repoRoot(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return filepath.Dir(workingDirectory)
+	return filepath.Dir(filepath.Dir(workingDirectory))
+}
+
+func requireBash(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Fatalf("bash is required for deployment fixtures: %v", err)
+	}
 }
 
 const shellDownloader = `#!/bin/sh

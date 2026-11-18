@@ -9,17 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ra1phdd/zev/internal/core/metadata"
 	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
 	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
 	historyrepo "github.com/ra1phdd/zev/internal/entities/history/repository"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
-	"gopkg.in/yaml.v3"
 )
 
 const (
 	lastAliasName       = "recent"
 	aliasHistoryFixture = "fixture"
-	lastAliasCommand    = "printf 'hello: world' | cat"
+	lastAliasCommand    = "printf hello"
 )
 
 func TestAliasLast(t *testing.T) {
@@ -30,9 +30,9 @@ func TestAliasLast(t *testing.T) {
 		existing  string
 		wantError string
 	}{
-		{name: "saves selected command in existing YAML", seed: true, existing: "other: echo untouched\n"},
+		{name: "saves selected command in existing YAML", seed: true, existing: "version: 2\naliases:\n  other:\n    template: echo untouched\n"},
 		{name: "empty history", wantError: "no usable selected command"},
-		{name: "name conflict", seed: true, existing: "recent: echo original\n", wantError: "already exists"},
+		{name: "name conflict", seed: true, existing: "version: 2\naliases:\n  recent:\n    template: echo original\n", wantError: "already exists"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home := t.TempDir()
@@ -102,11 +102,11 @@ func TestAliasLast(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var values map[string]string
-			if err := yaml.Unmarshal(data, &values); err != nil {
-				t.Fatal(err)
+			values, legacy, err := metadata.DecodeAliases(data)
+			if err != nil || legacy {
+				t.Fatalf("decode aliases legacy=%v err=%v", legacy, err)
 			}
-			if values[lastAliasName] != lastAliasCommand || values["other"] != "echo untouched" {
+			if values[lastAliasName].Template != lastAliasCommand || values["other"].Template != "echo untouched" {
 				t.Fatalf("YAML=%q", data)
 			}
 			resolved, err := aliasservice.New(aliasrepo.New(dir)).Resolve(lastAliasName, nil)
@@ -114,6 +114,35 @@ func TestAliasLast(t *testing.T) {
 				t.Fatalf("resolved=%q err=%v", resolved, err)
 			}
 		})
+	}
+}
+
+func TestAliasAddPersistsMetadata(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	dir := filepath.Join(home, ".zev")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newAliasCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"add", "show", "echo {{.arg1}}", "--description", "display a value", "--arguments-json", `[{"name":"value","description":"text"}]`})
+	if err := cmd.ExecuteContext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "aliases")) //nolint:gosec // Read only the isolated test store.
+	if err != nil {
+		t.Fatal(err)
+	}
+	aliases, legacy, err := metadata.DecodeAliases(data)
+	if err != nil || legacy {
+		t.Fatalf("decode aliases legacy=%v err=%v", legacy, err)
+	}
+	alias := aliases["show"]
+	if alias.Description != "display a value" || len(alias.Arguments) != 1 || !alias.Arguments[0].Required {
+		t.Fatalf("alias metadata=%#v", alias)
 	}
 }
 

@@ -148,9 +148,42 @@ func ReadFile(path string) (data []byte, err error) {
 	return data, nil
 }
 
-// ValidateDirectory rejects an existing symlink or non-directory at dir, allowing
-// an absent directory so WithLock or AtomicWrite can create it later. Call it
-// before those operations when dir is an application-owned storage directory.
+// ReadFileLimit reads a regular file like ReadFile but rejects input larger than limit.
+// The bound is enforced while reading the already validated descriptor.
+func ReadFileLimit(path string, limit int64) (data []byte, err error) {
+	if limit < 0 {
+		return nil, errors.New("read storage file: negative size limit")
+	}
+	if err := validateDestination(path); err != nil {
+		return nil, err
+	}
+	file, err := openReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			err = errors.Join(err, fmt.Errorf("close storage file: %w", closeErr))
+		}
+	}()
+	info, err := file.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat open storage file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, errors.New("read storage file: source is not a regular file")
+	}
+	data, err = io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return nil, fmt.Errorf("read storage file: %w", err)
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("read storage file: exceeds %d-byte limit", limit)
+	}
+	return data, nil
+}
+
+// ValidateDirectory validates an application-owned storage directory. An absent directory is allowed so WithLock or AtomicWrite can create it later.
 // Ancestors must be trusted and may contain symlink aliases (for example HOME).
 // This check does not fence concurrent hostile changes to the directory tree.
 func ValidateDirectory(dir string) error {

@@ -134,8 +134,8 @@ embedding configuration.
 
 ### Aliases
 
-Store a long command once and call it by name. Extra arguments are appended
-automatically, or substituted into the template:
+Store a long command once and call it by name. Arguments must be referenced explicitly
+by `{{.argN}}` or `{{.args}}`; a template without placeholders rejects extra arguments:
 
 ```bash
 zev alias add dps "docker service ps {{.arg1}} --no-trunc"
@@ -145,8 +145,15 @@ zev alias list
 zev alias remove dps
 ```
 
-Template variables: `{{.arg1}}`, `{{.arg2}}`, … for positional arguments and `{{.args}}`
-for all arguments joined with spaces.
+Template variables: `{{.arg1}}`, `{{.arg2}}`, … emit one positional argument and
+`{{.args}}` emits all original arguments as separate shell words. Placeholders must
+stand alone. Aliases accept one simple command, not pipelines, redirects, or shell
+substitution. Use a script for shell syntax. `zev dps --help` shows local help without
+running the command or contacting a provider.
+
+Legacy stores migrate to v2 on first access, preserving an archive. Back up `~/.zev`
+before upgrading. Legacy templates outside the restricted grammar block migration
+until manually repaired; do not downgrade a migrated store to an older Zev version.
 
 ### Scripts
 

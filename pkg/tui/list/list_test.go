@@ -3,6 +3,7 @@ package list
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -220,8 +221,7 @@ func TestViewFormat(t *testing.T) {
 		t.Error("expected non-empty view")
 	}
 
-	// View должен содержать заголовок
-	if len("Select command:") > 0 && len(view) < len("Select command:") {
+	if !strings.Contains(view, "Select command:") {
 		t.Error("view should contain title")
 	}
 }

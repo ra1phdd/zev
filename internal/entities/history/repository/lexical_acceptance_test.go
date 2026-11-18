@@ -241,16 +241,26 @@ func TestLexicalFiltersAndExactCommand(t *testing.T) {
 	if err != nil || len(r.Hits) != 1 {
 		t.Fatalf("exact: %+v %v", r, err)
 	}
-	request.ExactCommand = `echo --name axbz`
-	r, err = s.LexicalSearch(t.Context(), request)
-	if err != nil || len(r.Hits) != 0 {
-		t.Fatalf("not byte exact: %+v %v", r, err)
-	}
 	request.ExactCommand = ""
-	request.To = created
-	r, err = s.LexicalSearch(t.Context(), request)
-	if err != nil || len(r.Hits) != 0 {
-		t.Fatalf("half-open date: %+v %v", r, err)
+	for _, filter := range []struct {
+		name   string
+		mutate func(*service.SearchRequest)
+	}{
+		{name: "model", mutate: func(r *service.SearchRequest) { r.Model = "other-model" }},
+		{name: "status", mutate: func(r *service.SearchRequest) { r.Status = "started" }},
+		{name: "dangerous", mutate: func(r *service.SearchRequest) { value := false; r.Dangerous = &value }},
+		{name: "from", mutate: func(r *service.SearchRequest) { r.From = created.Add(time.Second) }},
+		{name: "to is exclusive", mutate: func(r *service.SearchRequest) { r.To = created }},
+		{name: "exact bytes", mutate: func(r *service.SearchRequest) { r.ExactCommand = `echo --name axbz` }},
+	} {
+		t.Run(filter.name, func(t *testing.T) {
+			filtered := request
+			filter.mutate(&filtered)
+			result, searchErr := s.LexicalSearch(t.Context(), filtered)
+			if searchErr != nil || len(result.Hits) != 0 {
+				t.Fatalf("ignored %s filter: %+v %v", filter.name, result, searchErr)
+			}
+		})
 	}
 }
 

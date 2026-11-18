@@ -76,17 +76,17 @@ func TestCrossOriginRedirectDifferentHostIsBlockedBeforeContact(t *testing.T) {
 	}
 }
 
-func TestSameOriginRedirectRetainsConfiguredHeaders(t *testing.T) {
+func TestRedirectResponseRetainsConfiguredHeaders(t *testing.T) {
 	t.Parallel()
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if requests.Add(1) == 1 {
+			if got := r.Header.Get(authorizationHeader); got != "Bearer same-origin" {
+				t.Errorf("Authorization = %q, want configured header", got)
+			}
 			w.Header().Set("Location", "/next")
 			w.WriteHeader(http.StatusFound)
 			return
-		}
-		if got := r.Header.Get(authorizationHeader); got != "Bearer same-origin" {
-			t.Errorf("Authorization = %q, want configured header", got)
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -102,15 +102,47 @@ func TestSameOriginRedirectRetainsConfiguredHeaders(t *testing.T) {
 		t.Fatalf("request failed: %v", err)
 	}
 	t.Cleanup(func() { closeTestResponse(t, resp) })
-	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusNoContent)
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusFound)
 	}
-	if got := requests.Load(); got != 2 {
-		t.Fatalf("same-origin requests = %d, want 2", got)
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("same-origin requests = %d, want 1", got)
 	}
 }
 
-func TestRedirectLimitIsTen(t *testing.T) {
+func TestSameOrigin307RedirectIsNotFollowed(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		if r.URL.Path == "/start" {
+			w.Header().Set("Location", "/redirected")
+			w.WriteHeader(http.StatusTemporaryRedirect)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+
+	client := New(map[string]string{authorizationHeader: "Bearer exact-request"})
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL+"/start", strings.NewReader("body"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	t.Cleanup(func() { closeTestResponse(t, resp) })
+	if resp.StatusCode != http.StatusTemporaryRedirect {
+		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusTemporaryRedirect)
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("redirect requests = %d, want 1", got)
+	}
+}
+
+func TestRedirectResponsesAreNotFollowed(t *testing.T) {
 	t.Parallel()
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -126,12 +158,15 @@ func TestRedirectLimitIsTen(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp, err := client.Do(req)
-	closeTestResponse(t, resp)
-	if !errors.Is(err, ErrTooManyRedirects) {
-		t.Fatalf("error = %v, want ErrTooManyRedirects", err)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
 	}
-	if got := requests.Load(); got != 10 {
-		t.Fatalf("redirect requests = %d, want 10", got)
+	t.Cleanup(func() { closeTestResponse(t, resp) })
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("status = %d, want %d", resp.StatusCode, http.StatusFound)
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("redirect requests = %d, want 1", got)
 	}
 }
 

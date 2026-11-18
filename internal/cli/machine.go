@@ -111,7 +111,7 @@ func machineProviderError(err error) error {
 }
 
 func machineNamedQuery(cmd *cobra.Command, flags parsedFlags) (bool, error) {
-	words := strings.Fields(strings.Join(flags.Args, " "))
+	words := flags.Args
 	if len(words) == 0 {
 		return false, nil
 	}

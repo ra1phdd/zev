@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -19,6 +20,26 @@ const (
 	toolApprovalUnsupported   = "unsupported"
 	configFalseValue          = "false"
 )
+
+func SetConfigPathForTests(newPath string) string {
+	old := configPathForTests
+	configPathForTests = newPath
+	return old
+}
+
+func isolateConfigEnvironment(t *testing.T) {
+	t.Helper()
+	for field := range reflect.TypeFor[Config]().Fields() {
+		key := field.Tag.Get("env")
+		if key == "" {
+			continue
+		}
+		t.Setenv(key, "")
+		if err := os.Unsetenv(key); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
 func TestGetZevDir(t *testing.T) {
 	homeEnv := "HOME"
@@ -93,7 +114,6 @@ func TestToolConfigEnvFilePrecedenceAndRoundTrip(t *testing.T) {
 	}
 
 	for _, key := range []string{"TOOLS_ENABLED", toolApprovalModeEnv} {
-		t.Setenv(key, "")
 		if err := os.Unsetenv(key); err != nil {
 			t.Fatal(err)
 		}
@@ -209,6 +229,7 @@ func TestHistoryEmbeddingValidationOnlyWhenEnabled(t *testing.T) {
 
 //nolint:paralleltest // Mutates the global config path.
 func TestLoadConfigWithMissing(t *testing.T) {
+	isolateConfigEnvironment(t)
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".zevrc")
 
@@ -227,6 +248,7 @@ func TestLoadConfigWithMissing(t *testing.T) {
 
 //nolint:paralleltest // Mutates the global config path.
 func TestSaveConfig(t *testing.T) {
+	isolateConfigEnvironment(t)
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".zevrc")
 
@@ -268,6 +290,7 @@ func TestSaveConfig(t *testing.T) {
 
 //nolint:paralleltest // Mutates the global config path.
 func TestSaveConfigRoundTripsHistoryEmbedding(t *testing.T) {
+	isolateConfigEnvironment(t)
 	configPath := filepath.Join(t.TempDir(), "config")
 	previous := SetConfigPathForTests(configPath)
 	t.Cleanup(func() { SetConfigPathForTests(previous) })

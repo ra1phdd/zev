@@ -37,8 +37,7 @@ test: ## Запустить go vet и unit-тесты
 test-race: ## Запустить unit-тесты с детектором гонок
 	$(GO) test -race ./...
 
-test-integration: ## Запустить тесты с тегом integration
-	$(GO) test -tags=integration ./...
+test-integration: test-e2e ## Запустить совместимый integration/e2e gate
 
 test-e2e: ## Запустить сквозные тесты из e2e/ с реальным бинарником
 	$(GO) test -tags=e2e ./e2e/...
@@ -46,6 +45,7 @@ test-e2e: ## Запустить сквозные тесты из e2e/ с реа�
 test-manual: ## Запустить manual-тесты только с ALLOW_MANUAL_TESTS=1 и вне CI
 	@if [ -n "$${CI:-}" ]; then echo 'manual tests must not run in CI' >&2; exit 1; fi
 	@test "$(ALLOW_MANUAL_TESTS)" = "1" || { echo 'manual tests require explicit permission: set ALLOW_MANUAL_TESTS=1' >&2; exit 1; }
+	@test -n "$$(grep -R -l --include='*_test.go' '^//go:build .*manual\|^//go:build manual' . 2>/dev/null)" || { echo 'no manual-tagged tests are defined' >&2; exit 1; }
 	$(GO) test -tags=manual ./...
 
 lint: check-go-files check-lint-tools ## Проверить форматирование, применить исправления линтера и вывести deadcode

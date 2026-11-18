@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	maxRedirects           = 10
 	userAgentHeader        = "User-Agent"
 	blockedRedirectTrailer = "\x00zev-blocked-redirect"
 )
@@ -21,11 +20,9 @@ const (
 // ErrCrossOriginRedirect indicates that a redirect changed the request origin.
 var ErrCrossOriginRedirect = errors.New("cross-origin redirect blocked")
 
-// ErrTooManyRedirects indicates that the redirect chain exceeded its bound.
-var ErrTooManyRedirects = errors.New("redirect limit exceeded")
-
 // New creates an HTTP client with a snapshot of the custom headers, retry
-// handling, and same-origin redirects bounded to ten requests.
+// handling, and redirects disabled. Redirect responses are returned to the
+// caller without replaying the approved request at another URL.
 func New(headers map[string]string, logger ...*slog.Logger) *http.Client {
 	ownedHeaders := cloneHeaders(headers)
 	if !hasHeader(ownedHeaders, userAgentHeader) {
@@ -59,17 +56,11 @@ func hasHeader(headers map[string]string, wanted string) bool {
 	return false
 }
 
-func checkRedirect(req *http.Request, via []*http.Request) error {
+func checkRedirect(req *http.Request, _ []*http.Request) error {
 	if isBlockedRedirect(req.Response) {
 		return ErrCrossOriginRedirect
 	}
-	if len(via) >= maxRedirects {
-		return ErrTooManyRedirects
-	}
-	if len(via) == 0 || sameOrigin(via[len(via)-1].URL, req.URL) {
-		return nil
-	}
-	return ErrCrossOriginRedirect
+	return http.ErrUseLastResponse
 }
 
 func isBlockedRedirect(resp *http.Response) bool {

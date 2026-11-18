@@ -2,13 +2,22 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/ra1phdd/zev/internal/core/config"
 )
+
+func executeNamedQuery(ctx context.Context, name string, _ *slog.Logger) (bool, error) {
+	cmd := &cobra.Command{}
+	cmd.SetContext(ctx)
+	return dispatchOriginalArgs(cmd, []string{name}) //nolint:contextcheck // The caller context is carried by cmd.SetContext above.
+}
 
 func TestNamedQueryPreservesCorruptAliases(t *testing.T) {
 	home := t.TempDir()

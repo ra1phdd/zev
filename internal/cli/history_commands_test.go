@@ -51,6 +51,7 @@ type historyCLIFake struct {
 	pages               [][]service.Conversation
 	listCalls           int
 	conversationCalls   int
+	openCalls           int
 }
 
 func (f *historyCLIFake) GetConversation(_ context.Context, id string) (service.ConversationView, error) {
@@ -105,7 +106,10 @@ type historyNopCloser struct{}
 func (historyNopCloser) Close() error { return nil }
 func historyTestCommand(fake *historyCLIFake, out io.Writer) *cobra.Command {
 	cmd := &cobra.Command{Use: historyRootCommand, SilenceErrors: true, SilenceUsage: true}
-	cmd.AddCommand(newHistoryCommands(func(context.Context) (historyOperations, io.Closer, error) { return fake, historyNopCloser{}, nil })...)
+	cmd.AddCommand(newHistoryCommands(func(context.Context) (historyOperations, io.Closer, error) {
+		fake.openCalls++
+		return fake, historyNopCloser{}, nil
+	})...)
 	cmd.SetOut(out)
 	cmd.SetErr(io.Discard)
 	return cmd
@@ -158,8 +162,8 @@ func TestHistoryClearRequiresYesBeforeOpening(t *testing.T) {
 	f := &historyCLIFake{}
 	cmd := historyTestCommand(f, io.Discard)
 	cmd.SetArgs([]string{historyCommandClear})
-	if err := cmd.Execute(); err == nil || f.clearCalls != 0 {
-		t.Fatalf("clear without confirmation: %v, %d", err, f.clearCalls)
+	if err := cmd.Execute(); err == nil || f.clearCalls != 0 || f.openCalls != 0 {
+		t.Fatalf("clear without confirmation: %v, clear=%d open=%d", err, f.clearCalls, f.openCalls)
 	}
 	cmd = historyTestCommand(f, io.Discard)
 	cmd.SetArgs([]string{historyCommandClear, historyYesFlag})

@@ -25,10 +25,10 @@ func TestTrustedParentAlias(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(scripts) != 1 || scripts[safeName] != script {
-		t.Fatalf("metadata = %+v, want %v", scripts, script)
+	if len(scripts) != 1 || scripts[safeName].Name != script.Name || scripts[safeName].ScriptFile != script.ScriptFile || scripts[safeName].Description != script.Description || scripts[safeName].RecordID == "" {
+		t.Fatalf("metadata = %+v, want %v with generated record ID", scripts, script)
 	}
-	file, err := r.OpenScript(t.Context(), safeFile)
+	file, err := r.OpenScriptPinned(t.Context(), scripts[safeName], nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestTrustedParentAlias(t *testing.T) {
 	if err := file.Close(); err != nil {
 		t.Error(err)
 	}
-	if readErr != nil || string(data) != "body" {
+	if readErr != nil || string(data) != scriptBody {
 		t.Errorf("script = %q, %v", data, readErr)
 	}
 }
@@ -56,7 +56,7 @@ func TestTemporaryHome(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(scripts) != 1 || scripts[safeName] != script {
-		t.Fatalf("metadata = %+v, want %v", scripts, script)
+	if len(scripts) != 1 || scripts[safeName].Name != script.Name || scripts[safeName].ScriptFile != script.ScriptFile || scripts[safeName].Description != script.Description || scripts[safeName].RecordID == "" {
+		t.Fatalf("metadata = %+v, want %v with generated record ID", scripts, script)
 	}
 }

@@ -49,8 +49,19 @@ func TestCompleteToolTurnParallelCallsWithoutIDs(t *testing.T) {
 	if err != nil || second == nil || len(second.Calls) != 2 {
 		t.Fatalf("second turn = (%+v, %v)", second, err)
 	}
-	if second.Calls[0].ID == first.Calls[0].ID || second.Calls[1].ID == first.Calls[1].ID {
-		t.Fatal("synthesized call IDs were reused across turns")
+	firstIDs := map[string]bool{}
+	for _, call := range first.Calls {
+		if call.ID == "" || firstIDs[call.ID] {
+			t.Fatalf("first-turn IDs are not unique: %+v", first.Calls)
+		}
+		firstIDs[call.ID] = true
+	}
+	secondIDs := map[string]bool{}
+	for _, call := range second.Calls {
+		if call.ID == "" || secondIDs[call.ID] || firstIDs[call.ID] {
+			t.Fatalf("second-turn IDs are not fresh and unique: first=%+v second=%+v", first.Calls, second.Calls)
+		}
+		secondIDs[call.ID] = true
 	}
 	body := <-requests
 	var contents []struct {

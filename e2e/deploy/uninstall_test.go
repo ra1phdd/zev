@@ -1,3 +1,5 @@
+//go:build e2e
+
 package deploy_test
 
 import (
@@ -6,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -81,16 +84,33 @@ func TestPowerShellUninstallerRemovesConfigWithExplicitOptIn(t *testing.T) {
 
 func runUninstallerScript(t *testing.T, script string, values map[string]string) {
 	t.Helper()
+	requireBash(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	t.Cleanup(cancel)
 	cmd := exec.CommandContext(ctx, "bash", script) //nolint:gosec // Runs a repository-owned script with isolated fixture paths.
-	cmd.Env = os.Environ()
-	for key, value := range values {
-		cmd.Env = append(cmd.Env, key+"="+value)
-	}
+	cmd.Env = makeDeploymentEnv(values)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("uninstaller failed: %v\n%s", err, output)
 	}
+}
+
+func makeDeploymentEnv(values map[string]string) []string {
+	blocked := map[string]bool{"ZEV_REMOVE_CONFIG": true}
+	for key := range values {
+		blocked[key] = true
+	}
+	env := make([]string, 0, len(os.Environ())+len(values))
+	for _, entry := range os.Environ() {
+		name, _, _ := strings.Cut(entry, "=")
+		if blocked[name] {
+			continue
+		}
+		env = append(env, entry)
+	}
+	for key, value := range values {
+		env = append(env, key+"="+value)
+	}
+	return env
 }
 
 func assertMissing(t *testing.T, path string) {

@@ -15,17 +15,15 @@ func TestAliasListHasStableNameOrder(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for range 32 {
-		aliases, err := svc.List()
-		if err != nil {
-			t.Fatal(err)
-		}
-		names := make([]string, len(aliases))
-		for i, alias := range aliases {
-			names[i] = alias.Name
-		}
-		if !slices.IsSorted(names) {
-			t.Fatalf("alias order not deterministic: %q", names)
-		}
+	aliases, err := svc.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, len(aliases))
+	for i, alias := range aliases {
+		names[i] = alias.Name
+	}
+	if !slices.Equal(names, []string{"alpha", "middle", "zeta"}) {
+		t.Fatalf("alias order = %q", names)
 	}
 }

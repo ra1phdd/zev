@@ -349,12 +349,16 @@ func TestWrapNetworkErrorDiagnosis(t *testing.T) {
 func TestWrapNetworkErrorHidesDetails(t *testing.T) {
 	t.Parallel()
 
-	for _, cause := range []error{
-		errors.New("secret-key https://private.example/body password"),
-		&net.DNSError{Err: "no such host", Name: "secret-key.private.example"},
+	for _, tc := range []struct {
+		name  string
+		cause error
+	}{
+		{name: "generic cause", cause: errors.New("secret-key https://private.example/body password")},
+		{name: "DNS cause", cause: &net.DNSError{Err: "no such host", Name: "secret-key.private.example"}},
 	} {
-		t.Run(cause.Error(), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			cause := tc.cause
 			original := &url.Error{
 				Op: testPost, URL: "https://user:password@private.example/?key=secret-key", Err: cause,
 			}

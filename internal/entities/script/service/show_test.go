@@ -8,15 +8,33 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
+func TestFindReturnsMetadataWithoutOpeningBody(t *testing.T) {
+	t.Parallel()
+	svc, dir := newTestService(t)
+	if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte("version: 2\nscripts:\n  safe:\n    recordID: 550e8400-e29b-41d4-a716-446655440000\n    script: missing.sh\n    description: help text\n    arguments:\n      - name: value\n        required: true\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := svc.Find(t.Context(), safeScriptName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Description != "help text" || got.Arguments[0].Name != "value" {
+		t.Fatalf("Find() metadata = %#v", got)
+	}
+}
+
 func TestShowWritesExactBodyWithoutExecutingIt(t *testing.T) {
 	t.Parallel()
-	svc, _ := newTestService(t)
-	body := "#!/usr/bin/env bash\nprintf 'marker' > marker\n"
+	svc, dir := newTestService(t)
+	marker := filepath.Join(dir, "marker")
+	body := "#!/usr/bin/env bash\nprintf 'marker' > " + marker + "\n"
 	if err := svc.repo.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, []byte(body)); err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +46,7 @@ func TestShowWritesExactBodyWithoutExecutingIt(t *testing.T) {
 	if got := out.String(); got != body {
 		t.Fatalf("Show() body = %q, want %q", got, body)
 	}
-	if _, err := os.Lstat("marker"); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Lstat(marker); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("show executed script marker: %v", err)
 	}
 }
@@ -77,7 +95,7 @@ func TestShowRejectsSymlinkScript(t *testing.T) {
 func TestShowStopsOnCancellationDuringOutput(t *testing.T) {
 	t.Parallel()
 	svc, _ := newTestService(t)
-	body := "#!/usr/bin/env bash\nprintf marker\n"
+	body := strings.Repeat("body\n", 32768)
 	if err := svc.repo.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, []byte(body)); err != nil {
 		t.Fatal(err)
 	}
@@ -90,8 +108,8 @@ func TestShowStopsOnCancellationDuringOutput(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("Show() error = %v, want context.Canceled", err)
 	}
-	if got := out.buffer.String(); got != body {
-		t.Fatalf("Show() wrote %q, want exact body before cancellation", got)
+	if got := out.buffer.String(); got == body || len(got) == 0 {
+		t.Fatalf("Show() wrote %d bytes, want partial output before cancellation", len(got))
 	}
 }
 

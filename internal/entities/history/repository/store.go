@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ra1phdd/zev/internal/core/filestore"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
@@ -89,6 +90,33 @@ func secureHistorySidecars(abs string) error {
 	return nil
 }
 
+func historySQLiteURL(abs string, query url.Values) string {
+	path := filepath.ToSlash(abs)
+	u := &url.URL{Scheme: historySQLiteURLScheme}
+	switch {
+	case len(path) >= 2 && path[1] == ':':
+		// SQLite treats file://C:/... as a URI with authority C:. A leading
+		// slash makes the Windows drive path a local file URI.
+		u.Path = "/" + path
+	case strings.HasPrefix(path, "//"):
+		// Preserve UNC paths as file://server/share/... URIs.
+		rest := strings.TrimPrefix(path, "//")
+		host, share, found := strings.Cut(rest, "/")
+		if found {
+			u.Host = host
+			u.Path = "/" + share
+		} else {
+			u.Host = rest
+		}
+	default:
+		u.Path = path
+	}
+	if query != nil {
+		u.RawQuery = query.Encode()
+	}
+	return u.String()
+}
+
 func openDatabase(ctx context.Context, abs string, create bool) (*sql.DB, error) {
 	if err := secureHistorySidecars(abs); err != nil {
 		return nil, err
@@ -119,16 +147,14 @@ func openDatabase(ctx context.Context, abs string, create bool) (*sql.DB, error)
 	if err = f.Close(); err != nil {
 		return nil, fmt.Errorf("close history database: %w", err)
 	}
-	u := &url.URL{Scheme: historySQLiteURLScheme, Path: filepath.ToSlash(abs)}
-	q := u.Query()
+	q := url.Values{}
 	q.Add("_pragma", "foreign_keys(1)")
 	q.Add("_pragma", "busy_timeout(5000)")
 	q.Set("_txlock", "immediate")
 	if !create {
 		q.Set("mode", "rw")
 	}
-	u.RawQuery = q.Encode()
-	db, err := sql.Open("sqlite", u.String())
+	db, err := sql.Open("sqlite", historySQLiteURL(abs, q))
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}

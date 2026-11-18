@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
@@ -24,38 +25,23 @@ type Service struct{ repo *repository.Repository }
 // New creates a script service backed by repo.
 func New(repo *repository.Repository) *Service { return &Service{repo: repo} }
 
-// CreateContext registers a script and opens an isolated editor copy unless
-// SKIP_EDITOR is set to 1. Cancellation leaves an already-created script registered.
-func (s *Service) CreateContext(ctx context.Context, name, description string) error {
-	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, `/\:`) {
-		return fmt.Errorf("invalid script name %q", name)
-	}
-	script := domain.Script{Name: name, ScriptFile: name + ".sh", Description: description}
-	comment := strings.ReplaceAll(strings.ReplaceAll(description, "\r\n", "\n"), "\r", "\n")
-	content := []byte("#!/usr/bin/env bash\n\n# " + strings.ReplaceAll(comment, "\n", "\n# ") + "\n\n")
-	if err := s.repo.Create(ctx, script, content); err != nil {
-		return fmt.Errorf("create script: %w", err)
-	}
-	if os.Getenv("SKIP_EDITOR") != "1" {
-		return s.OpenEditor(ctx, name)
-	}
-	return nil
-}
-
-// OpenEditor edits a private working copy, then atomically replaces the script
-// only if it still names the inode originally opened. Editors using atomic saves
-// are supported. Replaced or unsafe destinations are rejected without writing
-// through their pathname.
-func (s *Service) OpenEditor(ctx context.Context, name string) (err error) {
-	script, err := s.findScript(ctx, name)
+// OpenEditor captures the registered source before launching an isolated editor.
+// Source drift returns ErrScriptChanged without publishing the stale edit.
+func (s *Service) OpenEditor(ctx context.Context, name string) error {
+	snapshot, err := s.Snapshot(ctx, name)
 	if err != nil {
 		return err
 	}
-	original, err := s.repo.OpenScript(ctx, script.ScriptFile)
+	return s.EditBody(ctx, snapshot.Body)
+}
+
+// EditBody opens a private copy of source and publishes only while it remains
+// current. Atomic editor saves are supported; stale copies return ErrScriptChanged.
+func (s *Service) EditBody(ctx context.Context, source repository.BodySnapshot) (err error) {
+	body, err := s.repo.ReadBody(ctx, repository.ReadBodyParams{Snapshot: source})
 	if err != nil {
-		return fmt.Errorf("open script: %w", err)
+		return fmt.Errorf("read editor source: %w", err)
 	}
-	defer closeResource(&err, original)
 	directory, err := os.MkdirTemp("", "zev-editor-*")
 	if err != nil {
 		return fmt.Errorf("create editor directory: %w", err)
@@ -74,7 +60,7 @@ func (s *Service) OpenEditor(ctx context.Context, name string) (err error) {
 	if err != nil {
 		return fmt.Errorf("create editor working file: %w", err)
 	}
-	_, copyErr := io.Copy(working, original)
+	_, copyErr := working.Write(body)
 	if err := errors.Join(copyErr, working.Close()); err != nil {
 		return fmt.Errorf("copy script: %w", err)
 	}
@@ -85,7 +71,7 @@ func (s *Service) OpenEditor(ctx context.Context, name string) (err error) {
 	if err != nil {
 		return fmt.Errorf("read edited script: %w", err)
 	}
-	if err := s.repo.ReplaceScript(ctx, script.ScriptFile, original, data); err != nil {
+	if err := s.repo.ReplaceScript(ctx, repository.ReplaceParams{Source: source, Body: data}); err != nil {
 		return fmt.Errorf("save edited script: %w", err)
 	}
 	return nil
@@ -122,10 +108,13 @@ func (s *Service) List() ([]domain.Script, error) {
 	for _, script := range scripts {
 		result = append(result, script)
 	}
+	slices.SortFunc(result, func(a, b domain.Script) int { return strings.Compare(a.Name, b.Name) })
 	return result, nil
 }
 
-func (s *Service) findScript(ctx context.Context, name string) (domain.Script, error) {
+// Find returns the validated metadata for a named script without opening or
+// executing its body. Use errors.Is with ErrScriptNotFound for absence.
+func (s *Service) Find(ctx context.Context, name string) (domain.Script, error) {
 	scripts, err := s.repo.LoadAllContext(ctx)
 	if err != nil {
 		return domain.Script{}, fmt.Errorf("load scripts: %w", err)
@@ -141,11 +130,11 @@ func (s *Service) findScript(ctx context.Context, name string) (domain.Script, e
 // The script metadata is resolved before the pinned file is opened, and ctx is
 // checked between reads. The caller owns out; Show closes the opened script.
 func (s *Service) Show(ctx context.Context, name string, out io.Writer) (err error) {
-	script, err := s.findScript(ctx, name)
+	script, err := s.Find(ctx, name)
 	if err != nil {
 		return err
 	}
-	file, err := s.repo.OpenScript(ctx, script.ScriptFile)
+	file, err := s.repo.OpenScriptPinned(ctx, script, nil)
 	if err != nil {
 		return fmt.Errorf("open script: %w", err)
 	}
@@ -180,11 +169,19 @@ func (r contextReader) Read(p []byte) (int, error) {
 
 // Execute runs the pinned script with literal arguments and the caller's stdin.
 func (s *Service) Execute(ctx context.Context, name string, args []string) (err error) {
-	script, err := s.findScript(ctx, name)
+	script, err := s.Find(ctx, name)
 	if err != nil {
 		return err
 	}
-	file, err := s.repo.OpenScript(ctx, script.ScriptFile)
+	file, err := s.repo.OpenScriptPinned(ctx, script, func(current domain.Script) error {
+		script = current
+		for i, argument := range current.Arguments {
+			if argument.Required && i >= len(args) {
+				return fmt.Errorf("script %q requires argument %d: %s — %s", name, i+1, argument.Name, argument.Description)
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("open script: %w", err)
 	}
