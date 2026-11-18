@@ -111,6 +111,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fix terminal command injection on macOS: the kernel encodes the ioctl argument size
+  in the request, so TIOCSTI is `_IOW('t', 114, char)` (0x80017472) on Darwin instead
+  of the Linux value; the Linux encoding failed with ENOTTY and every `inject` fell
+  back to printing the command.
 - Keep provider redirects on the initial origin so configured authentication headers
   cannot be reattached to another host, port, or scheme; snapshot custom header maps.
 - Fail closed when the home directory is missing or relative instead of trusting a
