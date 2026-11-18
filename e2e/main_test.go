@@ -3,6 +3,7 @@
 package e2e_test
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +14,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ra1phdd/zev/internal/core/config"
+	"gopkg.in/yaml.v3"
 )
 
 var cliBinary string
@@ -73,8 +77,6 @@ func isolatedEnv(t *testing.T, home string) []string {
 		"HOME=" + home, "USERPROFILE=" + home, "home=" + home,
 		"TMPDIR=" + tmp, "TMP=" + tmp, "TEMP=" + tmp,
 		"LANG=en", "LC_ALL=C", "NO_COLOR=1",
-		"LLM_PROVIDER=fixture-disabled", "HISTORY_ENABLED=false",
-		"HISTORY_SEMANTIC_ENABLED=false", "CONTEXT_ENABLED=false", "TOOLS_ENABLED=false",
 	}
 	for _, key := range []string{"PATH", "SystemRoot", "WINDIR", "COMSPEC", "PATHEXT"} {
 		if value, ok := os.LookupEnv(key); ok {
@@ -92,6 +94,42 @@ func cliCommand(t *testing.T, home string, args ...string) *exec.Cmd {
 	cmd.Dir = home
 	cmd.Env = isolatedEnv(t, home)
 	return cmd
+}
+
+type cliFixture struct {
+	baseURL, key, language, toolApproval string
+	history                              bool
+}
+
+func writeFixture(t *testing.T, home string, f cliFixture) {
+	t.Helper()
+	cfg := config.DefaultConfig()
+	cfg.ActiveProvider = "fixture"
+	// A command without a provider fixture must never contact an external service.
+	cfg.Providers = map[string]config.ProviderConfig{"fixture": {Type: "openai", Model: fixtureModel, BaseURL: cmp.Or(f.baseURL, "http://127.0.0.1:1"), APIKey: f.key}}
+	cfg.UILanguage = cmp.Or(f.language, "auto")
+	cfg.ToolApprovalMode = cmp.Or(f.toolApproval, "manual")
+	cfg.HistoryEnabled = f.history
+	cfg.ContextEnabled = false
+	cfg.ToolsEnabled = false
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(home, ".zev")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func fixtureHome(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	writeFixture(t, home, cliFixture{})
+	return home
 }
 
 func setCLIEnv(cmd *exec.Cmd, values map[string]string) {

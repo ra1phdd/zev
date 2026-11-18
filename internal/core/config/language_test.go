@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -27,7 +28,7 @@ func TestUILanguageDefaultsAndParsing(t *testing.T) {
 	} {
 		t.Run(tc.input, func(t *testing.T) {
 			t.Parallel()
-			cfg, err := parseValues(map[string]string{"ZEV_LANG": tc.input})
+			cfg, err := Parse([]byte(minimalYAML + "language: " + strconv.Quote(tc.input)))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -48,12 +49,12 @@ func TestUILanguageValidationHidesInvalidValues(t *testing.T) {
 			if err := cfg.Validate(); err == nil || strings.Contains(err.Error(), value) {
 				t.Errorf("unsafe or missing validation error: %v", err)
 			}
-			_, err := parseValues(map[string]string{"ZEV_LANG": value})
+			_, err := Parse([]byte(minimalYAML + "language: " + strconv.Quote(value)))
 			if err == nil || strings.Contains(err.Error(), value) || !strings.Contains(err.Error(), "invalid UI language") {
 				t.Fatalf("unsafe or missing parse error: %v", err)
 			}
-			var safe configError
-			if !errors.As(err, &safe) || errors.Unwrap(safe) == nil {
+
+			if !errors.Is(err, errInvalidUILanguage) {
 				t.Errorf("validation error lost safe wrapper or cause: %v", err)
 			}
 		})
@@ -62,7 +63,7 @@ func TestUILanguageValidationHidesInvalidValues(t *testing.T) {
 
 //nolint:paralleltest // Mutates the global config path.
 func TestUILanguageSaveAndUpdate(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config")
+	path := filepath.Join(t.TempDir(), "config.yaml")
 	previous := SetConfigPathForTests(path)
 	t.Cleanup(func() { SetConfigPathForTests(previous) })
 	cfg := DefaultConfig()
@@ -70,9 +71,9 @@ func TestUILanguageSaveAndUpdate(t *testing.T) {
 	if err := Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	values, err := readValues(path)
-	if err != nil || values["ZEV_LANG"] != "ru" {
-		t.Fatalf("saved language=%q, error=%v", values["ZEV_LANG"], err)
+	values, err := Load()
+	if err != nil || values.UILanguage != "ru" {
+		t.Fatalf("saved language=%q, error=%v", values.UILanguage, err)
 	}
 	if cfg.UILanguage != languageSpacedRussian {
 		t.Fatal("Save mutated caller configuration")
@@ -95,8 +96,8 @@ func TestUILanguageSaveAndUpdate(t *testing.T) {
 	if err := Update(func(cfg *Config) error { cfg.UILanguage = languageSpacedEnglish; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	values, err = readValues(path)
-	if err != nil || values["ZEV_LANG"] != "en" {
-		t.Fatalf("updated language=%q, error=%v", values["ZEV_LANG"], err)
+	values, err = Load()
+	if err != nil || values.UILanguage != "en" {
+		t.Fatalf("updated language=%q, error=%v", values.UILanguage, err)
 	}
 }

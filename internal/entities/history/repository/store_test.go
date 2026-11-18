@@ -19,14 +19,14 @@ func TestOpenDoesNotImportLegacySource(t *testing.T) {
 	path := filepath.Join(dir, "history.db")
 	source := filepath.Join(dir, "history")
 	original := []byte("not parsed by repository.Open\n")
-	if err := os.WriteFile(source, original, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	s, err := Open(t.Context(), path)
+	s, err := openTestStore(t.Context(), t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { closeImportTest(t, s) })
+	if err := os.WriteFile(source, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	actual, err := os.ReadFile(source) //nolint:gosec // The test path is created inside t.TempDir().
 	if err != nil || string(actual) != string(original) {
 		t.Fatalf("legacy source changed: %q %v", actual, err)
@@ -43,7 +43,7 @@ func TestOpenDoesNotImportLegacySource(t *testing.T) {
 func TestOpenCreatesPrivateDatabase(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "zev", "history.db")
-	s, err := Open(context.Background(), path)
+	s, err := openTestStore(context.Background(), t, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestOpenCreatesPrivateDatabase(t *testing.T) {
 		t.Fatalf("database permissions: %o", info.Mode().Perm())
 	}
 	var version int
-	if err := s.db.QueryRowContext(t.Context(), "SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version != 3 {
+	if err := s.db.QueryRowContext(t.Context(), "SELECT max(version) FROM schema_migrations").Scan(&version); err != nil || version != 1 {
 		t.Fatalf("migration version %d: %v", version, err)
 	}
 	var ledger int
@@ -89,12 +89,19 @@ func TestOpenSecuresExistingDatabaseSidecars(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "history.db")
-	for _, name := range []string{path, path + "-wal", path + "-shm"} {
+	s, err := openTestStore(t.Context(), t, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{path + "-wal", path + "-shm"} {
 		if err := os.WriteFile(name, nil, 0o644); err != nil { //nolint:gosec // The test deliberately creates overly broad database permissions.
 			t.Fatal(err)
 		}
 	}
-	s, err := Open(t.Context(), path)
+	s, err = Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
 	}

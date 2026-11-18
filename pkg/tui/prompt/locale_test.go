@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/ra1phdd/zev/internal/core/locale"
 )
 
+//nolint:paralleltest // Changes the process-wide locale.
 func TestInputLocalizedHint(t *testing.T) {
 	for _, tt := range []struct {
 		language string
@@ -19,7 +21,8 @@ func TestInputLocalizedHint(t *testing.T) {
 		{"en", "(Press Enter to confirm, Esc to cancel)"},
 	} {
 		t.Run(tt.language, func(t *testing.T) {
-			t.Setenv("ZEV_LANG", tt.language)
+			restore := locale.SetLanguage(tt.language, "")
+			t.Cleanup(restore)
 			for _, secret := range []bool{false, true} {
 				m := newInputModel("Enter custom base URL", secret)
 				view := m.View()
@@ -34,8 +37,10 @@ func TestInputLocalizedHint(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // Changes the process-wide locale.
 func TestMultilineLocalizedHint(t *testing.T) {
-	t.Setenv("ZEV_LANG", "ru")
+	restore := locale.SetLanguage("ru", "")
+	defer restore()
 	m := newMultilineModel("Enter custom base URL")
 	const value = "  user text {{literal}}\nкоманда\n"
 	m.textArea.SetValue(value)

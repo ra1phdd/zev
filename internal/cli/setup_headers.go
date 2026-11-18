@@ -22,7 +22,7 @@ func newSetupHeadersCmd() *cobra.Command {
 }
 
 func runSetupHeaders(cmd *cobra.Command, _ []string) error {
-	cfg, err := config.Load()
+	cfg, err := loadConfig(cmd.Context())
 	if err != nil {
 		return fmt.Errorf(locale.Text(locale.KeyCliFailedLoadConfigError), err)
 	}

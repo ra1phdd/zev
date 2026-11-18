@@ -8,8 +8,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:paralleltest // The fixture changes HOME and the process-wide UI language.
 func TestRussianHelpKeepsCommandTokens(t *testing.T) {
-	t.Setenv("ZEV_LANG", "ru")
+	setFixtureLanguage(t, newCLIConfigHome(t), "ru")
 	root := &cobra.Command{Use: "zev"}
 	root.AddCommand(newQueryCmd())
 	localizeCommandHelp(root)

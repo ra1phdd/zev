@@ -24,7 +24,7 @@ func newSetupModeCmd() *cobra.Command {
 }
 
 func runSetupMode(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load()
+	cfg, err := loadConfig(cmd.Context())
 	if err != nil {
 		return fmt.Errorf(locale.Text(locale.KeyCliFailedLoadConfigError), err)
 	}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"os"
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/config"
@@ -29,7 +28,7 @@ func TestSetupMode(t *testing.T) {
 			args:    []string{executionModeExecute},
 			wantOut: "✓ Command execution mode set to: execute\n",
 		},
-		{name: "invalid mode", args: []string{"invalid"}, wantErr: true},
+		{name: "invalid mode", args: []string{cliFixtureInvalidValue}, wantErr: true},
 		{name: "show current mode", wantOut: "Current command execution mode: inject\n"},
 		{name: "current mode output error", wantErr: true, failOutput: true},
 		{name: "confirmation output error", args: []string{executionModeExecute}, wantErr: true, failOutput: true},
@@ -37,11 +36,6 @@ func TestSetupMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Preserve the caller's environment even though loading dotenv sets it.
-			t.Setenv("COMMAND_EXECUTION_MODE", "")
-			if err := os.Unsetenv("COMMAND_EXECUTION_MODE"); err != nil {
-				t.Fatal(err)
-			}
 			home := t.TempDir()
 			t.Setenv("HOME", home)
 			t.Setenv("USERPROFILE", home)
@@ -71,9 +65,6 @@ func TestSetupMode(t *testing.T) {
 			}
 
 			if len(tt.args) > 0 && (!tt.wantErr || tt.failOutput) {
-				if err := os.Unsetenv("COMMAND_EXECUTION_MODE"); err != nil {
-					t.Fatal(err)
-				}
 				loadedCfg, err := config.Load()
 				if err != nil {
 					t.Fatalf("failed to load config after save: %v", err)

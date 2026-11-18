@@ -77,12 +77,12 @@ func generateManagedMetadata(cmd *cobra.Command, request managedGeneration) erro
 	if err != nil {
 		return warnManagedGeneration(cmd, request, err)
 	}
-	cfg, err := config.Load()
+	cfg, err := loadConfig(cmd.Context())
 	if err != nil {
 		return warnManagedGeneration(cmd, request, err)
 	}
 	logger := slog.New(slog.NewTextHandler(cmd.ErrOrStderr(), &slog.HandlerOptions{Level: slog.LevelWarn}))
-	generator, err := metadataclient.NewConfigured(cfg, httpclient.New(cfg.HTTPHeaders, logger))
+	generator, err := metadataclient.NewConfigured(cfg, httpclient.New(cfg.EffectiveHTTPHeaders(), logger))
 	if err != nil {
 		return warnManagedGeneration(cmd, request, err)
 	}
@@ -155,7 +155,7 @@ func applyGeneratedDescription(request managedGeneration, value string) error {
 	}
 	candidate := *request.Script
 	candidate.Description = value
-	if err := metadata.ValidateLegacyScript(candidate); err != nil {
+	if err := metadata.ValidateScriptFields(candidate); err != nil {
 		return fmt.Errorf("validate generated script description: %w", err)
 	}
 	request.Script.Description = value
@@ -174,7 +174,7 @@ func applyGeneratedArguments(request managedGeneration, value []domain.Argument)
 	}
 	candidate := *request.Script
 	candidate.Arguments = value
-	if err := metadata.ValidateLegacyScript(candidate); err != nil {
+	if err := metadata.ValidateScriptFields(candidate); err != nil {
 		return fmt.Errorf("validate generated script arguments: %w", err)
 	}
 	request.Script.Arguments = value

@@ -15,10 +15,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:paralleltest // newCLIConfigHome and managedTerminal use process-global state.
 func TestManagedInteractiveGenerationRequiresSeparateConsent(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
+	home := newCLIConfigHome(t)
 	var calls atomic.Int32
 	var wireBody, wireURL, consentDiagnostic string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -35,10 +34,9 @@ func TestManagedInteractiveGenerationRequiresSeparateConsent(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	t.Setenv("LLM_PROVIDER", "openai")
-	t.Setenv("OPENAI_BASE_URL", server.URL)
-	t.Setenv("OPENAI_API_KEY", "fixture")
-	t.Setenv("OPENAI_MODEL", "fixture-model")
+
+	writeCLIConfig(t, home, openAITestConfig(server.URL, "fixture"))
+
 	old := managedTerminal
 	managedTerminal = func(*cobra.Command) bool { return true }
 	t.Cleanup(func() { managedTerminal = old })
@@ -82,13 +80,10 @@ func TestManagedInteractiveGenerationRequiresSeparateConsent(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // newCLIConfigHome and managedTerminal use process-global state.
 func TestManagedGenerationDoesNotFollowConsentedRequest307Redirect(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-	t.Setenv("LLM_PROVIDER", "openai")
-	t.Setenv("OPENAI_API_KEY", "fixture")
-	t.Setenv("OPENAI_MODEL", "fixture-model")
+	home := newCLIConfigHome(t)
+
 	var redirected atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/chat/completions" {
@@ -100,7 +95,7 @@ func TestManagedGenerationDoesNotFollowConsentedRequest307Redirect(t *testing.T)
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	t.Cleanup(server.Close)
-	t.Setenv("OPENAI_BASE_URL", server.URL)
+	writeCLIConfig(t, home, openAITestConfig(server.URL, "fixture"))
 	old := managedTerminal
 	managedTerminal = func(*cobra.Command) bool { return true }
 	t.Cleanup(func() { managedTerminal = old })
@@ -118,10 +113,9 @@ func TestManagedGenerationDoesNotFollowConsentedRequest307Redirect(t *testing.T)
 	}
 }
 
+//nolint:paralleltest // newCLIConfigHome sets process-wide HOME and USERPROFILE.
 func TestManagedScriptGenerationReadsBoundedPinnedBody(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
+	home := newCLIConfigHome(t)
 	body := filepath.Join(home, "source")
 	if err := os.WriteFile(body, []byte("#!/bin/bash\necho pinned-generation-source\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -142,10 +136,9 @@ func TestManagedScriptGenerationReadsBoundedPinnedBody(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	t.Setenv("LLM_PROVIDER", "openai")
-	t.Setenv("OPENAI_BASE_URL", server.URL)
-	t.Setenv("OPENAI_API_KEY", "fixture")
-	t.Setenv("OPENAI_MODEL", "fixture-model")
+
+	writeCLIConfig(t, home, openAITestConfig(server.URL, "fixture"))
+
 	if _, err := managedCommand(t, managedKindScript, managedOpCreate, "pinned", "--body-file", body, historyJSONFlag); err != nil {
 		t.Fatal(err)
 	}

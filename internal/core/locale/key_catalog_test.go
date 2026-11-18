@@ -26,6 +26,8 @@ func TestNamedMessageKeysHaveEnglishAndRussianCatalogEntries(t *testing.T) {
 		KeyUISetupProvider:       "Which LLM provider would you like to use?",
 		KeyUISetupSaved:          "\n✓ Configuration saved successfully!",
 		KeyUISetupModel:          "Enter the model to use",
+		KeyUISetupSelectModel:    "Select a model (loaded from the provider)",
+		KeyUISetupManualModel:    "Enter a model manually",
 		KeyUISetupBaseURL:        "Enter custom base URL",
 		KeyUISetupOllamaBaseURL:  "Enter Ollama base URL",
 		KeyUISetupAPIKey:         "Enter your %s API key",
@@ -78,43 +80,44 @@ func TestAllCatalogEntriesUseNamedStableIDs(t *testing.T) {
 			catalogIDs[id] = struct{}{}
 		}
 	}
-	keysFile, err := os.ReadFile("keys.go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	file, err := parser.ParseFile(token.NewFileSet(), "keys.go", keysFile, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
 	constantIDs := make(map[string]struct{})
-	for _, declaration := range file.Decls {
-		declaration, ok := declaration.(*ast.GenDecl)
-		if !ok || declaration.Tok != token.CONST {
-			continue
+	for _, keysPath := range []string{"keys.go", "provider_keys.go"} {
+		keysFile, err := os.ReadFile(keysPath) //nolint:gosec // Test reads package-local source files.
+		if err != nil {
+			t.Fatal(err)
 		}
-		for _, specification := range declaration.Specs {
-			values, ok := specification.(*ast.ValueSpec)
-			if !ok {
-				t.Errorf("constant declaration has unexpected AST node %T", specification)
+		file, err := parser.ParseFile(token.NewFileSet(), keysPath, keysFile, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, declaration := range file.Decls {
+			declaration, ok := declaration.(*ast.GenDecl)
+			if !ok || declaration.Tok != token.CONST {
 				continue
 			}
-			for index, name := range values.Names {
-				if !strings.HasPrefix(name.Name, "Key") || index >= len(values.Values) {
+			for _, name := range declaration.Specs {
+				values, ok := name.(*ast.ValueSpec)
+				if !ok {
 					continue
 				}
-				literal, ok := values.Values[index].(*ast.BasicLit)
-				if !ok || literal.Kind != token.STRING {
-					t.Errorf("constant %s is not a string key", name.Name)
-					continue
-				}
-				id, err := strconv.Unquote(literal.Value)
-				if err != nil {
-					t.Errorf("constant %s has invalid string: %v", name.Name, err)
-					continue
-				}
-				constantIDs[id] = struct{}{}
-				if _, ok := catalogIDs[id]; !ok {
-					t.Errorf("constant %s has no catalog entry for %q", name.Name, id)
+				for valueIndex, constant := range values.Names {
+					if !strings.HasPrefix(constant.Name, "Key") || valueIndex >= len(values.Values) {
+						continue
+					}
+					literal, ok := values.Values[valueIndex].(*ast.BasicLit)
+					if !ok || literal.Kind != token.STRING {
+						t.Errorf("constant %s is not a string key", constant.Name)
+						continue
+					}
+					id, err := strconv.Unquote(literal.Value)
+					if err != nil {
+						t.Errorf("constant %s has invalid string: %v", constant.Name, err)
+						continue
+					}
+					constantIDs[id] = struct{}{}
+					if _, ok := catalogIDs[id]; !ok {
+						t.Errorf("constant %s has no catalog entry for %q", constant.Name, id)
+					}
 				}
 			}
 		}

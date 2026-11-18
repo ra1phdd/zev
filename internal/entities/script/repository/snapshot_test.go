@@ -91,7 +91,7 @@ func TestReplacementRechecksSourceAfterStaging(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					scripts, _, err := metadata.DecodeScripts(all)
+					scripts, err := metadata.DecodeScripts(all)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -102,7 +102,7 @@ func TestReplacementRechecksSourceAfterStaging(t *testing.T) {
 						script.ScriptFile = "moved.sh"
 					}
 					scripts[safeName] = script
-					encoded, err := metadata.EncodeScripts(scripts)
+					encoded, err := metadata.EncodeScriptsV2(scripts)
 					if err != nil {
 						t.Fatal(err)
 					}

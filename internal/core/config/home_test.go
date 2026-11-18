@@ -24,12 +24,12 @@ func TestConfigRejectsUntrustedHomeBeforeIO(t *testing.T) {
 				previous := SetConfigPathForTests("")
 				t.Cleanup(func() { SetConfigPathForTests(previous) })
 				dir := filepath.Join(project, home, ".zev")
-				const original = "OPENAI_MODEL=untrusted-project-model\n"
+				const original = minimalYAML
 				if existing {
 					if err := os.MkdirAll(dir, 0o700); err != nil {
 						t.Fatal(err)
 					}
-					if err := os.WriteFile(filepath.Join(dir, "config"), []byte(original), 0o600); err != nil {
+					if err := os.WriteFile(filepath.Join(dir, configFilename), []byte(original), 0o600); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -57,10 +57,10 @@ func TestConfigRejectsUntrustedHomeBeforeIO(t *testing.T) {
 					}
 					return
 				}
-				if err != nil || len(entries) != 1 || entries[0].Name() != "config" {
+				if err != nil || len(entries) != 1 || entries[0].Name() != configFilename {
 					t.Fatalf("project storage changed, including lock files: %v, %v", entries, err)
 				}
-				data, err := os.ReadFile(filepath.Join(dir, "config")) //nolint:gosec // Reads only this test's synthetic config fixture.
+				data, err := os.ReadFile(filepath.Join(dir, configFilename)) //nolint:gosec // Reads only this test's synthetic config fixture.
 				if err != nil || string(data) != original {
 					t.Errorf("project config changed: %q, %v", data, err)
 				}
@@ -82,14 +82,14 @@ func TestConfigPathOverrideWithoutHome(t *testing.T) {
 	}
 	previous := SetConfigPathForTests("")
 	t.Cleanup(func() { SetConfigPathForTests(previous) })
-	outer := filepath.Join(t.TempDir(), "config")
+	outer := filepath.Join(t.TempDir(), configFilename)
 	if old := SetConfigPathForTests(outer); old != "" {
 		t.Fatalf("previous override = %q, want default", old)
 	}
 	if err := Save(DefaultConfig()); err != nil {
 		t.Fatal(err)
 	}
-	inner := filepath.Join(t.TempDir(), "config")
+	inner := filepath.Join(t.TempDir(), configFilename)
 	if old := SetConfigPathForTests(inner); old != outer {
 		t.Fatalf("nested previous override = %q, want %q", old, outer)
 	}

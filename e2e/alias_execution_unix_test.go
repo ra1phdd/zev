@@ -35,7 +35,7 @@ func TestManagedAliasNativeExecutionBranches(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			home := t.TempDir()
+			home := fixtureHome(t)
 			add := cliCommand(t, home, "alias", "add", "native", tc.template, "--no-metadata")
 			if output, err := add.CombinedOutput(); err != nil {
 				t.Fatalf("add native alias: %v %s", err, output)
@@ -62,7 +62,7 @@ func TestManagedAliasNativeExecutionBranches(t *testing.T) {
 
 func TestManagedAliasNativeInterruptIsBounded(t *testing.T) {
 	t.Parallel()
-	home := t.TempDir()
+	home := fixtureHome(t)
 	body := filepath.Join(home, "wait.sh")
 	pidPath := filepath.Join(home, "child.pid")
 	parentPath := filepath.Join(home, "parent.pid")

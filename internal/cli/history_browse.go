@@ -39,9 +39,18 @@ func runHistoryBrowse(cmd *cobra.Command, store historyOperations) error {
 }
 
 func selectHistoryBrowseEntry(cmd *cobra.Command, store historyOperations, entries []historyBrowseEntry) error {
+	return selectHistoryBrowseEntryWith(cmd, store, entries, func(options list.SelectOptions) (list.Item, error) {
+		return list.SelectContext(cmd.Context(), options)
+	})
+}
+
+func selectHistoryBrowseEntryWith(cmd *cobra.Command, store historyOperations, entries []historyBrowseEntry, selectItem func(list.SelectOptions) (list.Item, error)) error {
 	items := makeHistoryBrowseItems(entries)
-	selected, err := list.SelectContext(cmd.Context(), list.SelectOptions{Title: locale.Text(locale.KeyCliQueryHistory), Items: items})
+	selected, err := selectItem(list.SelectOptions{Title: locale.Text(locale.KeyCliQueryHistory), Items: items})
 	if err != nil {
+		if err.Error() == queryCancelled {
+			return nil
+		}
 		return fmt.Errorf(locale.Text(locale.KeyCliSelectHistoryError), err)
 	}
 	entry, ok := selectedHistoryEntry(items, entries, selected)
@@ -84,8 +93,8 @@ func loadHistoryBrowseEntries(cmd *cobra.Command, store historyOperations) ([]hi
 }
 
 func historyBrowsePrompt(conversation service.Conversation) string {
-	if metadata := safeHistoryPrompt(conversation.MetadataJSON); metadata != "" {
-		return strconv.Quote(metadata)
+	if prompt := safeHistoryPrompt(conversation.InitialPrompt); prompt != "" {
+		return strconv.Quote(prompt)
 	}
 	return strconv.Quote(fmt.Sprintf(locale.Text(locale.KeyCliConversationMessage), conversation.ID))
 }

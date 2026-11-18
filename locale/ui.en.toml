@@ -38,6 +38,16 @@ other = "Enter the model to use"
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["ui.setup.select_model"]
+other = "Select a model (loaded from the provider)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["ui.setup.manual_model"]
+other = "Enter a model manually"
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["ui.setup.base_url"]
 other = "Enter custom base URL"
 leftDelim = "[[["

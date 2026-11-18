@@ -1,0 +1,23 @@
+["update.short"]
+other = "Обновить Zev из последнего стабильного GitHub Release и запустить миграции"
+
+["update.checking"]
+other = "Проверка последнего стабильного релиза Zev...\n"
+
+["update.installed"]
+other = "Zev %s установлен; все миграции завершены.\n"
+
+["update.current"]
+other = "Zev %s уже актуален или новее релиза; все миграции завершены.\n"
+
+["update.migrating"]
+other = "Миграция %s...\n"
+
+["update.migrate_only"]
+other = "Запустить локальные миграции данных без скачивания и замены Zev"
+
+["update.migrations_done"]
+other = "Все миграции данных Zev завершены.\n"
+
+["update.protocol"]
+other = "Показать протокол совместимости самообновления"

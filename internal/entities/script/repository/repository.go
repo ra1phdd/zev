@@ -17,7 +17,6 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/core/filestore"
 	"github.com/ra1phdd/zev/internal/core/metadata"
-	"github.com/ra1phdd/zev/internal/core/metadatastore"
 )
 
 const (
@@ -263,9 +262,6 @@ func hashBytes(data []byte) string {
 // ErrBodyChanged indicates that a script body no longer matches a pinned snapshot.
 var ErrBodyChanged = errors.New("script body changed")
 
-// ErrMigrationRequired indicates metadata must be migrated before mutation.
-var ErrMigrationRequired = errors.New("script metadata migration required")
-
 // ErrCommitted indicates that an operation published its replacement before
 // reporting a durability error. Callers must not roll back a committed change.
 var ErrCommitted = filestore.ErrCommitted
@@ -322,7 +318,7 @@ func (r *Repository) Create(ctx context.Context, script domain.Script, content [
 		if err := requireCombinedTransactionSupport(); err != nil {
 			return err
 		}
-		scripts, err := st.loadForMutation()
+		scripts, err := st.load()
 		if err != nil {
 			return err
 		}
@@ -418,7 +414,7 @@ type UpdateParams struct {
 // publication; ErrCommitted indicates a visible change with uncertain durability.
 func (r *Repository) Update(ctx context.Context, params UpdateParams) error {
 	return r.withStore(ctx, true, func(st *store) error {
-		scripts, err := st.loadForMutation()
+		scripts, err := st.load()
 		if err != nil {
 			return err
 		}
@@ -461,7 +457,7 @@ func (r *Repository) Remove(name string) error {
 		if err := requireCombinedTransactionSupport(); err != nil {
 			return err
 		}
-		scripts, err := st.loadForMutation()
+		scripts, err := st.load()
 		if err != nil {
 			return err
 		}
@@ -578,7 +574,7 @@ func (r *Repository) replaceScript(ctx context.Context, st *store, params Replac
 		return err
 	}
 	scriptFile := params.Source.scriptFile
-	scripts, err := st.loadForMutation()
+	scripts, err := st.load()
 	if err != nil {
 		return err
 	}
@@ -592,7 +588,7 @@ func (r *Repository) replaceScript(ctx context.Context, st *store, params Replac
 		}
 		return stageErr
 	}
-	current, err := st.loadForMutation()
+	current, err := st.load()
 	if err == nil {
 		err = st.validateSnapshot(ctx, current, params.Source)
 	}
@@ -688,8 +684,6 @@ type store struct {
 	syncMetadataDirectory func(*os.Root) error
 	syncBodyDirectory     func(*os.Root, string) error
 	replaceRename         func(*os.Root, string, string) error
-	legacy                bool
-	migrationDir          string
 }
 
 func (r *Repository) withStore(ctx context.Context, create bool, fn func(*store) error) error {
@@ -752,8 +746,8 @@ func (r *Repository) withDirectories(parent *os.Root, create bool, fn func(*stor
 	if files != nil {
 		defer closeResource(&err, files)
 	}
-	st := &store{zev: z, files: files, syncMetadataDirectory: r.syncMetadataDirectory, syncBodyDirectory: r.syncBodyDirectory, replaceRename: r.replaceRename, migrationDir: filepath.Join(z.Name(), ".scripts-migration")}
-	if err := st.recoverMigration(); err != nil {
+	st := &store{zev: z, files: files, syncMetadataDirectory: r.syncMetadataDirectory, syncBodyDirectory: r.syncBodyDirectory, replaceRename: r.replaceRename}
+	if err := st.recoverJournal(); err != nil {
 		return err
 	}
 	if create {
@@ -1063,9 +1057,6 @@ func (st *store) cleanupJournal(paths journalPaths) error {
 	if err := removePrivateArtifact(paths.metadataStage); err != nil {
 		return errors.Join(ErrCommitted, fmt.Errorf("remove staged script metadata: %w", err))
 	}
-	if err := metadatastore.ClearCompleted(st.migrationDir); err != nil {
-		return errors.Join(ErrCommitted, fmt.Errorf("clear scripts migration marker: %w", err))
-	}
 	if err := st.removeJournal(); err != nil {
 		return errors.Join(ErrCommitted, fmt.Errorf("remove script journal: %w", err))
 	}
@@ -1153,89 +1144,38 @@ func removePrivateArtifact(path string) error {
 	return nil
 }
 
-func (st *store) recoverMigration() error {
-	if st.zev == nil {
-		return nil
-	}
-	if err := st.recoverJournal(); err != nil {
-		return fmt.Errorf("recover script publication journal: %w", err)
-	}
-	activePath := filepath.Join(st.zev.Name(), "scripts")
-	if err := metadatastore.Recover(activePath, st.migrationDir); err != nil {
-		return fmt.Errorf("recover script metadata migration: %w", err)
-	}
-	if _, err := st.zev.Lstat("scripts"); errors.Is(err, os.ErrNotExist) {
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("inspect script metadata: %w", err)
-	}
-	scripts, err := st.load()
-	if err != nil || !st.legacy {
-		return err
-	}
-	for name, script := range scripts {
-		if script.RecordID == "" {
-			script.RecordID = uuid.NewString()
-			scripts[name] = script
-		}
-	}
-	canonical, err := metadata.EncodeScripts(scripts)
-	if err != nil {
-		return fmt.Errorf("encode scripts migration: %w", err)
-	}
+func (st *store) readMetadata() ([]byte, error) {
 	file, err := openRegular(st.zev, "scripts")
-	if err != nil {
-		return fmt.Errorf("open script migration source: %w", err)
-	}
-	source, readErr := io.ReadAll(io.LimitReader(file, 1<<20+1))
-	closeErr := file.Close()
-	if err := errors.Join(readErr, closeErr); err != nil {
-		return fmt.Errorf("read script migration source: %w", err)
-	}
-	if len(source) > 1<<20 {
-		return errors.New("script migration source exceeds metadata size limit")
-	}
-	if err := metadatastore.Migrate(activePath, st.migrationDir, source, canonical); err != nil {
-		return fmt.Errorf("migrate scripts: %w", err)
-	}
-	return nil
-}
-
-func (st *store) load() (map[string]domain.Script, error) {
-	scripts := make(map[string]domain.Script)
-	st.legacy = false
-	if st.zev == nil {
-		return scripts, nil
-	}
-	file, err := openRegular(st.zev, "scripts")
-	if errors.Is(err, os.ErrNotExist) {
-		return scripts, nil
-	}
 	if err != nil {
 		return nil, fmt.Errorf("open metadata: %w", err)
 	}
-	decoded, legacy, decodeErr := metadata.DecodeScriptsReader(file)
-	closeErr := file.Close()
-	if err := errors.Join(decodeErr, closeErr); err != nil {
+	data, readErr := metadata.ReadBounded(file)
+	if err := errors.Join(readErr, file.Close()); err != nil {
 		return nil, fmt.Errorf("read metadata: %w", err)
 	}
-	for name, script := range decoded {
-		if err := st.validate(script.ScriptFile); err != nil {
-			return nil, fmt.Errorf("invalid script %q: %w", name, err)
-		}
-		scripts[name] = script
-	}
-	st.legacy = legacy
-	return scripts, nil
+	return data, nil
 }
 
-func (st *store) loadForMutation() (map[string]domain.Script, error) {
-	scripts, err := st.load()
+func (st *store) load() (map[string]domain.Script, error) {
+	data, err := st.readMetadata()
+	if errors.Is(err, os.ErrNotExist) {
+		return make(map[string]domain.Script), nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	if st.legacy {
-		return nil, ErrMigrationRequired
+	return st.decodeCanonical(data)
+}
+
+func (st *store) decodeCanonical(data []byte) (map[string]domain.Script, error) {
+	scripts, err := metadata.DecodeScripts(data)
+	if err != nil {
+		return nil, fmt.Errorf("decode scripts: %w", err)
+	}
+	for name, script := range scripts {
+		if err := st.validate(script.ScriptFile); err != nil {
+			return nil, fmt.Errorf("invalid script %q: %w", name, err)
+		}
 	}
 	return scripts, nil
 }
@@ -1249,7 +1189,7 @@ func (st *store) stageMetadata(scripts map[string]domain.Script) (string, []byte
 	if err := checkRegular(st.zev, "scripts"); err != nil {
 		return "", nil, fmt.Errorf("validate metadata: %w", err)
 	}
-	data, err := metadata.EncodeScripts(scripts)
+	data, err := metadata.EncodeScriptsV2(scripts)
 	if err != nil {
 		return "", nil, fmt.Errorf("encode scripts: %w", err)
 	}
@@ -1289,8 +1229,26 @@ func (st *store) save(scripts map[string]domain.Script) error {
 	if err := syncDirectory(st.zev); err != nil {
 		return errors.Join(ErrCommitted, fmt.Errorf("metadata replacement committed but directory sync failed: %w", err))
 	}
-	if err := metadatastore.ClearCompleted(st.migrationDir); err != nil {
-		return errors.Join(ErrCommitted, fmt.Errorf("clear scripts migration marker: %w", err))
-	}
 	return nil
+}
+
+// WithLockedFiles provides the metadata path and a confined check for existing
+// script bodies under the repository writer lock. The check is valid only for
+// the duration of fn; fn must not acquire the same lock again.
+func (r *Repository) WithLockedFiles(ctx context.Context, fn func(string, func(string) error) error) error {
+	return r.withStore(ctx, false, func(st *store) error {
+		return fn(r.scriptsYAMLPath, func(path string) error {
+			if err := validScriptFile(path); err != nil {
+				return err
+			}
+			f, err := openRegular(st.files, path)
+			if err != nil {
+				return err
+			}
+			if err := f.Close(); err != nil {
+				return fmt.Errorf("close script body: %w", err)
+			}
+			return nil
+		})
+	})
 }

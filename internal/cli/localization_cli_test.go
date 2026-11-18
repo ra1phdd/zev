@@ -29,7 +29,7 @@ func TestCLILocalizationAndMachineStability(t *testing.T) {
 	}
 
 	t.Run("Russian alias help and list", func(t *testing.T) {
-		t.Setenv("ZEV_LANG", "ru")
+		setFixtureLanguage(t, home, "ru")
 		var help bytes.Buffer
 		helpCmd := newAliasCmd()
 		helpCmd.SetOut(&help)
@@ -55,7 +55,7 @@ func TestCLILocalizationAndMachineStability(t *testing.T) {
 	})
 
 	t.Run("English alias list", func(t *testing.T) {
-		t.Setenv("ZEV_LANG", "en")
+		setFixtureLanguage(t, home, "en")
 		var out bytes.Buffer
 		cmd := newAliasListCmd()
 		cmd.SetOut(&out)
@@ -69,7 +69,7 @@ func TestCLILocalizationAndMachineStability(t *testing.T) {
 	})
 
 	t.Run("machine JSON remains stable", func(t *testing.T) {
-		t.Setenv("ZEV_LANG", "ru")
+		setFixtureLanguage(t, home, "ru")
 		const commandText = "printf localization-fixture"
 		response := &domain.OptionsResponse{IsValid: true, Commands: []domain.Command{{Command: commandText}}}
 		var out bytes.Buffer
@@ -89,7 +89,9 @@ func TestCLILocalizationAndMachineStability(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // The fixture changes HOME and the process-wide UI language.
 func TestCLIHelpLanguages(t *testing.T) {
+	home := newCLIConfigHome(t)
 	for _, tc := range []struct {
 		name       string
 		newCommand func() *cobra.Command
@@ -106,7 +108,7 @@ func TestCLIHelpLanguages(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, language := range []string{"en", "ru"} {
-				t.Setenv("ZEV_LANG", language)
+				setFixtureLanguage(t, home, language)
 				var out bytes.Buffer
 				cmd := tc.newCommand()
 				cmd.SetOut(&out)
@@ -130,12 +132,13 @@ func TestCLIHelpLanguages(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // The fixture changes HOME and the process-wide UI language.
 func TestDoctorLocalizedPresentationPreservesJSON(t *testing.T) {
-	t.Setenv("ZEV_LANG", "en")
+	home := newCLIConfigHome(t)
 	report := doctorReport{SchemaVersion: 1, Status: doctorStatusOK, Checks: []doctorCheck{{Name: "configuration", Status: doctorStatusOK, Message: "configuration loaded", ActionableMessage: doctorActionNone}}, ActionableMessage: "all checks passed"}
 	var previous string
 	for _, language := range []string{"en", "ru"} {
-		t.Setenv("ZEV_LANG", language)
+		setFixtureLanguage(t, home, language)
 		var human, machine bytes.Buffer
 		cmd := &cobra.Command{}
 		cmd.SetOut(&human)
@@ -160,10 +163,12 @@ func TestDoctorLocalizedPresentationPreservesJSON(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // The fixture changes HOME and the process-wide UI language.
 func TestLocalizedSearchWarningsPreserveJSON(t *testing.T) {
+	home := newCLIConfigHome(t)
 	const warning = "Semantic search unavailable; using lexical search."
 	result := service.SearchResult{Warning: warning}
-	t.Setenv("ZEV_LANG", "ru")
+	setFixtureLanguage(t, home, "ru")
 	var out, diagnostic bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)

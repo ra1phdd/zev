@@ -20,10 +20,9 @@ import (
 
 const metadataResponseMessage = "message"
 
+//nolint:paralleltest // newCLIConfigHome sets process-wide HOME and USERPROFILE.
 func TestManagedGenerationExplicitConsentAndFallback(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
+	home := newCLIConfigHome(t)
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		call := calls.Add(1)
@@ -51,10 +50,9 @@ func TestManagedGenerationExplicitConsentAndFallback(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	t.Setenv("LLM_PROVIDER", "openai")
-	t.Setenv("OPENAI_BASE_URL", server.URL)
-	t.Setenv("OPENAI_API_KEY", "fixture")
-	t.Setenv("OPENAI_MODEL", "fixture-model")
+
+	writeCLIConfig(t, home, openAITestConfig(server.URL, "fixture"))
+
 	if _, err := managedCommand(t, managedKindAlias, managedOpAdd, "manual", "echo", "--no-metadata"); err != nil {
 		t.Fatal(err)
 	}
@@ -82,16 +80,16 @@ func TestManagedGenerationExplicitConsentAndFallback(t *testing.T) {
 }
 
 func TestManagedScriptGenerationUsesFinalEditedBody(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
+	home := newCLIConfigHome(t)
 	editor := filepath.Join(home, "editor.sh")
 	const finalBody = "#!/usr/bin/env bash\necho final-editor-body-marker\n"
 	editorSource := "#!/bin/sh\ncat > \"$1\" <<'EOF'\n" + finalBody + "EOF\n"
 	if err := os.WriteFile(editor, []byte(editorSource), 0o700); err != nil { //nolint:gosec // The private editor fixture must be executable.
 		t.Fatal(err)
 	}
-	t.Setenv("SCRIPT_EDITOR", editor)
+
+	// Fail promptly instead of opening a real editor if the configured editor is ignored.
+	t.Setenv("EDITOR", "false")
 	t.Setenv("SKIP_EDITOR", "")
 	oldTerminal := managedTerminal
 	managedTerminal = func(*cobra.Command) bool { return true }
@@ -110,10 +108,10 @@ func TestManagedScriptGenerationUsesFinalEditedBody(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	t.Setenv("LLM_PROVIDER", "openai")
-	t.Setenv("OPENAI_BASE_URL", server.URL)
-	t.Setenv("OPENAI_API_KEY", "fixture")
-	t.Setenv("OPENAI_MODEL", "fixture-model")
+
+	cfg := openAITestConfig(server.URL, "fixture")
+	cfg.ScriptEditor = editor
+	writeCLIConfig(t, home, cfg)
 
 	if _, err := managedCommand(t, managedKindScript, managedOpCreate, "edited", "--generate-description"); err != nil {
 		t.Fatal(err)
@@ -209,10 +207,9 @@ func TestManagedScriptEditCapturesSourceBeforeInput(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // newCLIConfigHome sets process-wide HOME and USERPROFILE.
 func TestManagedScriptGenerationRejectsBodyDriftDuringGeneration(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
+	home := newCLIConfigHome(t)
 	bodyFile := filepath.Join(home, "initial.sh")
 	if err := os.WriteFile(bodyFile, []byte("echo initial\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -232,10 +229,9 @@ func TestManagedScriptGenerationRejectsBodyDriftDuringGeneration(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	t.Setenv("LLM_PROVIDER", "openai")
-	t.Setenv("OPENAI_BASE_URL", server.URL)
-	t.Setenv("OPENAI_API_KEY", "fixture")
-	t.Setenv("OPENAI_MODEL", "fixture-model")
+
+	writeCLIConfig(t, home, openAITestConfig(server.URL, "fixture"))
+
 	if _, err := managedCommand(t, managedKindScript, managedOpEdit, "drift", "--generate-description"); !errors.Is(err, scriptservice.ErrScriptChanged) {
 		t.Fatalf("metadata drift was not rejected: %v", err)
 	}

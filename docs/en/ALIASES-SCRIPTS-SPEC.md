@@ -40,7 +40,7 @@ slices:
 | `alias-crud` | alias CRUD, help, uniform argv-safe execution | `metadata-model` |
 | `script-crud` | script metadata/body CRUD, help, exact argv | `metadata-model` |
 | `metadata-generation` | separate LLM port, consent, fallback, provider adapters | `metadata-model`, CRUD |
-| `migration-recovery` | legacy migration, archive, journal/recovery, concurrency tests | `metadata-model`, CRUD |
+| `migration-recovery` | v1.0.0 migration without generated archives, journal recovery, concurrency tests | `metadata-model`, CRUD |
 | `native-acceptance` | shell/Bash runtime checks on Linux, macOS, and Windows | all previous slices |
 
 Each slice has focused tests and a checkpoint. The complete acceptance gate is not green
@@ -57,6 +57,12 @@ until every slice is checked; green host tests do not replace native runtime ver
 - **Legacy source** — an old-format aliases/scripts file before migration.
 - **Argv alias** — every canonical alias after migration, using the restricted template dialect
   and exact data substitution.
+
+Compatibility is release-scoped. The supported legacy sources are the unversioned
+v1.0.0 aliases/scripts metadata files; current repositories read only the current v2
+envelopes. Development snapshots and their intermediate schemas are not migration
+inputs and have no backwards-compatibility promise. Future steps are appended only
+when a new format is released.
 
 ### 3.1. Shared metadata
 
@@ -198,7 +204,7 @@ The persistence-neutral metadata model and semantic validator live in a neutral 
 package. One versioned codec serves both repositories. Alias/script repositories own only
 paths, locks, and publication; the CLI does not parse YAML.
 
-Validation also limits sizes: metadata files and archives are at most 1 MiB, YAML depth is
+Validation also limits sizes: metadata files, migration journals, and staged payloads are at most 1 MiB, YAML depth is
 at most 16 nodes and 10,000 nodes, templates are at most 16 KiB, and script paths are at
 most 512 bytes. Name is limited to 64 bytes, description to 4096 bytes, argument name to
 64 bytes, argument description to 1024 bytes, and arguments to 32 items. The decoder reads
@@ -232,41 +238,36 @@ The deferred enrichment flow is not shown, persisted, or attempted by this relea
 
 Each migrator uses exactly the same canonical lock identity and lock order as its repository.
 Guarantees apply to cooperating writers; arbitrary writes that bypass the lock are outside
-the threat model.
+this threat model. Metadata migration generates no archive, archive sidecar, or backup copy:
+it publishes canonical v2 from the legacy source using private staging files and a durable
+journal. Staging files and journals are recovery artifacts, not user-owned backups. Existing
+user-owned backups, exports, and other historical copies are outside this protocol; Zev does
+not sweep or promise to delete them, and migration provides no secure-erasure guarantee.
 
-The migration marker is itself durable and private. Before archive data is created, persist
-an operation ID, source fingerprint, deterministic staging/final archive paths, and phase
-`preparing`; write and sync an owned staging archive, verify its complete hash, publish the
-final archive without overwriting, sync its directory, and advance the marker to `archived`.
-Only then recheck the source identity/size/mtime/hash and atomically replace the active file
-with canonical v2, sync file and directory, and advance to `published`. Marker updates use
-same-directory temporary files, restrictive permissions, fsync, and directory sync.
-
-Recovery reconciles the actual source/archive/active hashes with the marker. An incomplete
-owned staging file may be discarded and recreated from an unchanged source; a matching
-published archive is adopted; an occupied archive with a different hash or a missing/corrupt
-marker fails closed. No archive is overwritten. Every post-side-effect sync/rename/marker
-error is classified as committed-but-durability-unknown when publication may have happened
-(`errors.Is(..., filestore.ErrCommitted)`), not as no change. Migration never imports twice.
-
-The original source/archive is never removed automatically. Archives, journals, markers,
-and staged bodies use private directories, 0600-equivalent files/owner-only ACLs, exclusive
-no-follow regular-file creation, and contain no payloads in logs. Cleanup failure is reported
-without deleting or overwriting an unknown path. An occupied archive with a different hash
-is a conflict. A corrupt/changed source, invalid legacy record, or archive
-mismatch blocks activation and preserves the previous active file.
+Before any metadata read or write, recovery runs under the repository lock. It reconciles a
+pending journal with the source and active-file identities. A valid incomplete journal may
+finish the pending publication or clean up its own staging artifact; an already-published
+matching state may finish journal cleanup. A changed source, malformed journal, or
+conflicting state fails closed without guessing. No unknown path is deleted or overwritten.
+Markerless or unpublished journals from development snapshots are not interpreted, recovered,
+or swept. Any error after a rename or publication is committed-but-durability-unknown
+(`errors.Is(..., filestore.ErrCommitted)`), not evidence that nothing changed. The shared
+filesystem primitives in `internal/migrations/filetxn` cover this migration
+staging/publication/recovery boundary; they are not SQLite transaction/rollback machinery
+and do not provide rollback for script CRUD.
 
 ### 4.3. Script body and metadata transactions
 
 An operation changing both body and metadata runs under the script-store lock through staging
 and a recoverable journal with phases `prepared`, `body-published`, `metadata-published`,
 `done`. The journal records operation kind, immutable record ID, old/new metadata hashes,
-old/new body hashes, path identities, staged/backup paths, and a checksum-protected phase.
-Before any script-store read or write—including list, help, show, generation, and execution—
-the process acquires the same lock and recovers every pending journal. Recovery must leave
-either the complete old pair or the complete new pair; an unresolved mismatch blocks access
-and execution with a storage error. On platforms without this protocol, combined body and
-metadata publication is unavailable rather than falsely reported as safe.
+old/new body hashes, path identities, staged/recovery paths, and a checksum-protected phase.
+This is a script-CRUD publication journal, separate from migration recovery; it is not a
+general rollback mechanism. Before any script-store read or write—including list, help, show,
+generation, and execution—the process acquires the same lock and recovers every pending journal.
+Recovery completes only a known publication or blocks on an unresolved mismatch; it does not
+promise to restore an earlier user-owned backup. On platforms without this protocol, combined
+body and metadata publication is unavailable rather than falsely reported as safe.
 
 A script record has an immutable generated `recordID` retained across edits and assigned during
 migration. A stale edit compares that ID, selected metadata bytes, script-path identity, and
@@ -525,12 +526,15 @@ as add and migration, stores empty metadata, does not call the LLM, and does not
 an existing name. Commands outside the supported template grammar are rejected without
 creating an alias. There is no legacy exception.
 
-Migration changes storage, adds metadata, and converts old templates to the single argv-safe
-representation. Unsupported raw shell semantics are not retained. This release rejects schema
-versions newer than it supports without modifying them. Running
-pre-v2 binaries against migrated stores is unsupported; the new release cannot enforce their
-behavior. Before downgrade, stop all Zev writers, preserve v2 stores, and explicitly restore
-the selected legacy archive; restoration does not preserve changes made after that archive.
+Migration changes storage, adds metadata, and converts the supported v1.0.0 records to the
+single argv-safe representation. Unsupported raw shell semantics are not retained. This
+release rejects schema versions newer than it supports without modifying them. Development
+snapshot formats are not compatibility inputs. Future migration steps are retained only
+for released format transitions. Running pre-v2 binaries against migrated stores is
+unsupported; the new release cannot enforce their behavior. Before downgrade, stop all
+Zev writers and manually restore a compatible legacy store only from a user-owned backup
+you choose. Zev does not create, select, sweep, or delete those backups, and changes made
+after that backup are not preserved.
 
 ## 10. Testing and acceptance
 
@@ -554,8 +558,10 @@ the selected legacy archive; restoration does not preserve changes made after th
 - interactive/non-TTY matrix, EOF/cancel, no partial writes, and editor-failure compatibility;
 - management JSON schema, stdout/stderr, and exit statuses 0/1/2/7/127;
 - a recording local provider proves consent, bounded body, and no history/tools/config leakage;
-- legacy migration preserves descriptions, bodies, bytes, archive hash, and retries;
-- crash injection before/after archive, body publication, metadata publication, rename, sync, and cleanup;
+- legacy migration preserves descriptions, bodies and bytes; journal recovery handles
+  interrupted publication without generating an archive;
+- crash injection before/after staging, journal publication, body publication, metadata
+  publication, rename, sync, and cleanup;
 - concurrent cooperating CRUD/migration, stale edits, and same-name alias/script collisions;
 - native Linux/macOS/Windows runtime gates, missing Bash, and signal cleanup.
 
@@ -569,10 +575,10 @@ than inferred from cross-compilation.
 
 ## 11. Implementation boundary
 
-The migration policy is settled: every old record converts to the new representation;
-there is no legacy execution mode. After successful migration, one startup message reports
-what migrated and offers optional AI metadata enrichment. Refusal or provider failure leaves
-the migrated records usable without descriptions/argument metadata.
+The migration policy is settled: every supported v1.0.0 record converts to the current
+representation; there is no legacy execution mode. After successful migration, records
+remain usable without descriptions or argument metadata. Optional AI enrichment is a
+separate future slice, not a migration startup promise.
 
 The remaining sections describe implementation requirements, not additional startup choices.
 No extra migration wizard, mode selection, or per-record enrichment confirmation is introduced.

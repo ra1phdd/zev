@@ -17,8 +17,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:paralleltest // setFixtureLanguage, HOME, and t.Chdir mutate process-global state.
 func TestMachineNativeToolLoop(t *testing.T) {
-	t.Setenv("ZEV_LANG", "en")
+	setFixtureLanguage(t, newCLIConfigHome(t), "en")
 	root := t.TempDir()
 	t.Chdir(root)
 	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("project fixture detail"), 0o600); err != nil {
@@ -89,7 +90,7 @@ func TestMachineNativeToolLoop(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			provider, err := openai.New("fixture", "fixture-model", server.URL, server.Client())
+			provider, err := openai.New("fixture", cliFixtureModel, server.URL, server.Client())
 			if err != nil {
 				t.Fatal(err)
 			}

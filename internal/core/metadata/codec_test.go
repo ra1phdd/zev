@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ra1phdd/zev/internal/core/metadata/yamldoc"
+
 	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
@@ -30,7 +32,7 @@ func TestEncodeDecodeAliasesUsesVersionTwoAndExplicitRequired(t *testing.T) {
 		},
 	}
 
-	data, err := EncodeAliases(input)
+	data, err := EncodeAliasesV2(input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,12 +40,9 @@ func TestEncodeDecodeAliasesUsesVersionTwoAndExplicitRequired(t *testing.T) {
 		t.Fatalf("canonical aliases = %q", data)
 	}
 
-	got, legacy, err := DecodeAliases(data)
+	got, err := DecodeAliases(data)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if legacy {
-		t.Fatal("canonical v2 data reported as legacy")
 	}
 	if got[testAliasName].Description != input[testAliasName].Description || got[testAliasName].Arguments[1].Required {
 		t.Fatalf("decoded aliases = %#v", got)
@@ -52,12 +51,12 @@ func TestEncodeDecodeAliasesUsesVersionTwoAndExplicitRequired(t *testing.T) {
 
 func TestDecodeAliasesDefaultsOmittedRequiredToTrue(t *testing.T) {
 	t.Parallel()
-	got, legacy, err := DecodeAliases([]byte("version: 2\naliases:\n  dps:\n    template: docker ps {{.arg1}}\n    arguments:\n      - name: service\n"))
+	got, err := DecodeAliases([]byte("version: 2\naliases:\n  dps:\n    template: docker ps {{.arg1}}\n    arguments:\n      - name: service\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if legacy || !got[testAliasName].Arguments[0].Required {
-		t.Fatalf("legacy=%v aliases=%#v", legacy, got)
+	if !got[testAliasName].Arguments[0].Required {
+		t.Fatalf("aliases=%#v", got)
 	}
 }
 
@@ -78,40 +77,10 @@ func TestDecodeRejectsStrictYAMLErrors(t *testing.T) {
 		{name: "control", data: []byte("version: 2\naliases:\n  dps:\n    template: \"echo \\u0000\"\n")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, _, err := DecodeAliases(tc.data); err == nil {
+			if _, err := DecodeAliases(tc.data); err == nil {
 				t.Fatal("invalid YAML accepted")
 			}
 		})
-	}
-}
-
-func TestDecodeAliasesClassifiesLegacyVersionAsReservedName(t *testing.T) {
-	t.Parallel()
-	_, _, err := DecodeAliases([]byte("version: echo {{.arg1}}\n"))
-	if err == nil || !strings.Contains(err.Error(), `name "version" is reserved`) {
-		t.Fatalf("expected reserved legacy name error, got %v", err)
-	}
-}
-
-func TestDecodeScriptsLegacyDoesNotGenerateRecordID(t *testing.T) {
-	t.Parallel()
-	got, legacy, err := DecodeScripts([]byte("deploy:\n  script: deploy.sh\n  description: exact\\ntext\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !legacy || got[testScriptName].RecordID != "" {
-		t.Fatalf("legacy=%v scripts=%#v", legacy, got)
-	}
-	if err := ValidateLegacyScript(got[testScriptName]); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestDecodeScriptsClassifiesLegacyVersionAsReservedName(t *testing.T) {
-	t.Parallel()
-	_, _, err := DecodeScripts([]byte("version:\n  script: deploy.sh\n"))
-	if err == nil || !strings.Contains(err.Error(), `name "version" is reserved`) {
-		t.Fatalf("expected reserved legacy name error, got %v", err)
 	}
 }
 
@@ -173,27 +142,27 @@ func TestRenderAliasPreservesArgvBoundariesAndValidatesContract(t *testing.T) {
 
 func TestDecodeReaderAndEncodedLimit(t *testing.T) {
 	t.Parallel()
-	if _, _, err := DecodeAliases([]byte("version: 2\naliases: {}\n")); err != nil {
+	if _, err := DecodeAliases([]byte("version: 2\naliases: {}\n")); err != nil {
 		t.Fatal(err)
 	}
-	tooLarge := bytes.Repeat([]byte("x"), maxMetadataBytes+1)
-	if _, _, err := DecodeAliases(tooLarge); err == nil {
+	tooLarge := bytes.Repeat([]byte("x"), yamldoc.MaxBytes+1)
+	if _, err := DecodeAliases(tooLarge); err == nil {
 		t.Fatal("oversized metadata accepted")
 	}
 	valid := []byte("version: 2\naliases: {}\n")
 	padded := valid
-	padded = append(padded, bytes.Repeat([]byte("\n"), maxMetadataBytes-len(valid)+1)...)
-	if _, _, err := DecodeAliases(padded); err == nil {
+	padded = append(padded, bytes.Repeat([]byte("\n"), yamldoc.MaxBytes-len(valid)+1)...)
+	if _, err := DecodeAliases(padded); err == nil {
 		t.Fatal("oversized reader accepted valid metadata padded beyond the limit")
 	}
 	scriptValid := []byte("version: 2\nscripts: {}\n")
 	scriptPadded := scriptValid
-	scriptPadded = append(scriptPadded, bytes.Repeat([]byte("\n"), maxMetadataBytes-len(scriptValid)+1)...)
-	if _, _, err := DecodeScriptsReader(bytes.NewReader(scriptPadded)); err == nil {
+	scriptPadded = append(scriptPadded, bytes.Repeat([]byte("\n"), yamldoc.MaxBytes-len(scriptValid)+1)...)
+	if _, err := ReadBounded(bytes.NewReader(scriptPadded)); err == nil {
 		t.Fatal("oversized scripts reader accepted valid metadata padded beyond the limit")
 	}
 	aliases := map[string]domain.Alias{testCommand: {Name: testCommand, Template: testCommand}}
-	if data, err := EncodeAliases(aliases); err != nil || len(data) > maxMetadataBytes {
+	if data, err := EncodeAliasesV2(aliases); err != nil || len(data) > yamldoc.MaxBytes {
 		t.Fatalf("encoded aliases len=%d err=%v", len(data), err)
 	}
 }
@@ -201,10 +170,10 @@ func TestDecodeReaderAndEncodedLimit(t *testing.T) {
 func TestCodecRejectsC0ControlsInMetadataStrings(t *testing.T) {
 	t.Parallel()
 	data := []byte("version: 2\naliases:\n  dps:\n    template: echo\n    description: \"line\\ntext\"\n")
-	if _, _, err := DecodeAliases(data); err == nil {
+	if _, err := DecodeAliases(data); err == nil {
 		t.Fatal("C0 control accepted in metadata scalar")
 	}
-	if _, err := EncodeAliases(map[string]domain.Alias{"dps": {Name: "dps", Template: "echo", Description: "line\ntext"}}); err == nil {
+	if _, err := EncodeAliasesV2(map[string]domain.Alias{"dps": {Name: "dps", Template: "echo", Description: "line\ntext"}}); err == nil {
 		t.Fatal("C0 control encoded in metadata scalar")
 	}
 }
@@ -227,13 +196,13 @@ func TestEncodeDecodeScriptsPreservesCanonicalFields(t *testing.T) {
 		Name: testScriptName, RecordID: "550e8400-e29b-41d4-a716-446655440000", ScriptFile: "deploy.sh",
 		Description: "deploy application", Arguments: []domain.Argument{{Name: "environment", Required: false}},
 	}}
-	data, err := EncodeScripts(input)
+	data, err := EncodeScriptsV2(input)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, legacy, err := DecodeScripts(data)
-	if err != nil || legacy || !reflect.DeepEqual(got[testScriptName], input[testScriptName]) {
-		t.Fatalf("scripts=%#v legacy=%v err=%v", got, legacy, err)
+	got, err := DecodeScripts(data)
+	if err != nil || !reflect.DeepEqual(got[testScriptName], input[testScriptName]) {
+		t.Fatalf("scripts=%#v err=%v", got, err)
 	}
 }
 
@@ -244,7 +213,7 @@ func TestDecodeRejectsNullArgumentsAndWrongTypes(t *testing.T) {
 		"version: 2\naliases:\n  x:\n    template: echo\n    arguments: string\n",
 		"version: 2\naliases:\n  x:\n    template: echo {{.arg1}}\n    arguments:\n      - name: value\n        required: null\n",
 	} {
-		if _, _, err := DecodeAliases([]byte(data)); err == nil {
+		if _, err := DecodeAliases([]byte(data)); err == nil {
 			t.Fatalf("wrong type accepted: %q", data)
 		}
 	}
@@ -254,22 +223,22 @@ func TestDecodeEnforcesYAMLNodeAndDepthBounds(t *testing.T) {
 	t.Parallel()
 	var nodes strings.Builder
 	nodes.WriteString("version: 2\naliases:\n")
-	for i := range maxYAMLNodes {
+	for i := range yamldoc.MaxNodes {
 		nodes.WriteString("  x" + strconv.Itoa(i) + ":\n")
 		nodes.WriteString("    template: echo\n")
 	}
-	if _, _, err := DecodeAliases([]byte(nodes.String())); err == nil || !strings.Contains(err.Error(), "YAML nodes") {
+	if _, err := DecodeAliases([]byte(nodes.String())); err == nil || !strings.Contains(err.Error(), "YAML nodes") {
 		t.Fatalf("node limit error = %v", err)
 	}
 
 	var depth strings.Builder
 	depth.WriteString("version: 2\naliases:\n")
 	depth.WriteString("  x:\n")
-	for i := range maxYAMLDepth + 2 {
+	for i := range yamldoc.MaxDepth + 2 {
 		depth.WriteString(strings.Repeat("  ", i+2) + "x:\n")
 	}
-	depth.WriteString(strings.Repeat("  ", maxYAMLDepth+4) + "template: echo\n")
-	if _, _, err := DecodeAliases([]byte(depth.String())); err == nil || !strings.Contains(err.Error(), "depth") {
+	depth.WriteString(strings.Repeat("  ", yamldoc.MaxDepth+4) + "template: echo\n")
+	if _, err := DecodeAliases([]byte(depth.String())); err == nil || !strings.Contains(err.Error(), "depth") {
 		t.Fatalf("depth limit error = %v", err)
 	}
 }

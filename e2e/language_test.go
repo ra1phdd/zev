@@ -8,8 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -44,22 +42,17 @@ func TestQueryLanguageAndReadOnlyPipeline(t *testing.T) {
 		{name: "Bulgarian falls back", prompt: "Покажи най-големите файлове в тази директория", system: russianLocale, want: englishProgress},
 		{name: "fixed English", prompt: "Покажи самые большие файлы в текущей директории", configured: "en", system: russianLocale, want: englishProgress},
 		{name: "fixed Russian", prompt: englishPrompt, configured: "ru", system: "en", want: russianProgress},
-		{name: "environment wins", prompt: englishPrompt, configured: "en", override: "ru", system: "en", want: russianProgress},
+		{name: "ambient ZEV_LANG is ignored", prompt: "Покажи самые большие файлы в текущей директории", configured: "en", override: "ru", system: russianLocale, want: englishProgress},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			home := t.TempDir()
-			if tc.configured != "" {
-				dir := filepath.Join(home, ".zev")
-				if err := os.MkdirAll(dir, 0o700); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.WriteFile(filepath.Join(dir, "config"), []byte("ZEV_LANG="+tc.configured+"\n"), 0o600); err != nil {
-					t.Fatal(err)
-				}
-			}
+			writeFixture(t, home, cliFixture{baseURL: server.URL, key: fixtureOnly, language: tc.configured})
 			cmd := cliCommand(t, home, "query", "--json", "--no-history", tc.prompt)
-			setCLIEnv(cmd, map[string]string{envProvider: providerOpenAI, envBaseURL: server.URL, envAPIKey: fixtureOnly, envModel: fixtureModel, "LANG": tc.system, "LC_ALL": tc.system, "ZEV_LANG": tc.override})
+			setCLIEnv(cmd, map[string]string{"LANG": tc.system, "LC_ALL": tc.system})
+			if tc.override != "" {
+				setCLIEnv(cmd, map[string]string{"ZEV_LANG": tc.override})
+			}
 			var out, diagnostic bytes.Buffer
 			cmd.Stdout = &out
 			cmd.Stderr = &diagnostic
@@ -93,13 +86,7 @@ func TestQueryLanguageAndReadOnlyPipeline(t *testing.T) {
 func TestConfiguredLanguageAppliesToHelp(t *testing.T) {
 	t.Parallel()
 	home := t.TempDir()
-	dir := filepath.Join(home, ".zev")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "config"), []byte("ZEV_LANG=ru\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writeFixture(t, home, cliFixture{language: "ru"})
 	cmd := cliCommand(t, home, "--help")
 	output, err := cmd.CombinedOutput()
 	if err != nil {

@@ -9,9 +9,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:paralleltest // newCLIConfigHome and Cobra root flags use process-global state.
 func TestRootCommandPreservesToolPolicyBeforeSubcommand(t *testing.T) {
 	// Root construction binds existing package-level Cobra flags.
-	t.Setenv("ZEV_LANG", "en")
+	home := newCLIConfigHome(t)
+	cfg := config.DefaultConfig()
+	cfg.UILanguage = "en"
+	writeCLIConfig(t, home, cfg)
 	for _, tc := range []struct {
 		name        string
 		args        []string

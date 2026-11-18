@@ -21,15 +21,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-const (
-	legacyLine        = `{"timestamp":"2024-03-02T01:02:03Z","prompt":"find archival files","provider":"legacy-provider","model":"legacy-model","response":{"is_valid":true,"commands":[{"command":"find . -type f","short_explanation":"archive explanation"}]},"selected_command":"find . -type f","selected_index":0}` + "\n"
-	envHistoryEnabled = "HISTORY_ENABLED"
-	envProvider       = "LLM_PROVIDER"
-	envBaseURL        = "OPENAI_BASE_URL"
-	envAPIKey         = "OPENAI_API_KEY"
-	envModel          = "OPENAI_MODEL"
-	providerOpenAI    = "openai"
-)
+const legacyLine = `{"timestamp":"2024-03-02T01:02:03Z","prompt":"find archival files","provider":"legacy-provider","model":"legacy-model","response":{"is_valid":true,"commands":[{"command":"find . -type f","short_explanation":"archive explanation"}]},"selected_command":"find . -type f","selected_index":0}` + "\n"
 
 func TestHistoryMigrationConcurrentCLIQueries(t *testing.T) {
 	t.Parallel()
@@ -61,16 +53,12 @@ func TestHistoryMigrationConcurrentCLIQueries(t *testing.T) {
 		server.CloseClientConnections()
 		server.Close()
 	})
+	writeFixture(t, home, cliFixture{baseURL: server.URL, key: "migration-secret-marker", history: true})
 	commands := make([]*exec.Cmd, 2)
 	outputs := make([]bytes.Buffer, 2)
 	diagnostics := make([]bytes.Buffer, 2)
 	for i, prompt := range []string{"concurrent writer a", "concurrent writer b"} {
 		cmd := cliCommand(t, home, "--json", "--no-context", prompt)
-		setCLIEnv(cmd, map[string]string{
-			envHistoryEnabled: "true", envProvider: providerOpenAI,
-			envBaseURL: server.URL, envModel: fixtureModel,
-			envAPIKey: "migration-secret-marker",
-		})
 		cmd.Stdout, cmd.Stderr = &outputs[i], &diagnostics[i]
 		commands[i] = cmd
 		if err := cmd.Start(); err != nil {
@@ -174,7 +162,7 @@ func seedLegacyHistory(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	dir := filepath.Join(home, ".zev")
-	if err := os.Mkdir(dir, 0o700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "history"), []byte(legacyLine), 0o644); err != nil { //nolint:gosec // Exercise automatic repair of historical wide file modes.
@@ -228,12 +216,8 @@ func assertMigrationFilesAndLedger(t *testing.T, home string) {
 		t.Fatalf("legacy source remains active: %v", err)
 	}
 	archives, err := filepath.Glob(source + ".migrated.*.jsonl")
-	if err != nil || len(archives) != 1 {
-		t.Fatalf("archives = %v, error = %v; want one archive", archives, err)
-	}
-	archived, err := os.ReadFile(archives[0])
-	if err != nil || string(archived) != legacyLine {
-		t.Fatalf("archive did not preserve source bytes: %v", err)
+	if err != nil || len(archives) != 0 {
+		t.Fatalf("legacy archives = %v, error = %v; migration must delete the source", archives, err)
 	}
 	db := openHistoryDB(t, home)
 	for _, query := range []string{

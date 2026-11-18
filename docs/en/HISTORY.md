@@ -11,9 +11,9 @@ Zev stores requests, refinements, model responses and command alternatives local
 are sensitive data, not encrypted storage: do not put credentials in requests.
 
 > History is available through both query recording and the explicit history commands. The
-> CLI checks for legacy data and runs the separate migrator before opening history; semantic search is
-> opt-in and uses the separately configured embedding client. Use `zev history --help`
-> for the commands available in the installed version.
+> CLI checks for legacy data and runs the separate JSONL importer before opening history;
+> semantic search is opt-in and uses the separately configured embedding client. Use
+> `zev history --help` for the commands available in the installed version.
 
 ## Storage and lifecycle
 
@@ -37,8 +37,7 @@ is part of that message, including for embedding eligibility.
 
 SQLite uses foreign keys, WAL, a five-second busy timeout and related-record transactions.
 The database is secured to POSIX mode `0600`; new application directories use `0700`. On Windows
-an explicit DACL grants full access only to the current user and SYSTEM, including database
-sidecars and migration archives. Protect WAL/SHM sidecars, exports and backups too. This is
+an explicit DACL grants full access only to the current user and SYSTEM, including database sidecars. Protect WAL/SHM sidecars, exports and backups too. This is
 not isolation from hostile same-user processes.
 
 `HISTORY_ENABLED=false` and `--no-history` skip history storage opening: no database,
@@ -46,37 +45,46 @@ import or embeddings are created for that query. They do not delete existing his
 remove the active in-memory dialogue sent to the command provider. Explicit history
 commands are separate operations, not disabled by this per-query opt-out.
 
-## Automatic upgrade from legacy JSONL
+## Migration from the v1.0.0 JSONL store
 
-CLI history startup checks for `~/.zev/history` or an unfinished migration and explicitly
-runs `history/migrator` when needed, before opening the active store. Enabled queries
-and explicit history commands use this path. `repository.Open` only initializes/opens
-SQLite; it does not inspect or import legacy JSONL. Help, version, local doctor and
-history-disabled queries do not trigger migration.
+v1.0.0 stored history only as JSONL in `~/.zev/history`; it did not provide a SQLite
+schema history for Zev to replay. CLI orchestration runs the separate legacy JSONL
+importer before opening the current store. `repository.Open` handles only current SQLite
+and never reads or imports legacy JSONL. Help, version, local doctor and history-disabled
+queries do not trigger migration.
 
-The import runs under the legacy file lock, verifies an open-file snapshot using identity,
-size, modification time and SHA-256, and reads JSONL line by line. It creates local search
-documents, not embeddings, and makes no network calls. Each line becomes a conversation;
-missing refinements or execution results are not invented. After transaction commit and
-count verification, the source is renamed without overwriting an existing archive:
+After the verified import, the current SQLite store is initialized from one embedded
+SQL baseline (`.up.sql`). The baseline and the JSONL importer are separate migration
+steps: the importer does not replay development SQLite schema steps. If a future
+released format changes the SQLite schema, its release-to-release transitions are
+retained for users who skip releases. Development snapshots are not migration inputs
+and have no backwards-compatibility promise.
 
-```text
-~/.zev/history.migrated.<sha256-prefix>.<UTC-timestamp>.<UUID>.jsonl
-```
+The importer runs under the legacy file lock, verifies an open-file snapshot using
+identity, size, modification time and SHA-256, and reads JSONL line by line. It creates
+local search documents, not embeddings, and makes no network calls. It imports each line
+as a conversation, then deletes the legacy source after verification; it generates no
+migration archive or backup copy. Existing user-owned backups, exports and other
+historical copies are outside this process: Zev does not sweep or promise to delete
+them, and migration/deletion is not secure erasure.
 
-The ledger stores the intended archive path before rename; activation completes after
-archive verification. A retry can finish a verified import or recover a rename followed
-by interrupted activation. Fingerprints and line identity prevent duplicate imports;
-two identical source lines remain two records. Invalid JSON, invalid responses or
-inconsistent selections abort with a line number/error code, not the payload. A changed
-source is rejected; recovery may discard only an unfinished run's imported rows and retry.
-A source differing from an already completed import is a conflict, not an automatic merge.
+The migration ledger stores the fingerprint and imported-row count for retries. If the
+process stops after a verified import but before ledger activation, the next run
+validates those records and completes activation without importing again. Fingerprints
+and line identity prevent duplicate imports; two identical source lines remain two
+records. Invalid JSON, invalid responses or inconsistent selections abort with a line
+number/error code, not the payload. A changed source is rejected; recovery may discard
+only an unfinished run's imported rows and retry. A source differing from an already
+completed import is a conflict, not an automatic merge.
 
-Keep the source/archive for recovery; do not manually delete it to bypass an error. Stop
-old JSONL-writing clients before upgrading and do not restart them after cutover: there
-is no dual-write mode. The archive is not the active store and is not removed by `clear`.
-Legacy files must be regular files. Migration silently repairs Unix permissions to `0600`; it fails only
-if the repair or subsequent validation cannot complete.
+Recovery recognizes only the current import ledger and matching source state. It does
+not interpret or recover markerless/unpublished archives or journals from development
+snapshots, and it does not sweep unknown files or user-owned copies.
+
+The legacy file is deleted after successful migration. Stop old JSONL-writing clients
+before upgrading and do not restart them after cutover: there is no dual-write mode.
+Legacy files must be regular files. Migration silently repairs Unix permissions to
+`0600`; it fails only if the repair or subsequent validation cannot complete.
 
 ## Browse, inspect and manage
 
@@ -93,8 +101,7 @@ zev history clear --yes
 `show` emits JSON. Export writes complete conversation views to stdout; shell redirection
 controls file permissions. Use a private directory and `umask 077`. Deletion cascades to
 messages, responses, commands, search documents and embeddings; `clear` requires `--yes`.
-Deletion is logical, not forensic erasure of WAL/free pages, exports, backups, legacy
-archives or remote copies. Back up an active WAL database using a consistent SQLite
+Deletion is logical, not forensic erasure of WAL/free pages, exports, backups or remote copies. Back up an active WAL database using a consistent SQLite
 snapshot/backup mechanism, not a copy of only `history.db`.
 
 ## Save the last command as an alias

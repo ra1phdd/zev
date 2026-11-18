@@ -18,10 +18,6 @@ var ErrAliasNotFound = errors.New("alias not found")
 // ErrAliasExists indicates that Add would overwrite an existing alias.
 var ErrAliasExists = errors.New("alias already exists")
 
-// ErrMigrationRequired indicates that a legacy aliases file must be migrated
-// before it can be changed.
-var ErrMigrationRequired = repository.ErrMigrationRequired
-
 // Service manages command aliases and their metadata.
 type Service struct {
 	repo *repository.Repository

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	languageRussianFixture = "ZEV_LANG=ru\n"
+	languageRussianFixture = "version: 1\nlanguage: ru\n"
 	languageSpacedEnglish  = " EN "
 	languageSpacedRussian  = " RU "
 )
@@ -21,15 +21,15 @@ func TestLoadUILanguageReadOnlyAndPrecedence(t *testing.T) {
 	}{
 		{name: "missing directory", want: uiLanguageAuto},
 		{name: "file", file: languageRussianFixture, existing: true, want: "ru"},
-		{name: "unrelated invalid settings ignored", file: "ZEV_LANG=en\nHISTORY_SEMANTIC_ENABLED=true\nTOOL_APPROVAL_MODE=bad\nHTTP_HEADERS=bad\n", existing: true, want: "en"},
-		{name: "environment", file: languageRussianFixture, existing: true, setEnvironment: true, environment: languageSpacedEnglish, want: "en"},
-		{name: "auto environment", file: languageRussianFixture, existing: true, setEnvironment: true, environment: uiLanguageAuto, want: uiLanguageAuto},
+		{name: "unrelated invalid settings ignored", file: "version: 1\nlanguage: en\nhistory_semantic_enabled: true\ntool_approval_mode: bad\n", existing: true, want: "en"},
+		{name: "environment", file: languageRussianFixture, existing: true, setEnvironment: true, environment: languageSpacedEnglish, want: "ru"},
+		{name: "auto environment", file: languageRussianFixture, existing: true, setEnvironment: true, environment: uiLanguageAuto, want: "ru"},
 		{name: "empty environment preserves file", file: languageRussianFixture, existing: true, setEnvironment: true, want: "ru"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			home := t.TempDir()
 			dir := filepath.Join(home, ".zev")
-			path := filepath.Join(dir, "config")
+			path := filepath.Join(dir, configFilename)
 			previous := SetConfigPathForTests(path)
 			t.Cleanup(func() { SetConfigPathForTests(previous) })
 			t.Setenv("ZEV_LANG", tc.environment)
@@ -62,7 +62,7 @@ func TestLoadUILanguageReadOnlyAndPrecedence(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || len(entries) != 1 || entries[0].Name() != "config" {
+			if err != nil || len(entries) != 1 || entries[0].Name() != configFilename {
 				t.Fatalf("UI load created sidecars: %v %v", entries, err)
 			}
 			data, err := os.ReadFile(filepath.Clean(path))
@@ -75,9 +75,9 @@ func TestLoadUILanguageReadOnlyAndPrecedence(t *testing.T) {
 
 func TestLoadUILanguageErrorsHideValues(t *testing.T) {
 	const secret = "synthetic-private-language"
-	for _, content := range []string{"ZEV_LANG=" + secret + "\n", "invalid [ " + secret + "\n"} {
+	for _, content := range []string{"version: 1\nlanguage: " + secret + "\n", "invalid [ " + secret + "\n"} {
 		t.Run(content, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "config")
+			path := filepath.Join(t.TempDir(), configFilename)
 			previous := SetConfigPathForTests(path)
 			t.Cleanup(func() { SetConfigPathForTests(previous) })
 			t.Setenv("ZEV_LANG", "")
@@ -92,13 +92,4 @@ func TestLoadUILanguageErrorsHideValues(t *testing.T) {
 			}
 		})
 	}
-	t.Run("environment", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "config")
-		previous := SetConfigPathForTests(path)
-		t.Cleanup(func() { SetConfigPathForTests(previous) })
-		t.Setenv("ZEV_LANG", secret)
-		if _, err := LoadUILanguage(); err == nil || strings.Contains(err.Error(), secret) {
-			t.Fatalf("unsafe or absent environment error: %v", err)
-		}
-	})
 }

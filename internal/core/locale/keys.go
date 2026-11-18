@@ -6,6 +6,14 @@ type Key string
 
 // Message keys identify stable entries in the embedded English and Russian catalogs.
 const (
+	KeyUpdateShort          Key = "update.short"
+	KeyUpdateChecking       Key = "update.checking"
+	KeyUpdateInstalled      Key = "update.installed"
+	KeyUpdateCurrent        Key = "update.current"
+	KeyUpdateMigrating      Key = "update.migrating"
+	KeyUpdateMigrateOnly    Key = "update.migrate_only"
+	KeyUpdateMigrationsDone Key = "update.migrations_done"
+	KeyUpdateProtocol       Key = "update.protocol"
 	// KeyCliNoHeadersEnteredConfigurationUnchanged and the following keys are CLI messages.
 	KeyCliNoHeadersEnteredConfigurationUnchanged               Key = "cli.no_headers_entered_configuration_unchanged"
 	KeyCliHTTPHeadersUpdatedSuccessfully                       Key = "cli.http_headers_updated_successfully"
@@ -306,6 +314,8 @@ const (
 	KeyUISetupProvider       Key = "ui.setup.provider"
 	KeyUISetupSaved          Key = "ui.setup.saved"
 	KeyUISetupModel          Key = "ui.setup.model"
+	KeyUISetupSelectModel    Key = "ui.setup.select_model"
+	KeyUISetupManualModel    Key = "ui.setup.manual_model"
 	KeyUISetupBaseURL        Key = "ui.setup.base_url"
 	KeyUISetupOllamaBaseURL  Key = "ui.setup.ollama_base_url"
 	KeyUISetupAPIKey         Key = "ui.setup.api_key"

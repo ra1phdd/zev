@@ -44,10 +44,7 @@ func TestCLIInterruptCancelsHTTP(t *testing.T) {
 	home := t.TempDir()
 	cmd.Dir = home
 	cmd.Env = isolatedEnv(t, home)
-	setCLIEnv(cmd, map[string]string{
-		envProvider: providerOpenAI, envAPIKey: "signal-secret-marker",
-		envBaseURL: server.URL, envModel: "test",
-	})
+	writeFixture(t, home, cliFixture{baseURL: server.URL, key: "signal-secret-marker"})
 	var output bytes.Buffer
 	cmd.Stdout = &output
 	cmd.Stderr = &output

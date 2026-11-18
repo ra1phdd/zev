@@ -45,7 +45,7 @@ func TestResolveEditorPrecedence(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if got := Resolve(); got != tc.want {
+			if got := Resolve(t.Context()); got != tc.want {
 				t.Errorf("Resolve() = %q, want %q", got, tc.want)
 			}
 		})

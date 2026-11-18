@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,35 +9,7 @@ import (
 
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/core/metadata"
-	"github.com/ra1phdd/zev/internal/core/metadatastore"
 )
-
-func TestRepositoryRejectsOversizedRecoveryMarker(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	active := filepath.Join(dir, "aliases")
-	journal := filepath.Join(dir, ".aliases-migration")
-	source := []byte("show: echo {{.arg1}}\n")
-	canonical := []byte("version: 2\naliases: {}\n")
-	if err := os.WriteFile(active, source, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := metadatastore.Migrate(active, journal, source, canonical); err != nil {
-		t.Fatal(err)
-	}
-	markerPath := filepath.Join(journal, "marker")
-	marker, err := os.ReadFile(markerPath) //nolint:gosec // The path is created inside this test's private temporary directory.
-	if err != nil {
-		t.Fatal(err)
-	}
-	marker = append(marker, []byte(strings.Repeat(" ", (1<<20)-len(marker)+1))...)
-	if err := os.WriteFile(markerPath, marker, 0o600); err != nil { //nolint:gosec // The path is created inside this test's private temporary directory.
-		t.Fatal(err)
-	}
-	if _, err := New(dir).LoadAll(); err == nil || !strings.Contains(err.Error(), "limit") {
-		t.Fatalf("expected recovery marker size limit error, got %v", err)
-	}
-}
 
 func TestRepositoryRejectsOversizedAliasesWithoutMutation(t *testing.T) {
 	t.Parallel()
@@ -74,71 +47,29 @@ func TestRepositoryPersistsCanonicalVersionTwoAliases(t *testing.T) {
 	if !strings.Contains(string(data), "version: 2") || !strings.Contains(string(data), "description: display a value") {
 		t.Fatalf("non-canonical aliases: %q", data)
 	}
-	got, legacy, err := metadata.DecodeAliases(data)
-	if err != nil || legacy || got["show"].Arguments[0].Name != "value" {
-		t.Fatalf("decoded=%#v legacy=%v err=%v", got, legacy, err)
+	got, err := metadata.DecodeAliases(data)
+	if err != nil || got["show"].Arguments[0].Name != "value" {
+		t.Fatalf("decoded=%#v err=%v", got, err)
 	}
 }
 
-func TestRepositoryMigratesLegacyBeforeMutation(t *testing.T) {
+func TestRepositoryRefusesUnversionedAliases(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "aliases")
-	if err := os.WriteFile(path, []byte("show: echo {{.arg1}}\n"), 0o600); err != nil {
+	source := []byte("show: echo {{.arg1}}\n")
+	if err := os.WriteFile(path, source, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	repo := New(dir)
-	if err := repo.Update(func(aliases map[string]domain.Alias) error {
-		aliases["new"] = domain.Alias{Name: "new", Template: "echo"}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
+	r := New(dir)
+	if _, err := r.LoadAll(); err == nil {
+		t.Fatal("unversioned read succeeded")
 	}
-	aliases, err := repo.LoadAll()
-	if err != nil || aliases["show"].Template != "echo {{.arg1}}" || aliases["new"].Template != "echo" {
-		t.Fatalf("migrated aliases=%#v err=%v", aliases, err)
+	if err := r.Update(func(map[string]domain.Alias) error { t.Fatal("mutation callback ran"); return nil }); err == nil {
+		t.Fatal("unversioned update succeeded")
 	}
-}
-
-func TestRepositoryMigratesLegacyOnReadAndArchivesExactSource(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "aliases")
-	original := []byte("show: echo {{.arg1}}\n")
-	if err := os.WriteFile(path, original, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	aliases, err := New(dir).LoadAll()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if aliases["show"].Template != "echo {{.arg1}}" {
-		t.Fatalf("aliases = %#v", aliases)
-	}
-	data, err := os.ReadFile(path) //nolint:gosec // The path is created inside this test's private temporary directory.
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) == string(original) || !strings.Contains(string(data), "version: 2") {
-		t.Fatalf("active file was not migrated: %q", data)
-	}
-	entries, err := os.ReadDir(filepath.Join(dir, ".aliases-migration"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	foundArchive := false
-	for _, entry := range entries {
-		if strings.HasSuffix(entry.Name(), ".archive") {
-			archive, readErr := os.ReadFile(filepath.Join(dir, ".aliases-migration", entry.Name())) //nolint:gosec // Entry names come from ReadDir in the private test directory.
-			if readErr != nil {
-				t.Fatal(readErr)
-			}
-			if string(archive) == string(original) {
-				foundArchive = true
-			}
-		}
-	}
-	if !foundArchive {
-		t.Fatalf("legacy archive not found in %v", entries)
+	got, err := os.ReadFile(filepath.Clean(path))
+	if err != nil || !bytes.Equal(source, got) {
+		t.Fatalf("source changed: %q, %v", got, err)
 	}
 }

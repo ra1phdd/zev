@@ -18,7 +18,7 @@ const (
 
 func regressionStore(t *testing.T) *Store {
 	t.Helper()
-	s, err := Open(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
+	s, err := openTestStore(t.Context(), t, filepath.Join(t.TempDir(), "private", "history.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

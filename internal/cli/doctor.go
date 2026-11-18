@@ -82,7 +82,7 @@ func newDoctorCmd() *cobra.Command {
 
 func defaultDoctorDeps() doctorDeps {
 	return doctorDeps{
-		loadConfig: config.Load,
+		loadConfig: doctorConfig,
 		checkDirectory: func(path string) error {
 			if err := filestore.ValidateDirectory(path); err != nil {
 				return fmt.Errorf("validate ~/.zev: %w", err)
@@ -336,7 +336,7 @@ func validateDoctorURL(value string) error {
 }
 
 func doctorNetworkCheck(ctx context.Context, cfg *config.Config) error {
-	client := httpclient.New(cfg.HTTPHeaders, nil)
+	client := httpclient.New(cfg.EffectiveHTTPHeaders(), nil)
 	provider, err := factory.NewProvider(cfg, client)
 	if err != nil {
 		return fmt.Errorf("create provider: %w", err)

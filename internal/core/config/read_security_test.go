@@ -7,18 +7,22 @@ import (
 	"testing"
 )
 
+const hardlink = "hardlink"
+
 //nolint:paralleltest // Mutates the global config path.
 func TestConfigRejectsUnsafeRead(t *testing.T) {
-	for _, kind := range []string{"symlink", "dangling symlink", "directory"} {
+	for _, kind := range []string{"symlink", "dangling symlink", "directory", hardlink} {
 		t.Run(kind, func(t *testing.T) {
 			dir := t.TempDir()
 			victim := filepath.Join(dir, "victim")
-			if err := os.WriteFile(victim, []byte("OPENAI_MODEL=external\n"), 0o600); err != nil {
+			if err := os.WriteFile(victim, []byte(minimalYAML), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			path := filepath.Join(dir, "config")
+			path := filepath.Join(dir, "config.yaml")
 			var err error
 			switch kind {
+			case hardlink:
+				err = os.Link(victim, path)
 			case "symlink":
 				err = os.Symlink(victim, path)
 			case "dangling symlink":
@@ -44,11 +48,11 @@ func TestConfigRejectsUnsafeRead(t *testing.T) {
 			}
 
 			data, err := os.ReadFile(filepath.Clean(victim))
-			if err != nil || string(data) != "OPENAI_MODEL=external\n" {
+			if err != nil || string(data) != minimalYAML {
 				t.Fatalf("victim changed: %q, %v", data, err)
 			}
 			info, err := os.Lstat(path)
-			if err != nil || info.Mode().IsRegular() {
+			if err != nil || (kind != hardlink && info.Mode().IsRegular()) {
 				t.Fatalf("unsafe leaf replaced: %v, %v", info, err)
 			}
 		})
@@ -70,7 +74,7 @@ func TestConfigRejectsUnsafeDirectory(t *testing.T) {
 			if err := os.Symlink(target, dir); err != nil {
 				t.Skipf("symlinks unavailable: %v", err)
 			}
-			path := filepath.Join(dir, "config")
+			path := filepath.Join(dir, "config.yaml")
 			previous := SetConfigPathForTests(path)
 			t.Cleanup(func() { SetConfigPathForTests(previous) })
 			if _, err := Load(); err == nil {

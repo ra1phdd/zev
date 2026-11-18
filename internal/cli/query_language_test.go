@@ -8,8 +8,8 @@ import (
 	"github.com/ra1phdd/zev/pkg/tui/list"
 )
 
+//nolint:paralleltest // locale.SetLanguage mutates process-global locale state.
 func TestRefinementUpdatesInterfaceWithoutChangingMessages(t *testing.T) {
-	t.Setenv("ZEV_LANG", "")
 	for _, configured := range []string{"auto", "ru", "en"} {
 		t.Run(configured, func(t *testing.T) {
 			restore := locale.SetLanguage(configured, "Show files in this directory")

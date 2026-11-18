@@ -122,7 +122,7 @@ func openHistory(ctx context.Context) (historyOperations, io.Closer, error) {
 	if err := filestore.ValidateDirectory(dir); err != nil {
 		return nil, nil, fmt.Errorf("validate history directory: %w", err)
 	}
-	cfg, err := config.Load()
+	cfg, err := loadConfig(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("load history config: %w", err)
 	}

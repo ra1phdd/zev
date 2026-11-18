@@ -48,7 +48,7 @@ func TestScriptShowMissingReturnsError(t *testing.T) {
 	cmd := newScriptShowCmd()
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
-	cmd.SetArgs([]string{"missing"})
+	cmd.SetArgs([]string{managedMissingFixture})
 
 	if err := cmd.Execute(); err == nil {
 		t.Fatal("show missing script succeeded")

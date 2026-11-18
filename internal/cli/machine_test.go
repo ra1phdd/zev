@@ -36,7 +36,7 @@ func (p machineFixtureProvider) GetOptionsWithHistory(context.Context, *domain.C
 	return p.response, nil
 }
 func (p machineFixtureProvider) Name() string  { return machineFixtureName }
-func (p machineFixtureProvider) Model() string { return "fixture-model" }
+func (p machineFixtureProvider) Model() string { return cliFixtureModel }
 
 func cliExitCode(err error) int {
 	if err == nil {
@@ -84,7 +84,7 @@ func TestMachineProviderJSONOutput(t *testing.T) {
 		{name: "default", option: 1, want: "touch never-executed\n"},
 		{name: "second", option: 2, want: "echo second\n"},
 		{name: "third", option: 3, want: "echo third\n"},
-		{name: "missing", option: 4, code: 2},
+		{name: managedMissingFixture, option: 4, code: 2},
 		{name: "json", json: true, option: 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -203,6 +203,12 @@ func TestMachineNamedQueriesNeverExecute(t *testing.T) {
 	}
 	marker := filepath.Join(home, "executed")
 	if err := os.WriteFile(filepath.Join(dir, "aliases"), []byte("safe: touch "+marker+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "script_files"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "script_files", "deploy.sh"), []byte("exit 0\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte("deploy:\n  script: deploy.sh\n  description: fixture\n"), 0o600); err != nil {

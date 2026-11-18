@@ -43,7 +43,7 @@ func TestAliasLast(t *testing.T) {
 			if err := os.Mkdir(dir, 0o700); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(dir, "config"), []byte("HISTORY_SEMANTIC_ENABLED=true\nHISTORY_EMBEDDING_PROVIDER=invalid\n"), 0o600); err != nil {
+			if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("version: 1\nhistory_semantic_enabled: true\nhistory_embedding_provider: invalid\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			path := filepath.Join(dir, "aliases")
@@ -53,7 +53,7 @@ func TestAliasLast(t *testing.T) {
 				}
 			}
 			if tc.seed {
-				store, err := historyrepo.Open(t.Context(), filepath.Join(dir, "history.db"))
+				store, err := openHistoryStore(t.Context(), filepath.Join(dir, "history.db"))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -102,9 +102,9 @@ func TestAliasLast(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			values, legacy, err := metadata.DecodeAliases(data)
-			if err != nil || legacy {
-				t.Fatalf("decode aliases legacy=%v err=%v", legacy, err)
+			values, err := metadata.DecodeAliases(data)
+			if err != nil {
+				t.Fatalf("decode aliases: %v", err)
 			}
 			if values[lastAliasName].Template != lastAliasCommand || values["other"].Template != "echo untouched" {
 				t.Fatalf("YAML=%q", data)
@@ -136,9 +136,9 @@ func TestAliasAddPersistsMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	aliases, legacy, err := metadata.DecodeAliases(data)
-	if err != nil || legacy {
-		t.Fatalf("decode aliases legacy=%v err=%v", legacy, err)
+	aliases, err := metadata.DecodeAliases(data)
+	if err != nil {
+		t.Fatalf("decode aliases: %v", err)
 	}
 	alias := aliases["show"]
 	if alias.Description != "display a value" || len(alias.Arguments) != 1 || !alias.Arguments[0].Required {

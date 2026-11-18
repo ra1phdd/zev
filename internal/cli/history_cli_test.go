@@ -20,7 +20,7 @@ func TestHistoryCommandValidation(t *testing.T) {
 		{"unknown fuzzy", []string{historyCommandSearch, historyTestFiles, "--fuzzy", historyBadValue}, "fuzzy"},
 		{"negative limit", []string{historyCommandSearch, historyTestFiles, "--limit", "-1"}, "limit"},
 		{"bad date", []string{historyCommandSearch, historyTestFiles, "--from", historyBadValue}, "from"},
-		{"bad type", []string{historyCommandSearch, historyTestFiles, "--type", historyBadValue}, "type"},
+		{"bad type", []string{historyCommandSearch, historyTestFiles, "--type", historyBadValue}, cliFixtureType},
 		{"show no id", []string{historyCommandShow}, "id"},
 		{"show conflicting ids", []string{historyCommandShow, "conversation", "--message", "message"}, "id"},
 		{"export format", []string{"export", historyFormatFlag, historyBadValue}, "format"},

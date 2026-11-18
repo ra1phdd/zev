@@ -1,42 +1,54 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/ra1phdd/zev/internal/core/filestore"
+	"gopkg.in/yaml.v3"
 )
 
-// LoadUILanguage reads only the UI language with environment values taking
-// precedence over the config file and the auto default. An empty environment
-// ZEV_LANG is ignored, matching ordinary config loading. It does not validate
-// provider or other settings, acquire locks, or create directories or files.
-// Symlinks at the application directory or config file are rejected. It returns
-// ErrInvalidHome before filesystem I/O when home is missing or relative; malformed
-// config and invalid language errors omit file contents and configuration values.
+// LoadUILanguage reads the language without acquiring locks, changing files or
+// validating unrelated provider settings. An absent config.yaml means auto.
 func LoadUILanguage() (string, error) {
 	path, err := getConfigPath()
 	if err != nil {
 		return "", err
 	}
-	if err := filestore.ValidateDirectory(filepath.Dir(path)); err != nil {
+	dir := filepath.Dir(path)
+	if err := filestore.ValidateDirectory(dir); err != nil {
 		return "", fmt.Errorf("validate config directory: %w", err)
 	}
-	values, err := readValues(path)
+	data, err := filestore.ReadSingleLink(path, maxConfigBytes)
+	if errors.Is(err, os.ErrNotExist) {
+		return uiLanguageAuto, nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read configuration language: %w", err)
+	}
+	root, err := currentDocument(data)
 	if err != nil {
 		return "", err
 	}
-	value := values["ZEV_LANG"]
-	if override, exists := os.LookupEnv("ZEV_LANG"); exists && strings.TrimSpace(override) != "" {
-		value = override
+	value := uiLanguageAuto
+	seen := make(map[string]bool, len(root.Content)/2)
+	for i := 0; i < len(root.Content); i += 2 {
+		k, v := root.Content[i], root.Content[i+1]
+		if k.Kind != yaml.ScalarNode || k.ShortTag() != yamlString || seen[k.Value] {
+			return "", errYAML
+		}
+		seen[k.Value] = true
+		if k.Value == "language" {
+			if v.ShortTag() != yamlString || v.Kind != yaml.ScalarNode {
+				return "", errInvalidUILanguage
+			}
+			value = normalizeUILanguage(v.Value)
+		}
 	}
-	value = normalizeUILanguage(value)
-	if err := validateUILanguage(value); err != nil {
-		return "", validationConfigError(err)
-	}
-	return value, nil
+	return value, validateUILanguage(value)
 }
 
 const uiLanguageAuto = "auto"

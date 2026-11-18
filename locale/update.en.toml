@@ -1,0 +1,23 @@
+["update.short"]
+other = "Update Zev from the latest stable GitHub Release and run migrations"
+
+["update.checking"]
+other = "Checking the latest stable Zev release...\n"
+
+["update.installed"]
+other = "Zev %s installed; all migrations completed.\n"
+
+["update.current"]
+other = "Zev %s is current or newer; all migrations completed.\n"
+
+["update.migrating"]
+other = "Migrating %s...\n"
+
+["update.migrate_only"]
+other = "Run local data migrations without downloading or replacing Zev"
+
+["update.migrations_done"]
+other = "All Zev data migrations completed.\n"
+
+["update.protocol"]
+other = "Print the self-update compatibility protocol"

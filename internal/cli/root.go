@@ -44,10 +44,12 @@ func NewRootCommand(buildVersion string) *cobra.Command {
 	rootCmd.AddCommand(newContinueCmd())
 	rootCmd.AddCommand(newHistoryCmd())
 	rootCmd.AddCommand(newSetupCmd())
+	rootCmd.AddCommand(newProviderCmd())
 	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.AddCommand(newAliasCmd())
 	rootCmd.AddCommand(newScriptCmd())
 	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newUpdateCmd(buildVersion))
 	localizeCommandHelp(rootCmd)
 	return rootCmd
 }
@@ -68,6 +70,9 @@ func Execute(ctx context.Context, root *cobra.Command) int {
 		return machineErr.code
 	}
 	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+		if _, writeErr := fmt.Fprintf(root.ErrOrStderr(), locale.Text(locale.KeyQueryErrorMessage), err); writeErr != nil {
+			slog.Error("Failed to write command error", "error", writeErr)
+		}
 		return exitErr.ExitCode()
 	}
 	if _, writeErr := fmt.Fprintf(root.ErrOrStderr(), locale.Text(locale.KeyQueryErrorMessage), err); writeErr != nil {
@@ -77,14 +82,26 @@ func Execute(ctx context.Context, root *cobra.Command) int {
 }
 
 func newVersionCmd() *cobra.Command {
-	return &cobra.Command{
+	var updateProtocol, updateBuild bool
+	cmd := &cobra.Command{
 		Use:   "version",
 		Short: locale.Text(locale.KeyQueryShowZevVersion),
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if updateBuild {
+				return writeQueryOutput(cmd.OutOrStdout(), "%s\n", version)
+			}
+			if updateProtocol {
+				return writeQueryOutput(cmd.OutOrStdout(), "zev-update-v1\n")
+			}
 			if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text(locale.KeyQueryZevVersionMessage), version); err != nil {
 				return fmt.Errorf("write version: %w", err)
 			}
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&updateProtocol, "update-protocol", false, locale.Text(locale.KeyUpdateProtocol))
+	cmd.Flags().Lookup("update-protocol").Hidden = true
+	cmd.Flags().BoolVar(&updateBuild, "update-build", false, locale.Text(locale.KeyUpdateProtocol))
+	cmd.Flags().Lookup("update-build").Hidden = true
+	return cmd
 }

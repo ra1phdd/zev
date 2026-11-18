@@ -7,13 +7,19 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/ra1phdd/zev/internal/core/childprocess"
+	"github.com/ra1phdd/zev/internal/core/config"
 )
 
-// Resolve returns the first available editor from SCRIPT_EDITOR, EDITOR, nano,
-// vim and vi. An empty result means no supported editor was found.
-func Resolve() string {
+// Resolve returns the configured editor, then the first available editor from
+// SCRIPT_EDITOR, EDITOR, nano, vim and vi. An empty result means no supported
+// editor was found.
+func Resolve(ctx context.Context) string {
+	if name := configuredEditor(ctx); name != "" {
+		return name
+	}
 	for _, candidate := range []string{os.Getenv("SCRIPT_EDITOR"), os.Getenv("EDITOR"), "nano", "vim", "vi"} {
 		if candidate == "" {
 			continue
@@ -25,9 +31,28 @@ func Resolve() string {
 	return ""
 }
 
+func configuredEditor(ctx context.Context) string {
+	dir, err := config.GetZevDir()
+	if err != nil {
+		return ""
+	}
+	info, err := os.Lstat(filepath.Join(dir, "config.yaml"))
+	if err != nil || !info.Mode().IsRegular() {
+		return ""
+	}
+	cfg, err := config.LoadContext(ctx)
+	if err != nil || cfg.ScriptEditor == "" {
+		return ""
+	}
+	if _, err := exec.LookPath(cfg.ScriptEditor); err != nil {
+		return ""
+	}
+	return cfg.ScriptEditor
+}
+
 // Open launches the resolved editor for path and inherits the current terminal.
 func Open(ctx context.Context, path string) error {
-	name := Resolve()
+	name := Resolve(ctx)
 	if name == "" {
 		return errors.New("no editor found (nano, vim, vi, or $EDITOR/$SCRIPT_EDITOR not set)")
 	}

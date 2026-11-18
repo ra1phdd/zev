@@ -18,9 +18,11 @@ import (
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/ra1phdd/zev/pkg/tui/list"
+	"gopkg.in/yaml.v3"
 )
 
 const (
+	existingProfile       = "existing-provider"
 	setupOpenAIModel      = "openai-fixture-model"
 	setupOpenAIBaseURL    = "https://openai.fixture/v1"
 	setupOpenAIDefaultURL = "https://api.openai.com/v1"
@@ -51,46 +53,46 @@ func TestRunContextPersistsEveryProviderConfiguration(t *testing.T) {
 		{
 			name:          "OpenAI",
 			provider:      providerOpenAI,
-			inputs:        []string{setupOpenAIModel, setupOpenAIBaseURL},
+			inputs:        []string{setupOpenAIBaseURL, setupOpenAIModel},
 			secret:        "openai-fixture-secret",
 			wantSecret:    true,
 			wantAPIKey:    "openai-fixture-secret",
 			wantModel:     setupOpenAIModel,
 			wantBaseURL:   setupOpenAIBaseURL,
-			wantInputText: []string{setupOpenAIModel, setupOpenAIBaseURL},
+			wantInputText: []string{setupOpenAIBaseURL, setupOpenAIModel},
 		},
 		{
 			name:          "OpenAI keeps secret and restores defaults",
 			provider:      providerOpenAI,
-			inputs:        []string{"", "default"},
+			inputs:        []string{"default", ""},
 			secret:        "",
 			wantSecret:    true,
 			wantAPIKey:    "saved-openai-secret",
 			wantModel:     "saved-openai-model",
 			wantBaseURL:   setupOpenAIDefaultURL,
-			wantInputText: []string{"", "default"},
+			wantInputText: []string{"default", ""},
 		},
 		{
 			name:          "Gemini",
 			provider:      providerGemini,
-			inputs:        []string{setupGeminiModel, setupGeminiBaseURL},
+			inputs:        []string{setupGeminiBaseURL, setupGeminiModel},
 			secret:        "gemini-fixture-secret",
 			wantSecret:    true,
 			wantAPIKey:    "gemini-fixture-secret",
 			wantModel:     setupGeminiModel,
 			wantBaseURL:   setupGeminiBaseURL,
-			wantInputText: []string{setupGeminiModel, setupGeminiBaseURL},
+			wantInputText: []string{setupGeminiBaseURL, setupGeminiModel},
 		},
 		{
 			name:          "Anthropic",
 			provider:      providerAnthropic,
-			inputs:        []string{setupAnthropicModel, setupAnthropicBaseURL},
+			inputs:        []string{setupAnthropicBaseURL, setupAnthropicModel},
 			secret:        "anthropic-fixture-secret",
 			wantSecret:    true,
 			wantAPIKey:    "anthropic-fixture-secret",
 			wantModel:     setupAnthropicModel,
 			wantBaseURL:   setupAnthropicBaseURL,
-			wantInputText: []string{setupAnthropicModel, setupAnthropicBaseURL},
+			wantInputText: []string{setupAnthropicBaseURL, setupAnthropicModel},
 		},
 		{
 			name:          "Ollama",
@@ -161,34 +163,31 @@ func TestRunContextPersistsEveryProviderConfiguration(t *testing.T) {
 				t.Fatal("Ollama setup prompted for an API key")
 			}
 
-			got, err := config.Load()
+			got, err := config.LoadContext(t.Context())
 			if err != nil {
 				t.Fatalf("Load after RunContext failed: %v", err)
 			}
 			want := *original
-			want.LLMProvider = tt.provider
-			switch tt.provider {
-			case providerOpenAI, providerOpenCode:
-				want.OpenAIAPIKey = tt.wantAPIKey
-				want.OpenAIModel = tt.wantModel
-				want.OpenAIBaseURL = tt.wantBaseURL
-			case providerGemini:
-				want.GeminiAPIKey = tt.wantAPIKey
-				want.GeminiModel = tt.wantModel
-				want.GeminiBaseURL = tt.wantBaseURL
-			case providerAnthropic:
-				want.AnthropicAPIKey = tt.wantAPIKey
-				want.AnthropicModel = tt.wantModel
-				want.AnthropicBaseURL = tt.wantBaseURL
-			case providerOllama:
-				want.OllamaModel = tt.wantModel
-				want.OllamaBaseURL = tt.wantBaseURL
+			profileName := tt.provider
+			if original.Providers[original.ActiveProvider].Type == tt.provider {
+				profileName = original.ActiveProvider
 			}
-			if tt.wantHeaders != nil {
-				want.HTTPHeaders = maps.Clone(tt.wantHeaders)
+			want.ActiveProvider = profileName
+			want.Providers = maps.Clone(original.Providers)
+			want.Providers[profileName] = config.ProviderConfig{
+				Type: tt.provider, APIKey: tt.wantAPIKey, Model: tt.wantModel,
+				BaseURL: tt.wantBaseURL, HTTPHeaders: tt.wantHeaders,
 			}
-			if !reflect.DeepEqual(got, &want) {
-				t.Fatalf("persisted config = %#v, want %#v", got, &want)
+			gotYAML, err := yaml.Marshal(got)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantYAML, err := yaml.Marshal(&want)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(gotYAML, wantYAML) {
+				t.Fatal("persisted configuration differs from expected public YAML fields")
 			}
 		})
 	}
@@ -213,7 +212,7 @@ func TestRunContextPreservesPersistedConfigWhenInputFails(t *testing.T) {
 	if stdout != "" {
 		t.Fatalf("unexpected output after failed setup: %q", stdout)
 	}
-	got, err := config.Load()
+	got, err := config.LoadContext(t.Context())
 	if err != nil {
 		t.Fatalf("Load after failed setup failed: %v", err)
 	}
@@ -244,8 +243,8 @@ func TestRunContextReportsSelectionAndLoadErrors(t *testing.T) {
 
 	t.Run("invalid persisted config", func(t *testing.T) {
 		setupPersistedConfig(t)
-		path := filepath.Join(os.Getenv("HOME"), ".zev", "config")
-		if err := os.WriteFile(path, []byte("TOOL_APPROVAL_MODE=unsupported\n"), 0o600); err != nil { //nolint:gosec // The test controls HOME and the resulting path.
+		path := filepath.Join(os.Getenv("HOME"), ".zev", "config.yaml")
+		if err := os.WriteFile(path, []byte("providers: [invalid\n"), 0o600); err != nil { //nolint:gosec // The test controls HOME and the resulting path.
 			t.Fatal(err)
 		}
 		svc := New()
@@ -298,7 +297,7 @@ func TestRunContextSecretCancellationPreservesConfig(t *testing.T) {
 	if strings.Contains(secretOutput.String(), "saved-openai-secret") {
 		t.Fatal("existing secret appeared in cancellation output")
 	}
-	got, err := config.Load()
+	got, err := config.LoadContext(t.Context())
 	if err != nil {
 		t.Fatalf("Load after canceled setup failed: %v", err)
 	}
@@ -309,12 +308,110 @@ func TestRunContextSecretCancellationPreservesConfig(t *testing.T) {
 
 func TestRunContextRejectsCancellationBeforeConfigLoad(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	err := New().RunContext(ctx)
 	if err == nil || !errors.Is(err, context.Canceled) {
 		t.Fatalf("RunContext error = %v, want context cancellation", err)
+	}
+}
+
+//nolint:paralleltest // Uses process-wide HOME.
+func TestRunContextMergesConcurrentProfileChanges(t *testing.T) {
+	original := setupPersistedConfig(t)
+	const endpoint = "https://concurrent.example/v1"
+	headers := map[string]string{"X-Profile": "concurrent"}
+	global := map[string]string{"X-Global": "concurrent"}
+	fixture := setupInputFixture{values: []string{"", setupOpenAIModel}}
+	svc := &Service{
+		inputContext: fixture.input,
+		selectContext: func(ctx context.Context, opts list.SelectOptions) (list.Item, error) {
+			if err := config.UpdateContext(ctx, func(latest *config.Config) error {
+				p := latest.Providers[original.ActiveProvider]
+				p.APIKey, p.BaseURL, p.HTTPHeaders = "rotated-key", endpoint, headers
+				latest.Providers[original.ActiveProvider] = p
+				latest.HTTPHeaders = global
+				latest.ActiveProvider = providerGemini
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			return selectProviderFixture(ctx, opts, providerOpenAI, nil)
+		},
+		runSecretInput: func(model tea.Model) (tea.Model, error) {
+			return model, nil
+		},
+	}
+	if err := svc.RunContext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := config.LoadContext(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := got.Providers[original.ActiveProvider]
+	if p.Model != setupOpenAIModel || p.APIKey != "rotated-key" || p.BaseURL != endpoint || !maps.Equal(p.HTTPHeaders, headers) {
+		t.Fatal("expected only the selected model to change on the updated profile")
+	}
+	if got.ActiveProvider != original.ActiveProvider || !maps.Equal(got.HTTPHeaders, global) || !reflect.DeepEqual(got.Providers[providerGemini], original.Providers[providerGemini]) {
+		t.Fatal("selection, global headers or unrelated profile differ from expected state")
+	}
+}
+
+//nolint:paralleltest // Uses process-wide HOME.
+func TestRunContextRejectsProfileConflictsWithoutWriting(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		prepare   bool
+		typeAfter string
+	}{
+		{name: "removed while prompting"},
+		{name: "retyped while prompting", typeAfter: providerGemini},
+		{name: "type-named profile already has another type", prepare: true, typeAfter: providerGemini},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := setupPersistedConfig(t)
+			update := func(ctx context.Context) {
+				if err := config.UpdateContext(ctx, func(latest *config.Config) error {
+					if tc.typeAfter == "" {
+						delete(latest.Providers, providerOllama)
+					} else {
+						latest.Providers[providerOllama] = config.ProviderConfig{Type: tc.typeAfter, Model: "replacement"}
+					}
+					return nil
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.prepare {
+				update(t.Context())
+			}
+			fixture := setupInputFixture{values: []string{setupOllamaBaseURL, setupOllamaModel}}
+			svc := &Service{
+				inputContext: fixture.input,
+				selectContext: func(ctx context.Context, opts list.SelectOptions) (list.Item, error) {
+					if !tc.prepare {
+						update(ctx)
+					}
+					return selectProviderFixture(ctx, opts, providerOllama, nil)
+				},
+			}
+			if err := svc.RunContext(t.Context()); err == nil {
+				t.Fatal("expected profile conflict")
+			}
+			got, err := config.LoadContext(t.Context())
+			if err != nil {
+				t.Fatal(err)
+			}
+			p, present := got.Providers[providerOllama]
+			if got.ActiveProvider != cfg.ActiveProvider || present != (tc.typeAfter != "") || present && (p.Type != tc.typeAfter || p.Model != "replacement") {
+				t.Fatal("setup changed a conflicting profile or switched the active selection")
+			}
+			if tc.prepare && len(fixture.inputs) != 0 {
+				t.Fatal("prompted for settings despite known name conflict")
+			}
+		})
 	}
 }
 
@@ -388,7 +485,6 @@ func promptsContain(prompts []string, want string) bool {
 
 func setupPersistedConfig(t *testing.T) *config.Config {
 	t.Helper()
-	isolateSetupEnvironment(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -397,43 +493,24 @@ func setupPersistedConfig(t *testing.T) *config.Config {
 	}
 
 	cfg := config.DefaultConfig()
-	cfg.LLMProvider = "existing-provider"
-	cfg.OpenAIAPIKey = "saved-openai-secret"
-	cfg.OpenAIModel = "saved-openai-model"
-	cfg.OpenAIBaseURL = "https://saved.openai/v1"
-	cfg.GeminiAPIKey = "saved-gemini-secret"
-	cfg.GeminiModel = "saved-gemini-model"
-	cfg.GeminiBaseURL = "https://saved.gemini/v1"
-	cfg.AnthropicAPIKey = "saved-anthropic-secret"
-	cfg.AnthropicModel = "saved-anthropic-model"
-	cfg.AnthropicBaseURL = "https://saved.anthropic/v1"
-	cfg.OllamaBaseURL = "http://saved.ollama:11434"
-	cfg.OllamaModel = "saved-ollama-model"
-	cfg.HTTPHeaders = map[string]string{"X-Saved": "header"}
+	cfg.ActiveProvider = existingProfile
+	cfg.Providers = map[string]config.ProviderConfig{
+		existingProfile:   {Type: providerOpenAI, APIKey: "saved-openai-secret", Model: "saved-openai-model", BaseURL: "https://saved.openai/v1"},
+		providerGemini:    {Type: providerGemini, APIKey: "saved-gemini-secret", Model: "saved-gemini-model", BaseURL: "https://saved.gemini/v1"},
+		providerAnthropic: {Type: providerAnthropic, APIKey: "saved-anthropic-secret", Model: "saved-anthropic-model", BaseURL: "https://saved.anthropic/v1"},
+		providerOllama:    {Type: providerOllama, Model: "saved-ollama-model", BaseURL: "http://saved.ollama:11434"},
+	}
+	cfg.HTTPHeaders = map[string]string{"X-Saved": testHeaderValue}
 	cfg.CommandExecutionMode = setupExecutionMode
 	cfg.ScriptEditor = "vim"
 	if err := config.Save(cfg); err != nil {
 		t.Fatalf("Save fixture config failed: %v", err)
 	}
-	loaded, err := config.Load()
+	loaded, err := config.LoadContext(t.Context())
 	if err != nil {
 		t.Fatalf("Load fixture config failed: %v", err)
 	}
 	return loaded
-}
-
-func isolateSetupEnvironment(t *testing.T) {
-	t.Helper()
-	for _, field := range reflect.VisibleFields(reflect.TypeFor[config.Config]()) {
-		key := field.Tag.Get("env")
-		if key == "" {
-			continue
-		}
-		t.Setenv(key, "")
-		if err := os.Unsetenv(key); err != nil {
-			t.Fatal(err)
-		}
-	}
 }
 
 func runWithCapturedStdout(t *testing.T, run func(context.Context) error) (string, error) {
@@ -451,7 +528,7 @@ func runWithCapturedStdout(t *testing.T, run func(context.Context) error) (strin
 		}
 	}()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	runErr := run(ctx)
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)

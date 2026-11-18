@@ -20,7 +20,7 @@ func TestAliasesRejectUnsafeRead(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
 			victim := filepath.Join(dir, "victim")
-			if err := os.WriteFile(victim, []byte("test: echo external\n"), 0o600); err != nil {
+			if err := os.WriteFile(victim, []byte("version: 2\naliases: {test: {template: echo external}}\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			path := filepath.Join(dir, "aliases")
@@ -49,7 +49,7 @@ func TestAliasesRejectUnsafeRead(t *testing.T) {
 			}
 
 			data, err := os.ReadFile(filepath.Clean(victim))
-			if err != nil || string(data) != "test: echo external\n" {
+			if err != nil || string(data) != "version: 2\naliases: {test: {template: echo external}}\n" {
 				t.Fatalf("victim changed: %q, %v", data, err)
 			}
 			info, err := os.Lstat(path)

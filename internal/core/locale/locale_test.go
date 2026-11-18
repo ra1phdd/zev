@@ -22,13 +22,11 @@ func TestLanguagePreference(t *testing.T) {
 	}{
 		{"default", nil, "en"},
 		{"Russian POSIX", map[string]string{localeLangEnv: localeRussianPOSIX}, "ru"},
-		{"override", map[string]string{localeOverrideEnv: "en", localeAllEnv: localeRussianPOSIX}, "en"},
 		{"LC_ALL wins", map[string]string{localeLangEnv: localeRussianPOSIX, localeAllEnv: "C"}, "en"},
-		{"unknown fallback", map[string]string{localeOverrideEnv: "fr"}, "en"},
+		{"unknown fallback", map[string]string{localeLangEnv: "fr_FR.UTF-8"}, "en"},
 		{"unknown LC_ALL wins", map[string]string{localeLangEnv: localeRussianPOSIX, localeAllEnv: "fr_FR.UTF-8"}, "en"},
 		{"C UTF-8 wins", map[string]string{localeLangEnv: localeRussianPOSIX, localeAllEnv: "C.UTF-8"}, "en"},
-		{"not a Russian language", map[string]string{localeOverrideEnv: "rubbish"}, "en"},
-		{"BCP47 regional Russian", map[string]string{localeOverrideEnv: "ru-BY"}, "ru"},
+		{"BCP47 regional Russian", map[string]string{localeLangEnv: "ru-BY"}, "ru"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, key := range []string{localeOverrideEnv, localeAllEnv, "LC_MESSAGES", localeLangEnv} {
@@ -41,22 +39,27 @@ func TestLanguagePreference(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // Changes the process-wide locale.
 func TestTextCatalogAndFallback(t *testing.T) {
-	t.Setenv(localeOverrideEnv, "ru")
+	restore := SetLanguage("ru", "")
+	t.Cleanup(restore)
 	if got := Text(KeyQueryFetchingSuggestions); got != "Получение вариантов команд...\n" {
 		t.Fatalf("translation=%q", got)
 	}
 	if got := Text("unknown message %s"); got != "unknown message %s" {
 		t.Fatalf("fallback=%q", got)
 	}
-	t.Setenv(localeOverrideEnv, "en")
+	restoreEnglish := SetLanguage("en", "")
+	defer restoreEnglish()
 	if got := Text(KeyQueryFetchingSuggestions); got != "Fetching suggestions...\n" {
 		t.Fatalf("English=%q", got)
 	}
 }
 
+//nolint:paralleltest // Changes the process-wide locale.
 func TestTextSourceUsesCatalogReverseLookup(t *testing.T) {
-	t.Setenv(localeOverrideEnv, "ru")
+	restore := SetLanguage("ru", "")
+	t.Cleanup(restore)
 	if got := TextSource("Fetching suggestions...\n"); got != "Получение вариантов команд...\n" {
 		t.Fatalf("dynamic translation=%q", got)
 	}

@@ -16,11 +16,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const privacyEnvironment = "environment"
+const privacyConfig = "persisted config ignores ambient overrides"
 
-// The CLI uses global flags and environment-based configuration.
+// The CLI uses global flags and process-wide HOME.
 func TestQueryPrivacyControls(t *testing.T) {
-	for _, source := range []string{privacyEnvironment, "flags", "query subcommand"} {
+	for _, source := range []string{privacyConfig, "flags", "query subcommand"} {
 		t.Run(source, func(t *testing.T) {
 			verbosity, execute, inject := verbosityLevel, executeFlag, injectFlag
 			noHistory, noContext := noHistoryFlag, noContextFlag
@@ -37,16 +37,6 @@ func TestQueryPrivacyControls(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Setenv("SHELL", shell)
-			t.Setenv("LLM_PROVIDER", "openai")
-			t.Setenv("OPENAI_API_KEY", "private-key-marker")
-			t.Setenv("COMMAND_EXECUTION_MODE", executionModeInject)
-			t.Setenv("HTTP_HEADERS", "X-Private:private-header-marker")
-			t.Setenv("HISTORY_ENABLED", "true")
-			t.Setenv("CONTEXT_ENABLED", "true")
-			if source == privacyEnvironment {
-				t.Setenv("HISTORY_ENABLED", "false")
-				t.Setenv("CONTEXT_ENABLED", "false")
-			}
 			var payload struct {
 				Messages []struct{ Role, Content string }
 			}
@@ -60,14 +50,23 @@ func TestQueryPrivacyControls(t *testing.T) {
 				}
 			}))
 			t.Cleanup(server.Close)
-			t.Setenv("OPENAI_BASE_URL", server.URL)
+			cfg := openAITestConfig(server.URL, "private-key-marker")
+			cfg.HTTPHeaders = map[string]string{"X-Private": "private-header-marker"}
+			cfg.HistoryEnabled = source != privacyConfig
+			cfg.ContextEnabled = source != privacyConfig
+			writeCLIConfig(t, home, cfg)
+			if source == privacyConfig {
+				t.Setenv("LLM_PROVIDER", "unsupported-ambient-provider")
+				t.Setenv("HISTORY_ENABLED", "true")
+				t.Setenv("CONTEXT_ENABLED", "true")
+			}
 			var out, diagnostics bytes.Buffer
 			cmd := &cobra.Command{}
 			cmd.SetContext(t.Context())
 			cmd.SetOut(&out)
 			cmd.SetErr(&diagnostics)
 			args := []string{"--execute", "private-prompt-marker"}
-			if source != privacyEnvironment {
+			if source != privacyConfig {
 				args = append([]string{"--no-history", "--no-context"}, args...)
 			}
 			if source == "query subcommand" {

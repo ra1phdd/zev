@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/ra1phdd/zev/internal/core/filestore"
+	"github.com/ra1phdd/zev/internal/entities/history/current"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
 	_ "modernc.org/sqlite" // Register the SQLite database/sql driver.
 )
@@ -21,18 +22,25 @@ const historySQLiteURLScheme = "file"
 // Store persists history in a SQLite database.
 type Store struct{ db *sql.DB }
 
-// Open opens or creates a private SQLite history database and applies migrations.
-// The caller owns the returned store and must close it. Legacy JSONL files are
-// never read or modified by this method; callers must invoke the migrator first.
+// Open opens an existing private SQLite history database. The database must
+// already have the released schema; this method never bootstraps or migrates.
+// The caller owns the returned store and must close it.
 func Open(ctx context.Context, path string) (*Store, error) {
-	db, err := OpenDatabase(ctx, path, true)
+	db, err := OpenDatabase(ctx, path, false)
 	if err != nil {
 		return nil, fmt.Errorf("initialize history: %w", err)
+	}
+	if err := current.Validate(ctx, db); err != nil {
+		return nil, errors.Join(fmt.Errorf("validate current history schema: %w", err), db.Close())
+	}
+	if _, err := db.ExecContext(ctx, "PRAGMA journal_mode=WAL"); err != nil {
+		return nil, errors.Join(fmt.Errorf("enable WAL: %w", err), db.Close())
 	}
 	return &Store{db: db}, nil
 }
 
-// OpenDatabase opens a history SQLite database and applies schema migrations.
+// OpenDatabase opens a raw SQLite connection for an explicit bootstrap or
+// maintenance boundary. It does not validate or migrate the schema.
 // When create is false, the database must already exist and no filesystem data
 // is created. The returned connection is owned by the caller.
 func OpenDatabase(ctx context.Context, path string, create bool) (*sql.DB, error) {
@@ -63,10 +71,6 @@ func OpenDatabase(ctx context.Context, path string, create bool) (*sql.DB, error
 	db, err := openDatabase(ctx, abs, create)
 	if err != nil {
 		return nil, err
-	}
-	store := &Store{db: db}
-	if err := store.migrate(ctx); err != nil {
-		return nil, errors.Join(err, db.Close())
 	}
 	return db, nil
 }
@@ -117,7 +121,7 @@ func historySQLiteURL(abs string, query url.Values) string {
 	return u.String()
 }
 
-func openDatabase(ctx context.Context, abs string, create bool) (*sql.DB, error) {
+func openDatabase(_ context.Context, abs string, create bool) (*sql.DB, error) {
 	if err := secureHistorySidecars(abs); err != nil {
 		return nil, err
 	}
@@ -159,9 +163,6 @@ func openDatabase(ctx context.Context, abs string, create bool) (*sql.DB, error)
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 	db.SetMaxOpenConns(1)
-	if _, err = db.ExecContext(ctx, "PRAGMA journal_mode=WAL"); err != nil {
-		return nil, errors.Join(fmt.Errorf("enable WAL: %w", err), db.Close())
-	}
 	return db, nil
 }
 
@@ -172,62 +173,3 @@ func (s *Store) Close() error {
 	}
 	return nil
 }
-
-func (s *Store) migrate(ctx context.Context) (err error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin migration: %w", err)
-	}
-	defer rollbackTransaction(&err, tx)
-	if _, err = tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)`); err != nil {
-		return fmt.Errorf("create migration ledger: %w", err)
-	}
-	var version int
-	if err = tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(version),0) FROM schema_migrations`).Scan(&version); err != nil {
-		return fmt.Errorf("read migration version: %w", err)
-	}
-	migrations := []string{schema, schema2, schema3}
-	if version > len(migrations) {
-		return fmt.Errorf("%w: version %d", service.ErrUnsupportedSchema, version)
-	}
-	for i := version; i < len(migrations); i++ {
-		if _, err = tx.ExecContext(ctx, migrations[i]); err != nil {
-			return fmt.Errorf("apply migration %d: %w", i+1, err)
-		}
-		if i == 1 {
-			if err = rebuildFTSTx(ctx, tx); err != nil {
-				return fmt.Errorf("build migration index: %w", err)
-			}
-		}
-		if _, err = tx.ExecContext(ctx, `INSERT INTO schema_migrations VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`, i+1); err != nil {
-			return fmt.Errorf("record migration %d: %w", i+1, err)
-		}
-	}
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("commit migration: %w", err)
-	}
-	return nil
-}
-
-func rollbackTransaction(err *error, tx *sql.Tx) {
-	if rollbackErr := tx.Rollback(); rollbackErr != nil && !errors.Is(rollbackErr, sql.ErrTxDone) {
-		*err = errors.Join(*err, fmt.Errorf("rollback transaction: %w", rollbackErr))
-	}
-}
-
-const schema = `
-CREATE TABLE conversations (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('started','completed','cancelled','failed')), kind TEXT NOT NULL, provider TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', selected_command_id TEXT REFERENCES commands(id) ON DELETE SET NULL, metadata_json TEXT CHECK(metadata_json IS NULL OR json_valid(metadata_json)));
-CREATE TABLE messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, sequence INTEGER NOT NULL CHECK(sequence >= 0), role TEXT NOT NULL CHECK(role IN ('user','assistant','system')), kind TEXT NOT NULL CHECK(kind IN ('initial_prompt','refinement','response','system_prompt','error')), content TEXT NOT NULL, created_at TEXT NOT NULL, metadata_json TEXT CHECK(metadata_json IS NULL OR json_valid(metadata_json)), parts_json TEXT CHECK(parts_json IS NULL OR json_valid(parts_json)), UNIQUE(conversation_id,sequence), UNIQUE(id,conversation_id));
-CREATE TABLE responses (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, message_id TEXT NOT NULL UNIQUE, provider TEXT NOT NULL, model TEXT NOT NULL, payload_json TEXT NOT NULL CHECK(json_valid(payload_json)), is_valid INTEGER NOT NULL CHECK(is_valid IN (0,1)), created_at TEXT NOT NULL, FOREIGN KEY(message_id,conversation_id) REFERENCES messages(id,conversation_id) ON DELETE CASCADE, UNIQUE(id,conversation_id));
-CREATE TABLE commands (id TEXT PRIMARY KEY, response_id TEXT NOT NULL, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, ordinal INTEGER NOT NULL CHECK(ordinal >= 0), command TEXT NOT NULL, short_explanation TEXT NOT NULL, is_dangerous INTEGER NOT NULL CHECK(is_dangerous IN (0,1)), dangerous_explanation TEXT NOT NULL, selected_at TEXT, executed_at TEXT, execution_exit_code INTEGER, execution_error TEXT NOT NULL DEFAULT '', FOREIGN KEY(response_id,conversation_id) REFERENCES responses(id,conversation_id) ON DELETE CASCADE, UNIQUE(response_id,ordinal));
-CREATE TABLE message_embeddings (message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE, model TEXT NOT NULL, dimensions INTEGER NOT NULL CHECK(dimensions > 0), embedding BLOB NOT NULL, PRIMARY KEY(message_id,model));
-CREATE TABLE history_documents (id INTEGER PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, message_id TEXT REFERENCES messages(id) ON DELETE CASCADE, command_id TEXT REFERENCES commands(id) ON DELETE CASCADE, kind TEXT NOT NULL, content TEXT NOT NULL, CHECK((message_id IS NOT NULL) != (command_id IS NOT NULL)));
-CREATE VIRTUAL TABLE history_fts USING fts5(content, content='history_documents', content_rowid='id');
-CREATE TRIGGER history_documents_ai AFTER INSERT ON history_documents BEGIN INSERT INTO history_fts(rowid,content) VALUES(new.id,new.content); END;
-CREATE TRIGGER history_documents_ad AFTER DELETE ON history_documents BEGIN INSERT INTO history_fts(history_fts,rowid,content) VALUES('delete',old.id,old.content); END;
-CREATE TRIGGER history_documents_au AFTER UPDATE ON history_documents BEGIN INSERT INTO history_fts(history_fts,rowid,content) VALUES('delete',old.id,old.content); INSERT INTO history_fts(rowid,content) VALUES(new.id,new.content); END;
-CREATE TABLE migration_runs (id TEXT PRIMARY KEY, source_fingerprint TEXT NOT NULL, status TEXT NOT NULL, started_at TEXT NOT NULL, completed_at TEXT, metadata_json TEXT CHECK(metadata_json IS NULL OR json_valid(metadata_json)));
-CREATE TABLE migration_lines (run_id TEXT NOT NULL REFERENCES migration_runs(id) ON DELETE CASCADE, line_number INTEGER NOT NULL CHECK(line_number > 0), conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, PRIMARY KEY(run_id,line_number));
-CREATE INDEX conversations_created_idx ON conversations(created_at DESC,id DESC);
-CREATE INDEX messages_conversation_idx ON messages(conversation_id,sequence);
-`

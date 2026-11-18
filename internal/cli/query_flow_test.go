@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Query flags and configuration use process-wide state.
+//nolint:paralleltest // The fixture changes HOME and restores package-level query flags.
 func TestQueryStopsOnProgressOutputFailure(t *testing.T) {
 	verbosity, execute, inject := verbosityLevel, executeFlag, injectFlag
 	t.Cleanup(func() {
@@ -25,10 +25,7 @@ func TestQueryStopsOnProgressOutputFailure(t *testing.T) {
 		}
 	}))
 	t.Cleanup(server.Close)
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("LLM_PROVIDER", "openai")
-	t.Setenv("OPENAI_API_KEY", "test-key")
-	t.Setenv("OPENAI_BASE_URL", server.URL)
+	writeCLIConfig(t, newCLIConfigHome(t), openAITestConfig(server.URL, "test-key"))
 	outputErr := errors.New("progress output unavailable")
 	cmd := &cobra.Command{}
 	cmd.SetOut(failingOutput{err: outputErr})

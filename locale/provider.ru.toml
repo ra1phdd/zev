@@ -1,0 +1,35 @@
+["provider.short"]
+other = "Управление именованными профилями LLM-провайдеров."
+
+["provider.list_short"]
+other = "Показать настроенные профили провайдеров."
+
+["provider.use_short"]
+other = "Сделать профиль провайдера активным."
+
+["provider.add_short"]
+other = "Добавить именованный профиль провайдера."
+
+["provider.remove_short"]
+other = "Удалить профиль провайдера."
+
+["provider.list_empty"]
+other = "Провайдеры не настроены."
+
+["provider.list_entry"]
+other = "%s %s (%s)"
+
+["provider.use_success"]
+other = "Активный провайдер: %s."
+
+["provider.remove_success"]
+other = "Провайдер %s удалён."
+
+["provider.missing"]
+other = "Провайдер %q не настроен."
+
+["provider.active_removal"]
+other = "Нельзя удалить активного провайдера %q; сначала переключитесь на другого."
+
+["provider.already_exists"]
+other = "Провайдер %q уже существует."

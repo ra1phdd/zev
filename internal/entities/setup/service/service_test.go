@@ -1,6 +1,7 @@
 package service
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/config"
@@ -9,26 +10,15 @@ import (
 func TestMergeProviderChangesPreservesConcurrentUnrelatedFields(t *testing.T) {
 	t.Parallel()
 
-	original := config.DefaultConfig()
-	changed := *original
-	changed.OpenAIModel = "edited-model"
-	changed.OpenAIAPIKey = "edited-key"
-	changed.GeminiModel = "should-not-be-written"
-	latest := *original
-	latest.OpenAIBaseURL = "concurrent-base-url"
-	latest.CommandExecutionMode = "execute"
-	latest.GeminiModel = "concurrent-gemini-model"
-
-	mergeProviderChanges(&latest, original, &changed, "openai")
-
-	if latest.OpenAIModel != changed.OpenAIModel || latest.OpenAIAPIKey != changed.OpenAIAPIKey {
-		t.Fatal("selected provider changes were not merged")
-	}
-	if latest.OpenAIBaseURL != "concurrent-base-url" {
-		t.Fatal("concurrent change to an unchanged field was overwritten")
-	}
-	if latest.GeminiModel != "concurrent-gemini-model" || latest.CommandExecutionMode != "execute" {
-		t.Fatal("unrelated concurrent field was overwritten")
+	before := config.ProviderConfig{Type: providerOpenAI, Model: "original"}
+	after := before
+	after.BaseURL, after.APIKey = "edited-url", "edited-key"
+	after.HTTPHeaders = map[string]string{testHeaderName: "edited"}
+	latest := before
+	latest.Model = "concurrent-model"
+	got := mergeProviderChanges(latest, before, after)
+	if got.BaseURL != after.BaseURL || got.APIKey != after.APIKey || !maps.Equal(got.HTTPHeaders, after.HTTPHeaders) || got.Model != latest.Model {
+		t.Fatal("expected profile edits to preserve the concurrent model change")
 	}
 }
 

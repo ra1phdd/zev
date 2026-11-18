@@ -297,7 +297,7 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	if err != nil {
 		return err
 	}
-	cfg, err := config.Load()
+	cfg, err := loadConfig(cmd.Context())
 	if err != nil {
 		return fmt.Errorf(locale.Text(locale.KeyQueryFailedLoadConfigWRunZevSetup), err)
 	}
@@ -318,7 +318,7 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 		return errors.New(locale.Text(locale.KeyQueryPromptCannotEmpty))
 	}
 	locale.UpdateRequestLanguage(userPrompt)
-	httpClient := httpclient.New(cfg.HTTPHeaders, logger)
+	httpClient := httpclient.New(cfg.EffectiveHTTPHeaders(), logger)
 	provider, err := factory.NewProvider(cfg, httpClient)
 	if err != nil {
 		return fmt.Errorf(locale.Text(locale.KeyQueryFailedCreateProviderError), err)

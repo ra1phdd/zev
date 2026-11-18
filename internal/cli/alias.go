@@ -12,6 +12,7 @@ import (
 	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
 	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
+	aliasmigration "github.com/ra1phdd/zev/internal/migrations/aliases"
 	"github.com/spf13/cobra"
 )
 
@@ -103,7 +104,7 @@ func runAliasAdd(cmd *cobra.Command, args []string) error {
 	if err := metadata.ValidateAlias(a); err != nil {
 		return machineError(exitArguments, err)
 	}
-	dir, err := config.GetZevDir()
+	dir, err := prepareStore(cmd.Context(), aliasmigration.Migrate)
 	if err != nil {
 		return fmt.Errorf("manage entity: %w", err)
 	}
@@ -132,7 +133,7 @@ func runAliasEdit(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("manage entity: %w", err)
 		}
 	}
-	dir, err := config.GetZevDir()
+	dir, err := prepareStore(cmd.Context(), aliasmigration.Migrate)
 	if err != nil {
 		return fmt.Errorf("manage entity: %w", err)
 	}
@@ -226,7 +227,7 @@ func runAliasRemove(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("manage entity: %w", err)
 		}
 	}
-	dir, err := config.GetZevDir()
+	dir, err := prepareStore(cmd.Context(), aliasmigration.Migrate)
 	if err != nil {
 		return fmt.Errorf("manage entity: %w", err)
 	}
@@ -279,9 +280,15 @@ func runAliasRemove(cmd *cobra.Command, args []string) error {
 }
 
 func runAliasList(cmd *cobra.Command, _ []string) error {
-	dir, err := config.GetZevDir()
+	dir, present, err := zevDirectory()
 	if err != nil {
-		return fmt.Errorf("resolve alias store: %w", err)
+		return err
+	}
+	if !present {
+		return writeManagedList(cmd, managedKindAlias, []managedRecord{})
+	}
+	if err := aliasmigration.Migrate(cmd.Context(), dir); err != nil {
+		return fmt.Errorf("migrate alias store: %w", err)
 	}
 	all, err := aliasservice.New(aliasrepo.New(dir)).List()
 	if err != nil {
@@ -315,6 +322,9 @@ func runAliasLast(cmd *cobra.Command, args []string) (err error) {
 	}
 	if err != nil {
 		return fmt.Errorf(locale.Text(locale.KeyCliReadLastHistoryCommandError), err)
+	}
+	if err := aliasmigration.Migrate(cmd.Context(), dir); err != nil {
+		return fmt.Errorf("migrate aliases: %w", err)
 	}
 	if err := aliasservice.New(aliasrepo.New(dir)).AddCommand(args[0], last.Command); err != nil {
 		if errors.Is(err, aliasservice.ErrAliasExists) {

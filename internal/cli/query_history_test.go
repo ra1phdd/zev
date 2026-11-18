@@ -9,14 +9,13 @@ import (
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
-	historyrepo "github.com/ra1phdd/zev/internal/entities/history/repository"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/ra1phdd/zev/pkg/tui/list"
 )
 
 func TestQueryPersistsRefinementAndFullResponses(t *testing.T) {
 	t.Parallel()
-	store, err := historyrepo.Open(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
+	store, err := openHistoryStore(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +70,7 @@ func TestQueryFailureAndCancellationKeepAlreadyStoredMessages(t *testing.T) {
 	for _, cancelled := range []bool{false, true} {
 		t.Run(map[bool]string{false: historyStatusFailed, true: "cancelled"}[cancelled], func(t *testing.T) {
 			t.Parallel()
-			store, err := historyrepo.Open(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
+			store, err := openHistoryStore(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -111,7 +110,7 @@ func TestQueryFailureAndCancellationKeepAlreadyStoredMessages(t *testing.T) {
 
 func TestHistoryWriteFailureWarnsWithoutReplacingProviderFailure(t *testing.T) {
 	t.Parallel()
-	store, err := historyrepo.Open(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
+	store, err := openHistoryStore(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

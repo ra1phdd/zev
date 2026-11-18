@@ -22,7 +22,7 @@ func TestOpenRestrictsWindowsHistoryDACLs(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	s, err := Open(t.Context(), path)
+	s, err := openTestStore(t.Context(), t, path)
 	if err != nil {
 		t.Fatal(err)
 	}

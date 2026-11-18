@@ -13,7 +13,7 @@ import (
 func TestConversationLifecycle(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	s, err := Open(ctx, filepath.Join(t.TempDir(), "private", "history.db"))
+	s, err := openTestStore(ctx, t, filepath.Join(t.TempDir(), "private", "history.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,6 +66,10 @@ func TestConversationLifecycle(t *testing.T) {
 	if err = s.db.QueryRowContext(ctx, `SELECT count(*) FROM history_fts WHERE history_fts MATCH ?`, "initial").Scan(&found); err != nil || found != 1 {
 		t.Fatalf("fts count=%d err=%v", found, err)
 	}
+	page, err := s.ListConversations(ctx, service.ListRequest{Limit: 1})
+	if err != nil || len(page) != 1 || page[0].InitialPrompt != "initial token" {
+		t.Fatalf("listed initial prompt: %+v %v", page, err)
+	}
 	if err = s.DeleteConversation(ctx, "c1"); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +84,7 @@ func TestConversationLifecycle(t *testing.T) {
 func TestNoRotationAndPagination(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	s, err := Open(ctx, filepath.Join(t.TempDir(), "private", "history.db"))
+	s, err := openTestStore(ctx, t, filepath.Join(t.TempDir(), "private", "history.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +114,7 @@ func TestNoRotationAndPagination(t *testing.T) {
 func TestPragmasAndAtomicResponseFailure(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	s, err := Open(ctx, filepath.Join(t.TempDir(), "private", "history.db"))
+	s, err := openTestStore(ctx, t, filepath.Join(t.TempDir(), "private", "history.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/entities/history/repository"
+	historymigration "github.com/ra1phdd/zev/internal/migrations/history"
 )
 
 func TestSQLiteStoreRejectsSymlinkDatabase(t *testing.T) {
@@ -16,6 +17,9 @@ func TestSQLiteStoreRejectsSymlinkDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	victim := filepath.Join(dir, "victim.db")
+	if err := historymigration.Migrate(t.Context(), victim, true); err != nil {
+		t.Fatal(err)
+	}
 	store, err := repository.Open(t.Context(), victim)
 	if err != nil {
 		t.Fatal(err)

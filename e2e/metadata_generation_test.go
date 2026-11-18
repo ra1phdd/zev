@@ -93,13 +93,13 @@ func newMetadataFixture(t *testing.T, replies []metadataReply) *metadataFixture 
 		}
 	}))
 	t.Cleanup(f.server.Close)
+	writeFixture(t, f.home, cliFixture{baseURL: f.server.URL + "/v1", key: fixtureOnly, language: "en"})
 	return f
 }
 
 func (f *metadataFixture) run(t *testing.T, input string, args ...string) (string, string) {
 	t.Helper()
 	cmd := cliCommand(t, f.home, args...)
-	setCLIEnv(cmd, map[string]string{envProvider: providerOpenAI, envBaseURL: f.server.URL + "/v1", envAPIKey: fixtureOnly, envModel: fixtureModel, "ZEV_LANG": "en"})
 	cmd.Stdin = strings.NewReader(input)
 	var out, diagnostic bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &diagnostic

@@ -20,8 +20,8 @@ var selectedLanguage atomic.Pointer[languageSelection]
 // Auto detects a nonempty request locally, mapping Russian to ru and all other
 // results to en. Detection inspects at most the first 4096 runes and is statistical:
 // short or similar-language texts can be misclassified. An empty request uses the
-// system locale. Explicit ru/en ZEV_LANG takes precedence. No environment variables
-// are changed.
+// system locale. An explicit configured ru/en takes precedence. No environment
+// variables are changed.
 // Commands with independent locales must not run concurrently in the same process;
 // nested selections must be restored in reverse order, once per selection.
 func SetLanguage(configured, request string) func() {

@@ -39,7 +39,7 @@ sandbox shell и удалённая синхронизация между ком
 | `alias-crud` | alias CRUD, help, единое argv-safe execution | `metadata-model` |
 | `script-crud` | script metadata/body CRUD, help, exact argv | `metadata-model` |
 | `metadata-generation` | отдельный LLM-порт, consent, fallback, provider adapters | `metadata-model`, CRUD |
-| `migration-recovery` | legacy migration, archive, journal/recovery, concurrency tests | `metadata-model`, CRUD |
+| `migration-recovery` | миграция v1.0.0 без создаваемых архивов, journal recovery, concurrency tests | `metadata-model`, CRUD |
 | `native-acceptance` | runtime-проверки shell/Bash на Linux, macOS и Windows | все предыдущие |
 
 Каждый срез имеет собственные focused tests и checkpoint. Полный acceptance gate не
@@ -56,6 +56,12 @@ sandbox shell и удалённая синхронизация между ком
 - **Legacy source** — старый файл aliases/scripts до миграции.
 - **Argv alias** — каждый канонический alias после миграции, использующий ограниченный
   template dialect и точную подстановку данных.
+
+Совместимость ограничена выпущенными релизами. Поддерживаемые legacy-источники —
+неверсированные metadata-файлы aliases/scripts v1.0.0; текущие repository читают только
+текущие v2 envelopes. Development-снимки и их промежуточные схемы не являются входами
+миграции и не имеют обратной совместимости. Будущие шаги добавляются только после
+публикации нового формата.
 
 ### 3.1. Общие metadata
 
@@ -195,14 +201,14 @@ Unknown newer versions не downgrading и не заменяются пусты�
 internal package. Один versioned codec обслуживает оба repository. Alias/script
 repositories владеют только path, lock и publication; CLI не разбирает YAML.
 
-Валидация ограничивает также размеры: metadata files и archives максимум 1 MiB, YAML depth
-не более 16 и 10 000 nodes, templates максимум 16 KiB, script paths максимум 512 bytes.
-Name ограничен 64 bytes, description — 4096, argument name — 64, argument description —
-1024, максимум 32 arguments. Decoder читает через bounded reader и отклоняет anchors,
-aliases, merge keys, custom tags, NUL, C0/C1, ANSI escapes, invalid UTF-8 и trailing
-documents. Terminal renderer обязан escape LF, backspace, ESC и другие display-affecting
-controls; machine output JSON-encode каждый user field. Canonical YAML codec отклоняет
-anchors, aliases, merge keys и custom tags.
+Валидация ограничивает также размеры: metadata files, migration journals и staged payloads
+максимум 1 MiB, YAML depth не более 16 и 10 000 nodes, templates максимум 16 KiB, script
+paths максимум 512 bytes. Name ограничен 64 bytes, description — 4096, argument name —
+64, argument description — 1024, максимум 32 arguments. Decoder читает через bounded
+reader и отклоняет anchors, aliases, merge keys, custom tags, NUL, C0/C1, ANSI escapes,
+invalid UTF-8 и trailing documents. Terminal renderer обязан escape LF, backspace, ESC и
+другие display-affecting controls; machine output JSON-encode каждый user field.
+Canonical YAML codec отклоняет anchors, aliases, merge keys и custom tags.
 
 ### 4.2. Legacy migration и recovery
 
@@ -228,40 +234,38 @@ post-migration enrichment, durable offer state и bulk consent перенесе�
 
 Каждый migrator использует ровно тот же canonical lock identity и lock order, что и
 соответствующий repository. Гарантии распространяются на cooperating writers; произвольная
-запись в обход lock не входит в threat model.
+запись в обход lock вне threat model. Миграция метаданных не создаёт архив, sidecar-архив или
+резервную копию: она публикует canonical v2 из legacy source через private staging files и
+устойчивый journal. Staging files и journals — recovery artifacts, а не backup пользователя.
+Существующие пользовательские backup, exports и другие исторические копии находятся вне
+этого протокола; Zev не обещает обходить или удалять их, а миграция не даёт гарантии
+безопасного стирания.
 
-Migration marker сам durable и private. До создания archive data нужно сохранить operation
-ID, source fingerprint, deterministic staging/final archive paths и phase `preparing`; затем
-write/sync owned staging archive, проверить полный hash, publish final archive без overwrite,
-sync directory и перевести marker в `archived`. Только после этого повторно проверить source
-identity/size/mtime/hash, atomic replace active file canonical v2, sync file/directory и
-перевести marker в `published`. Marker updates используют same-directory temp files,
-restrictive permissions, fsync и directory sync.
-
-Recovery сверяет фактические source/archive/active hashes с marker. Неполный owned staging
-можно удалить и создать заново из неизменённого source; matching published archive можно
-adopt; occupied archive с другим hash или missing/corrupt marker блокирует операцию. Archive
-никогда не перезаписывается. Любая ошибка sync/rename/marker после side effect
-классифицируется как committed-but-durability-unknown (`errors.Is(..., filestore.ErrCommitted)`),
-если publication могла произойти. Migration никогда не импортирует дважды.
-
-Original source/archive никогда не удаляются автоматически. Archives, journals, markers и
-staged bodies используют private directories, 0600-equivalent files/owner-only ACLs,
-exclusive no-follow regular-file creation и не пишут payloads в logs. Cleanup failure
-сообщается без удаления или overwrite неизвестного path. Occupied archive с другим hash —
-конфликт. Corrupt/changed source, invalid legacy record и archive mismatch блокируют
-активацию и сохраняют предыдущий активный файл.
+Перед любым чтением или записью metadata recovery выполняется под repository lock. Он
+сверяет pending journal с identity source и active file. Валидный незавершённый journal
+может завершить ожидающую публикацию или очистить собственный staging artifact; уже
+опубликованное совпадающее состояние может завершить очистку journal. Изменённый source,
+повреждённый journal или конфликтующее состояние блокируют операцию без догадок. Неизвестный
+path не удаляется и не перезаписывается. Markerless или unpublished journal dev-снимков не
+разбирается, не восстанавливается и не обходится. Ошибка после rename или publication
+означает committed-but-durability-unknown (`errors.Is(..., filestore.ErrCommitted)`), а не
+отсутствие изменений. Общие файловые примитивы `internal/migrations/filetxn` покрывают
+только эту границу staging/publication/recovery файловой миграции; это не механизм
+транзакций/отката SQLite и не rollback для CRUD скриптов.
 
 ### 4.3. Script body + metadata transactions
 
 Операция, меняющая body и metadata, выполняется под script-store lock через staging и
 recoverable journal с фазами `prepared`, `body-published`, `metadata-published`, `done`.
 Journal хранит operation kind, immutable record ID, old/new metadata hashes, old/new body
-hashes, path identities, staged/backup paths и checksum-protected phase. Перед любым чтением
-или записью script store — включая list, help, show, generation и execution — процесс
-получает тот же lock и восстанавливает pending journal. Recovery обязано оставить либо
-полную old pair, либо полную new pair; unresolved mismatch блокирует доступ и execution
-storage error. На платформах без этого протокола combined publication недоступна.
+hashes, path identities, staged/recovery paths и checksum-protected phase. Это journal
+публикации CRUD скриптов, отдельный от recovery миграций; он не является общим механизмом
+rollback. Перед любым чтением или записью script store — включая list, help, show, generation
+и execution — процесс получает тот же lock и восстанавливает pending journal. Recovery
+завершает только известную публикацию либо блокирует unresolved mismatch; он не обещает
+восстановить старый пользовательский backup. На платформах без этого протокола combined
+publication недоступна, а не объявляется безопасной.
+
 
 Script record имеет immutable generated `recordID`, сохраняемый при edits и назначаемый при
 migration. Stale edit сравнивает его, selected metadata bytes, script-path identity и body
@@ -511,12 +515,15 @@ editor selection и alias precedence. `alias last` использует то ж�
 Команды вне поддерживаемой template grammar отклоняются без создания alias. Legacy
 exception отсутствует.
 
-Migration меняет storage, добавляет metadata и компилирует старые alias templates в argv-safe
-syntax; unsupported raw shell semantics не сохраняются. Эта release отклоняет schema
-versions newer than supported без изменения файлов. Запуск
-pre-v2 binaries с migrated stores unsupported; новая release не может контролировать их
-поведение. Перед downgrade нужно остановить writers, сохранить v2 stores и явно восстановить
-выбранный legacy archive; изменения после archive при этом не сохраняются.
+Migration меняет storage, добавляет metadata и переводит поддерживаемые записи v1.0.0 в
+единое argv-safe представление. Unsupported raw shell semantics не сохраняются. Эта
+release отклоняет schema versions newer than supported без изменения файлов. Форматы
+development-снимков не являются входами совместимости. Будущие шаги миграции сохраняются
+только для переходов выпущенных форматов. Запуск pre-v2 binaries с migrated stores
+unsupported; новая release не может контролировать их поведение. Перед downgrade нужно
+остановить всех writers Zev и вручную восстановить совместимое legacy-хранилище только из
+выбранного вами пользовательского backup. Zev не создаёт, не выбирает, не обходит и не
+удаляет такие backup; изменения после этой копии не сохраняются.
 
 ## 10. Testing и acceptance
 
@@ -540,8 +547,10 @@ pre-v2 binaries с migrated stores unsupported; новая release не може
 - interactive/non-TTY matrix, EOF/cancel, no partial writes, editor failure compatibility;
 - management JSON schema, stdout/stderr и exit status 0/1/2/7/127;
 - recording local provider доказывает consent, bounded body, отсутствие history/tools/config leakage;
-- legacy migration сохраняет descriptions, bodies, bytes, archive hash и retries;
-- crash injection before/after archive, body publication, metadata publication, rename, sync/cleanup;
+- legacy migration сохраняет descriptions, bodies и bytes; journal recovery обрабатывает
+  прерванную публикацию без создания архива;
+- crash injection before/after staging, journal publication, body publication, metadata
+  publication, rename, sync/cleanup;
 - concurrent cooperating CRUD/migration, stale edit и same-name alias/script collision;
 - native Linux/macOS/Windows runtime gates, missing Bash и signal cleanup.
 
@@ -555,10 +564,10 @@ owner обязан проверить и сообщить resulting diff; native
 
 ## 11. Граница реализации
 
-Политика миграции определена: все старые записи переходят на новое представление;
-legacy-режима выполнения нет. После успешной миграции одно сообщение показывает результат
-и предлагает добавить недостающие описания и аргументы через ИИ. Отказ или ошибка
-провайдера оставляет мигрированные записи рабочими без этих необязательных полей.
+Политика миграции определена: каждая поддерживаемая запись v1.0.0 переходит в текущее
+представление; legacy-режима выполнения нет. После успешной миграции записи остаются
+пригодными без описаний и metadata аргументов. Необязательное AI-обогащение — отдельный
+будущий срез, а не обещание при старте миграции.
 
 Других мастеров миграции, выбора режима и подтверждений обогащения для каждой записи нет.
 Остальные разделы задают требования к реализации, а не дополнительные вопросы при старте.

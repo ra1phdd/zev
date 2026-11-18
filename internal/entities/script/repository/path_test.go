@@ -78,7 +78,7 @@ func TestLoadAllRejectsUnsafeMetadata(t *testing.T) {
 	for _, file := range []string{"../outside.sh", "nested/../../outside.sh", "/outside.sh", "", ".", "..", "nested/../safe.sh", `C:\outside.sh`, `nested\outside.sh`} {
 		t.Run(file, func(t *testing.T) {
 			dir := testDir(t)
-			data := fmt.Sprintf("safe:\n  script: %q\n", file)
+			data := fmt.Sprintf("version: 2\nscripts:\n  safe:\n    recordID: 550e8400-e29b-41d4-a716-446655440000\n    script: %q\n", file)
 			if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte(data), 0o600); err != nil {
 				t.Fatal(err)
 			}
@@ -162,7 +162,7 @@ func TestOpenScriptPinnedRejectsSymlinksAndNonRegularFiles(t *testing.T) {
 				}
 			}
 			script := domain.Script{Name: safeName, ScriptFile: file, RecordID: "550e8400-e29b-41d4-a716-446655440000"}
-			encoded, err := metadata.EncodeScripts(map[string]domain.Script{safeName: script})
+			encoded, err := metadata.EncodeScriptsV2(map[string]domain.Script{safeName: script})
 			if err != nil {
 				t.Fatal(err)
 			}

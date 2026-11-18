@@ -122,13 +122,17 @@ zev history clear --yes
 
 History is stored in SQLite at `~/.zev/history.db` with incremental conversation
 records and no automatic count-based rotation. Enabled queries and explicit history
-commands automatically import and archive old `~/.zev/history` JSONL after verification.
-`--no-history` and `HISTORY_ENABLED=false` skip storage opening and migration for the
-current query. Search defaults to local lexical mode; semantic/hybrid uses separately
+commands import the v1.0.0 `~/.zev/history` JSONL source through a separate importer,
+then initialize the current SQLite store from one embedded SQL baseline (`.up.sql`).
+The importer does not replay development SQLite schema history; development snapshots
+are not backwards-compatible inputs. The source is removed only after verified import,
+and no migration archive or backup copy is generated. `--no-history` and
+`HISTORY_ENABLED=false` skip storage opening and migration for the current query. Search defaults to local lexical mode; semantic/hybrid uses separately
 configured, opt-in embeddings and explicitly built user-message vectors. Vector rebuild
 requires `--vectors --yes` consent; no vectors or RAG context are generated automatically.
 JSON search results include coverage, truncation and `nextCursor` for `--cursor`
-continuation. Deletion does not remove legacy archives, backups or external copies.
+continuation. Deletion does not erase backups or external copies and provides no secure-erasure
+guarantee.
 See the [History guide](docs/en/HISTORY.md) for migration, search modes, privacy and
 embedding configuration.
 
@@ -151,9 +155,12 @@ stand alone. Aliases accept one simple command, not pipelines, redirects, or she
 substitution. Use a script for shell syntax. `zev dps --help` shows local help without
 running the command or contacting a provider.
 
-Legacy stores migrate to v2 on first access, preserving an archive. Back up `~/.zev`
-before upgrading. Legacy templates outside the restricted grammar block migration
-until manually repaired; do not downgrade a migrated store to an older Zev version.
+The supported v1.0.0 legacy metadata stores migrate to current v2 on first access without
+generating an archive or backup copy. Development snapshot schemas are not backwards-
+compatible inputs. Back up `~/.zev` yourself if you need a rollback option; Zev does not
+sweep or delete user-owned backups or historical copies. Legacy templates outside the
+restricted grammar block migration until manually repaired; do not downgrade a migrated
+store to an older Zev version.
 
 ### Scripts
 
@@ -166,6 +173,16 @@ zev script remove deploy
 Metadata is stored in `~/.zev/scripts`, the script bodies — in `~/.zev/script_files`.
 `zev script create` opens the file in `$SCRIPT_EDITOR`, `$EDITOR`, or the first available
 of `nano`, `vim`, `vi`.
+
+### Updating
+
+```bash
+zev update
+```
+
+Installs the latest stable GitHub Release with SHA-256 verification and immediately
+runs all local migrations using the new binary. See the [update guide](docs/en/UPDATE.md)
+for write permissions, recovery and offline migration retries.
 
 ### Other
 
@@ -194,10 +211,11 @@ export OLLAMA_MODEL=qwen2.5-coder
 
 ## Documentation
 
-- [Configuration](docs/en/CONFIGURATION.md) — `~/.zev/config`, environment variables, execution
-  modes, files on disk
+- [Configuration](docs/en/CONFIGURATION.md) — current YAML configuration, v1.0.0 migration,
+  execution modes, files on disk
 - [History](docs/en/HISTORY.md) — persistent SQLite history, migration, search and semantic opt-in
 - [Aliases and scripts specification](docs/en/ALIASES-SCRIPTS-SPEC.md) — planned metadata, CLI, migration and argument contracts
+- [Updating](docs/en/UPDATE.md) — self-update from GitHub Releases and immediate data migrations
 - [Architecture](docs/en/ARCHITECTURE.md) — package map, query flow, provider contracts
 - [Development](docs/en/DEVELOPMENT.md) — make targets, TDD workflow, conventions
 - [Contributing](CONTRIBUTING.md) — how to propose and land a change
@@ -211,7 +229,7 @@ export OLLAMA_MODEL=qwen2.5-coder
 - [go-openai](https://github.com/sashabaranov/go-openai) for OpenAI-compatible providers,
   [go-anthropic](https://github.com/liushuangls/go-anthropic) for Anthropic,
   raw HTTP for Gemini and OpenCode (SSE streaming)
-- `godotenv` + `caarlos0/env` for configuration
+- `godotenv` for v1.0.0 dotenv migration and `yaml.v3` for current configuration and metadata
 - `golangci-lint`, `go vet` and `go test` through Make targets
 
 ## Uninstallation

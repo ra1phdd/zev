@@ -27,7 +27,7 @@ func TestCheckReadableAcceptsCurrentHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "history.db")
-	store, err := Open(context.Background(), path)
+	store, err := openTestStore(context.Background(), t, path)
 	if err != nil {
 		t.Fatal(err)
 	}

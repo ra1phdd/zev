@@ -4,8 +4,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -27,19 +27,10 @@ func SetConfigPathForTests(newPath string) string {
 	return old
 }
 
-func isolateConfigEnvironment(t *testing.T) {
-	t.Helper()
-	for field := range reflect.TypeFor[Config]().Fields() {
-		key := field.Tag.Get("env")
-		if key == "" {
-			continue
-		}
-		t.Setenv(key, "")
-		if err := os.Unsetenv(key); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
+const (
+	unversionedYAML = "active_provider: openai\nproviders: {openai: {type: openai}}\n"
+	minimalYAML     = "version: 1\n" + unversionedYAML
+)
 
 func TestGetZevDir(t *testing.T) {
 	homeEnv := "HOME"
@@ -75,7 +66,7 @@ func TestDefaultConfig(t *testing.T) {
 	t.Parallel()
 	cfg := DefaultConfig()
 
-	if cfg.LLMProvider != "openai" {
+	if cfg.LLMProvider != kindOpenAI {
 		t.Errorf("expected default provider=openai, got %s", cfg.LLMProvider)
 	}
 	if cfg.OpenAIModel != "gpt-5.6-luna" {
@@ -101,8 +92,8 @@ func TestDefaultToolConfig(t *testing.T) {
 	}
 }
 
-func TestToolConfigEnvFilePrecedenceAndRoundTrip(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config")
+func TestToolConfigRoundTripIgnoresEnvironment(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
 	previous := SetConfigPathForTests(path)
 	t.Cleanup(func() { SetConfigPathForTests(previous) })
 
@@ -113,11 +104,6 @@ func TestToolConfigEnvFilePrecedenceAndRoundTrip(t *testing.T) {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	for _, key := range []string{"TOOLS_ENABLED", toolApprovalModeEnv} {
-		if err := os.Unsetenv(key); err != nil {
-			t.Fatal(err)
-		}
-	}
 	got, err := Load()
 	if err != nil {
 		t.Fatalf("Load after Save failed: %v", err)
@@ -132,23 +118,19 @@ func TestToolConfigEnvFilePrecedenceAndRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load with environment overrides failed: %v", err)
 	}
-	if !got.ToolsEnabled || got.ToolApprovalMode != "bypass" {
-		t.Fatalf("environment did not override file: got enabled=%v mode=%q", got.ToolsEnabled, got.ToolApprovalMode)
+	if got.ToolsEnabled || got.ToolApprovalMode != want.ToolApprovalMode {
+		t.Fatalf("environment changed persisted values: got enabled=%v mode=%q", got.ToolsEnabled, got.ToolApprovalMode)
 	}
 }
 
 //nolint:paralleltest // Mutates the global config path.
 func TestToolApprovalModeValidationIsAlwaysApplied(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config")
+	path := filepath.Join(t.TempDir(), "config.yaml")
 	previous := SetConfigPathForTests(path)
 	t.Cleanup(func() { SetConfigPathForTests(previous) })
 	for _, mode := range []string{"", toolApprovalUnsupported, "AUTO"} {
 		t.Run(mode, func(t *testing.T) {
-			_, err := parseValues(map[string]string{
-				"TOOLS_ENABLED":           configFalseValue,
-				toolApprovalModeEnv:       mode,
-				historySemanticEnabledEnv: configFalseValue,
-			})
+			_, err := Parse([]byte(minimalYAML + "tools_enabled: false\ntool_approval_mode: " + strconv.Quote(mode)))
 			if err == nil {
 				t.Fatal("invalid tool approval mode was accepted")
 			}
@@ -164,7 +146,7 @@ func TestToolApprovalModeValidationIsAlwaysApplied(t *testing.T) {
 		t.Fatalf("Save accepted invalid tool approval mode: %v", err)
 	}
 
-	if err := os.WriteFile(path, []byte("TOOL_APPROVAL_MODE="+toolApprovalUnsupported+"\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(minimalYAML+"tool_approval_mode: "+toolApprovalUnsupported+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "invalid tool policy") {
@@ -192,15 +174,14 @@ func TestDefaultHistoryEmbeddingConfig(t *testing.T) {
 
 func TestParseHistoryEmbeddingConfig(t *testing.T) {
 	t.Parallel()
-	cfg, err := parseValues(map[string]string{
-		historySemanticEnabledEnv:      "true",
-		"HISTORY_EMBEDDING_PROVIDER":   historyEmbeddingProvider,
-		"HISTORY_EMBEDDING_BASE_URL":   historyEmbeddingBaseURL,
-		"HISTORY_EMBEDDING_MODEL":      "embed-model",
-		"HISTORY_EMBEDDING_DIMENSIONS": "1536",
-		"HISTORY_EMBEDDING_API_KEY":    "embedding-secret",
-		"HISTORY_EMBEDDING_MAX_BYTES":  "4096",
-	})
+	cfg, err := Parse([]byte(minimalYAML + `history_semantic_enabled: true
+history_embedding_provider: openai-compatible
+history_embedding_base_url: https://embedding.example/v1
+history_embedding_model: embed-model
+history_embedding_dimensions: 1536
+history_embedding_api_key: embedding-secret
+history_embedding_max_bytes: 4096
+`))
 	if err != nil {
 		t.Fatalf("parseValues failed: %v", err)
 	}
@@ -211,27 +192,20 @@ func TestParseHistoryEmbeddingConfig(t *testing.T) {
 
 func TestHistoryEmbeddingValidationOnlyWhenEnabled(t *testing.T) {
 	t.Parallel()
-	invalid := map[string]string{
-		"HISTORY_EMBEDDING_PROVIDER":   toolApprovalUnsupported,
-		"HISTORY_EMBEDDING_BASE_URL":   "",
-		"HISTORY_EMBEDDING_MODEL":      "",
-		"HISTORY_EMBEDDING_DIMENSIONS": "0",
-		"HISTORY_EMBEDDING_MAX_BYTES":  "0",
-	}
-	if _, err := parseValues(invalid); err != nil {
+	invalid := minimalYAML + "history_embedding_provider: unsupported\nhistory_embedding_dimensions: 0\nhistory_embedding_max_bytes: 0\n"
+	if _, err := Parse([]byte(invalid)); err != nil {
 		t.Fatalf("disabled invalid embedding config rejected: %v", err)
 	}
-	invalid[historySemanticEnabledEnv] = "true"
-	if _, err := parseValues(invalid); err == nil {
+	invalid += "history_semantic_enabled: true\n"
+	if _, err := Parse([]byte(invalid)); err == nil {
 		t.Fatal("enabled invalid embedding config accepted")
 	}
 }
 
 //nolint:paralleltest // Mutates the global config path.
 func TestLoadConfigWithMissing(t *testing.T) {
-	isolateConfigEnvironment(t)
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, ".zevrc")
+	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	originalGetConfigPath := SetConfigPathForTests(configPath)
 	t.Cleanup(func() { SetConfigPathForTests(originalGetConfigPath) })
@@ -241,22 +215,21 @@ func TestLoadConfigWithMissing(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	if cfg.LLMProvider != "openai" {
+	if cfg.LLMProvider != kindOpenAI {
 		t.Errorf("expected default provider, got %s", cfg.LLMProvider)
 	}
 }
 
 //nolint:paralleltest // Mutates the global config path.
 func TestSaveConfig(t *testing.T) {
-	isolateConfigEnvironment(t)
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, ".zevrc")
+	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	originalGetConfigPath := SetConfigPathForTests(configPath)
 	t.Cleanup(func() { SetConfigPathForTests(originalGetConfigPath) })
 
 	cfg := &Config{
-		LLMProvider:      "gemini",
+		LLMProvider:      kindGemini,
 		GeminiAPIKey:     "test-key",
 		GeminiModel:      "gemini-3.1-flash-lite",
 		OpenAIModel:      "gpt-5.6-luna",
@@ -290,8 +263,7 @@ func TestSaveConfig(t *testing.T) {
 
 //nolint:paralleltest // Mutates the global config path.
 func TestSaveConfigRoundTripsHistoryEmbedding(t *testing.T) {
-	isolateConfigEnvironment(t)
-	configPath := filepath.Join(t.TempDir(), "config")
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	previous := SetConfigPathForTests(configPath)
 	t.Cleanup(func() { SetConfigPathForTests(previous) })
 

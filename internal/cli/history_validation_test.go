@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ra1phdd/zev/internal/entities/history/repository"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/spf13/cobra"
 )
@@ -62,7 +61,7 @@ func historyTestCommandFromOpener(fake historyOperations, out io.Writer) *cobra.
 func TestHistoryShowEscapesStoredControlsWithoutExecutingCommands(t *testing.T) {
 	t.Parallel()
 	unsafeText := "echo first\x1b[2J\necho second"
-	store, err := repository.Open(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
+	store, err := openHistoryStore(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

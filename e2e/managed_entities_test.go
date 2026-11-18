@@ -22,7 +22,7 @@ const (
 
 func TestManagedOriginalArgvNative(t *testing.T) {
 	t.Parallel()
-	home := t.TempDir()
+	home := fixtureHome(t)
 	body := filepath.Join(home, "capture.sh")
 	if err := os.WriteFile(body, []byte("#!/bin/sh\nprintf '%s\\0' \"$@\"\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -34,7 +34,8 @@ func TestManagedOriginalArgvNative(t *testing.T) {
 	marker := filepath.Join(home, "marker")
 	argv := []string{"a b", "", "x\ty", "x\ny", "Юникод", "'\"", "$HOME", "*", "; touch " + marker, "&& touch " + marker, "$(touch " + marker + ")", "`touch " + marker + "`", managedE2EJSONFlag, "--context-file", "missing", "--", managedE2EHelpFlag, "--"}
 	cmd := cliCommand(t, home, append([]string{"capture"}, argv...)...)
-	setCLIEnv(cmd, map[string]string{managedE2EShellEnv: "/bin/sh", "TOOL_APPROVAL_MODE": "invalid"})
+	writeFixture(t, home, cliFixture{toolApproval: "invalid"})
+	setCLIEnv(cmd, map[string]string{managedE2EShellEnv: "/bin/sh"})
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	output, err := cmd.Output()
@@ -62,7 +63,7 @@ func TestManagedOriginalArgvNative(t *testing.T) {
 
 func TestManagedAliasRejectsUnsupportedShellSyntax(t *testing.T) {
 	t.Parallel()
-	home := t.TempDir()
+	home := fixtureHome(t)
 	add := cliCommand(t, home, "alias", "add", "unsafe", "eval {{.arg1}}", "--no-metadata")
 	if output, err := add.CombinedOutput(); err == nil {
 		t.Fatalf("unsupported shell alias was accepted: %s", output)
@@ -71,7 +72,7 @@ func TestManagedAliasRejectsUnsupportedShellSyntax(t *testing.T) {
 
 func TestManagedNativeExitCodesAndHelp(t *testing.T) {
 	t.Parallel()
-	home := t.TempDir()
+	home := fixtureHome(t)
 	create := cliCommand(t, home, "script", "create", managedE2EExitScript, "--body-stdin", "--argument", "target", managedE2EJSONFlag)
 	create.Stdin = strings.NewReader("#!/bin/bash\nexit 7\n")
 	if output, err := create.CombinedOutput(); err != nil {

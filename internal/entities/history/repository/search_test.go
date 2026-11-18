@@ -16,7 +16,7 @@ import (
 func TestSearchAndEmbeddingLifecycle(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-	s, err := Open(ctx, filepath.Join(t.TempDir(), "private", "h.db"))
+	s, err := openTestStore(ctx, t, filepath.Join(t.TempDir(), "private", "h.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestSearchAndEmbeddingLifecycle(t *testing.T) {
 func TestLexicalMorphologyTypoAndCursor(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-	s, err := Open(ctx, filepath.Join(t.TempDir(), "private", "h.db"))
+	s, err := openTestStore(ctx, t, filepath.Join(t.TempDir(), "private", "h.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

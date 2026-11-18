@@ -11,6 +11,7 @@ import (
 	"github.com/ra1phdd/zev/internal/core/metadata"
 	"github.com/ra1phdd/zev/internal/entities/script/repository"
 	"github.com/ra1phdd/zev/internal/entities/script/service"
+	scriptmigration "github.com/ra1phdd/zev/internal/migrations/scripts"
 	"github.com/spf13/cobra"
 )
 
@@ -97,7 +98,7 @@ func runScriptCreate(cmd *cobra.Command, args []string) error {
 	if p.arguments != nil {
 		script.Arguments = *p.arguments
 	}
-	if err := metadata.ValidateLegacyScript(script); err != nil {
+	if err := metadata.ValidateScriptFields(script); err != nil {
 		return machineError(exitArguments, err)
 	}
 	var body []byte
@@ -114,7 +115,7 @@ func runScriptCreate(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("manage entity: %w", err)
 		}
 	}
-	dir, err := config.GetZevDir()
+	dir, err := prepareStore(cmd.Context(), scriptmigration.Migrate)
 	if err != nil {
 		return fmt.Errorf("manage entity: %w", err)
 	}
@@ -187,7 +188,7 @@ func runScriptEdit(cmd *cobra.Command, args []string) error {
 	if metadataEdit && bodyEdit {
 		return usageError(locale.KeyManagedCombinedUnavailable)
 	}
-	dir, err := config.GetZevDir()
+	dir, err := prepareStore(cmd.Context(), scriptmigration.Migrate)
 	if err != nil {
 		return fmt.Errorf("manage entity: %w", err)
 	}
@@ -276,7 +277,7 @@ func runScriptRemove(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("manage entity: %w", err)
 		}
 	}
-	dir, err := config.GetZevDir()
+	dir, err := prepareStore(cmd.Context(), scriptmigration.Migrate)
 	if err != nil {
 		return fmt.Errorf("manage entity: %w", err)
 	}
@@ -322,9 +323,15 @@ func runScriptRemove(cmd *cobra.Command, args []string) error {
 }
 
 func runScriptList(cmd *cobra.Command, _ []string) error {
-	dir, err := config.GetZevDir()
+	dir, present, err := zevDirectory()
 	if err != nil {
-		return fmt.Errorf("resolve script store: %w", err)
+		return err
+	}
+	if !present {
+		return writeManagedList(cmd, managedKindScript, []managedRecord{})
+	}
+	if err := scriptmigration.Migrate(cmd.Context(), dir); err != nil {
+		return fmt.Errorf("migrate script store: %w", err)
 	}
 	scripts, err := service.New(repository.New(dir)).List()
 	if err != nil {
@@ -339,7 +346,7 @@ func runScriptList(cmd *cobra.Command, _ []string) error {
 }
 
 func runScriptShow(cmd *cobra.Command, args []string) error {
-	dir, err := config.GetZevDir()
+	dir, err := prepareStore(cmd.Context(), scriptmigration.Migrate)
 	if err != nil {
 		return fmt.Errorf("resolve Zev directory: %w", err)
 	}

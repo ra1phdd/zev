@@ -6,12 +6,8 @@
 
 # Configuration
 
-Zev reads its configuration from `~/.zev/config` — a plain `KEY=VALUE` file loaded with
-[godotenv](https://github.com/joho/godotenv) and parsed with
-[caarlos0/env](https://github.com/caarlos0/env/v11).
-
-Existing environment variables take precedence over the file; defaults apply
-when neither supplies a value. The file is created and updated by `zev setup`:
+Zev reads its settings from `~/.zev/config.yaml`. Environment variables do not supply
+missing settings or override YAML. Run `zev setup` to create or update the file:
 
 ```bash
 zev setup              # interactive wizard
@@ -19,40 +15,104 @@ zev setup mode         # inject | execute
 zev setup headers      # custom HTTP headers
 ```
 
+## Provider profiles
+
+`providers` maps profile names to settings. `active_provider` must name an entry in
+that map. The name is yours to choose; `type` selects the adapter. Two profiles can
+use the same type with different accounts, models or endpoints. For example:
+
+```yaml
+version: 1
+active_provider: local
+providers:
+  local:
+    type: ollama
+    model: llama3.2
+    base_url: http://localhost:11434/v1
+  work:
+    type: openai
+    api_key: "<your-api-key>"
+    model: gpt-5.6-luna
+    base_url: https://api.openai.com/v1
+    http_headers:
+      X-Project: work
+language: auto
+http_headers:
+  User-Agent: zev/1.0
+```
+
+Here `local` is active. Only requests using `work` get the `X-Project` header.
+Keep credentials under the profile that needs them, not in global headers.
+
+| Command | Effect |
+|---|---|
+| `zev provider list` | Lists names and types in name order. `*` marks the active profile; keys and URLs are not shown. |
+| `zev provider add NAME` | Interactively creates a profile. Refuses an existing name and leaves the active profile unchanged. |
+| `zev provider use NAME` | Saves an existing profile as `active_provider` for subsequent runs. |
+| `zev provider remove NAME` | Removes an inactive profile. To remove the active one, switch first. If it is the last profile, add another and switch to it. |
+
+`zev setup` updates the active profile if its type matches the type you select.
+Otherwise it configures the profile named after the selected type and makes it active.
+
+## Migration compatibility
+
+The current configuration reader accepts only the current versioned YAML document.
+Migration is orchestrated before configuration is used; `internal/core/config` does not
+parse legacy formats or run migrations itself.
+
+The supported legacy source is the v1.0.0 dotenv file `~/.zev/config`. Zev converts
+it directly to `config.yaml` with `version: 1`. Unreleased development formats,
+including named-profile YAML without a version, are not migration inputs.
+Future transitions are retained only as release-to-release steps after a format is
+released; compatibility must not be inferred from a development schema.
+
+## Migration from the legacy file
+
+If the v1.0.0 dotenv file `~/.zev/config` exists, Zev converts it automatically on the
+next full configuration load. It reads settings from that file, not from the shell. For
+example, `LLM_PROVIDER` selects the initial active profile and `ZEV_LANG` becomes
+`language`. If you used to export settings but never saved them, enter them in setup or
+YAML.
+
+Zev deletes the old file **only after** writing and verifying the YAML, syncing it to
+disk and rechecking that the source has not changed. It creates no archive. If the
+process stops midway, leave `~/.zev/config.yaml.migration` in place and retry; Zev uses
+the marker to resume. If both config files exist without a matching pending marker,
+Zev reports a conflict and leaves both intact. Compare them privately and reconcile
+them before retrying; Zev will not guess which one to keep.
+
+Recovery is limited to a matching pending journal from this migration protocol. Zev does
+not interpret or recover markerless or unpublished archives/journals from development
+snapshots, and it does not sweep unknown files or user-owned copies.
+
 ## Defaults
 
-Values below are applied by `config.DefaultConfig()` when the corresponding key is
-absent from `~/.zev/config`.
+With no configuration file, Zev starts with an `openai` profile. In an existing YAML
+file, specify `active_provider` and `providers`; omitted global settings use defaults:
 
-| Key | Default |
+| Global field | Default |
 |---|---|
-| `ZEV_LANG` | `auto` |
-| `LLM_PROVIDER` | `openai` |
-| `OPENAI_MODEL` | `gpt-5.6-luna` |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` |
-| `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com` |
-| `GEMINI_MODEL` | `gemini-3.1-flash-lite` |
-| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com/v1` |
-| `ANTHROPIC_MODEL` | `claude-haiku-5.5` |
-| `COMMAND_EXECUTION_MODE` | `inject` |
-| `SCRIPT_EDITOR` | `nano` |
-| `HISTORY_ENABLED` | `true` |
-| `HISTORY_SEMANTIC_ENABLED` | `false` |
-| `HISTORY_EMBEDDING_MAX_BYTES` | `32768` |
-| `CONTEXT_ENABLED` | `true` |
-| `TOOLS_ENABLED` | `true` |
-| `TOOL_APPROVAL_MODE` | `manual` |
+| `language` | `auto` |
+| `http_headers` | `User-Agent: zev/1.0` |
+| `command_execution_mode` | `inject` |
+| `script_editor` | `nano` |
+| `history_enabled` | `true` |
+| `history_semantic_enabled` | `false` |
+| `history_embedding_max_bytes` | `32768` |
+| `context_enabled` | `true` |
+| `tools_enabled` | `true` |
+| `tool_approval_mode` | `manual` |
 
-The user home must resolve to an absolute path. A missing or relative home is an
+The user home (`HOME` on Unix, `USERPROFILE` on Windows) must be an absolute path. A missing or relative home is an
 error; Zev never falls back to `.zev` inside the current project.
 
 ## Privacy controls
 
-`HISTORY_ENABLED=false` prevents this query from opening `~/.zev/history.db`, storing
+`history_enabled: false` prevents this query from opening `~/.zev/history.db`, storing
 messages or running JSONL migration. Ordinary queries never generate background
 embeddings, even with history enabled. See [History](HISTORY.md) for the incremental
 lifecycle, absence of count-based rotation and search/privacy limits.
-`CONTEXT_ENABLED=false` prevents local OS, shell, user, home and working-directory details
+`context_enabled: false` prevents local OS, shell, user, home and working-directory details
 from being sent to the provider. The command-line overrides `--no-history` and
 `--no-context` disable the corresponding behavior for one query. Disabling history
 leaves existing entries untouched; it does not disable the active in-memory dialogue
@@ -68,12 +128,11 @@ matching SHA-256 entry and the computed digest matches it.
 
 ## Model tools
 
-Model tools are enabled by default through `TOOLS_ENABLED=true`. `TOOL_APPROVAL_MODE`
+Model tools are enabled by default through `tools_enabled: true`. `tool_approval_mode`
 accepts `manual`, `auto`, or `bypass`; the value is validated even when tools are disabled.
-Environment variables override the config file, and the `--tools`, `--no-tools`, and
-`--tool-approval` flags override both.
+The `--tools`, `--no-tools`, and `--tool-approval` flags override these settings for one run.
 
-Tools are disabled for a query when `--no-context` is used or `CONTEXT_ENABLED=false`,
+Tools are disabled for a query when `--no-context` is used or `context_enabled: false`,
 so local working-directory information cannot leak through tool execution. An explicit
 `--tools` flag overrides that privacy default. In `--print` and `--json` modes, `--tools`
 must be supplied explicitly; these modes never open the TUI, even on a terminal. A manual
@@ -193,11 +252,11 @@ zev query --no-tools "show disk usage"
 zev query --tools --tool-approval bypass "inspect this project"
 ```
 
-Persistent settings in `~/.zev/config` use the same dotenv format:
+To set the tool policy persistently, use top-level fields in `~/.zev/config.yaml`:
 
-```dotenv
-TOOLS_ENABLED=true
-TOOL_APPROVAL_MODE=manual
+```yaml
+tools_enabled: true
+tool_approval_mode: manual
 ```
 
 Fixed budgets: **8 calls per response, 10 seconds per local execution, 30 seconds per
@@ -213,60 +272,39 @@ opt-in permits context tool execution. `doctor`, alias resolution and script ins
 never invoke model tools. Native Windows runtime behavior has not been verified;
 cross-compilation alone is not evidence of native correctness.
 
-## Variables
+## YAML field reference
 
-### Provider selection
+### Fields in each provider profile
 
-| Variable | Description |
+| Field | Meaning |
 |---|---|
-| `LLM_PROVIDER` | `openai`, `gemini`, `anthropic`, `ollama` or `opencode` |
+| `type` | Adapter: `openai`, `gemini`, `anthropic`, `ollama` or `opencode`. |
+| `api_key` | Credential for this profile when required. |
+| `model` | Model identifier accepted by this endpoint. |
+| `base_url` | API root. For an OpenAI-compatible router, use its URL with `type: openai`; for local Ollama, for example, use `http://localhost:11434/v1`. |
+| `http_headers` | Optional map of header names to string values. Profile headers override global headers of the same name, ignoring case. |
 
-### OpenAI / OpenCode
-
-| Variable | Description |
-|---|---|
-| `OPENAI_API_KEY` | API key. Also used by the `opencode` provider |
-| `OPENAI_MODEL` | Model name |
-| `OPENAI_BASE_URL` | Base URL — point it at any OpenAI-compatible router |
-
-### Gemini
-
-| Variable | Description |
-|---|---|
-| `GEMINI_API_KEY` | API key |
-| `GEMINI_MODEL` | Model name |
-| `GEMINI_BASE_URL` | Base URL |
-
-### Anthropic
-
-| Variable | Description |
-|---|---|
-| `ANTHROPIC_API_KEY` | API key |
-| `ANTHROPIC_MODEL` | Model name |
-| `ANTHROPIC_BASE_URL` | Base URL |
-
-### Ollama
-
-| Variable | Description |
-|---|---|
-| `OLLAMA_BASE_URL` | Local Ollama endpoint, e.g. `http://localhost:11434/v1` |
-| `OLLAMA_MODEL` | Model name |
+The setup wizard offers `gpt-5.6-luna` at `https://api.openai.com/v1` for OpenAI,
+`gemini-3.1-flash-lite` at `https://generativelanguage.googleapis.com` for Gemini,
+and `claude-haiku-5.5` at `https://api.anthropic.com/v1` for Anthropic.
 
 ### History embeddings (explicit opt-in)
 
-| Variable | Default / requirement |
+These are top-level fields, not a provider profile or a nested history section.
+
+| Field | Default / requirement |
 |---|---|
-| `HISTORY_SEMANTIC_ENABLED` | `false`; explicitly enable semantic history search |
-| `HISTORY_EMBEDDING_PROVIDER` | Empty; when enabled, must be `openai-compatible` |
-| `HISTORY_EMBEDDING_BASE_URL` | Empty; required HTTP(S) API root, e.g. `https://embedding.example/v1` |
-| `HISTORY_EMBEDDING_MODEL` | Empty; required embedding model |
-| `HISTORY_EMBEDDING_DIMENSIONS` | `0`; must be positive when enabled and match the model |
-| `HISTORY_EMBEDDING_API_KEY` | Empty; separate credential, optional for endpoints without authentication |
-| `HISTORY_EMBEDDING_MAX_BYTES` | `32768`; positive UTF-8 input byte limit, not a token count |
+| `history_semantic_enabled` | `false`; explicitly enable semantic history search |
+| `history_embedding_provider` | Empty; when enabled, must be `openai-compatible` |
+| `history_embedding_base_url` | Empty; required HTTP(S) API root, e.g. `https://embedding.example/v1` |
+| `history_embedding_model` | Empty; required embedding model |
+| `history_embedding_dimensions` | `0`; must be positive when enabled and match the model |
+| `history_embedding_api_key` | Empty; separate credential, optional for endpoints without authentication |
+| `history_embedding_max_bytes` | `32768`; positive UTF-8 input byte limit, not a token count |
 
 These settings are independent from the command LLM; command credentials and headers
 are not implicitly inherited. Provider requirements are validated only when semantic search
-is enabled; environment values must still parse into their declared types. The client
+is enabled; YAML values must still have the correct types. The client
 appends `/embeddings` to the API root and rejects credentials in the URL, query strings
 and fragments. Oversized input is rejected, never silently truncated.
 
@@ -282,16 +320,15 @@ embedding requests. See [History](HISTORY.md) for commands, coverage and candida
 
 ### Behaviour
 
-| Variable | Description |
+| Field | Description |
 |---|---|
-| `COMMAND_EXECUTION_MODE` | `inject` attempts to insert the command into terminal input; `execute` runs the first suggestion immediately |
-| `SCRIPT_EDITOR` | Editor used by `zev script create` |
-| `HTTP_HEADERS` | Comma-separated `Key:Value` pairs added to every provider request. Key case is preserved |
+| `command_execution_mode` | `inject` attempts to insert the command into terminal input; `execute` runs the first suggestion immediately |
+| `script_editor` | Editor used by `zev script create` |
+| `http_headers` | Map of headers shared across provider profiles |
 | Retry policy | Provider requests retry up to 3 times for HTTP `429` and `5xx` responses. Backoff is exponential (`1s`, `2s`, `4s`); a valid `Retry-After` header can extend the delay, and the delay is capped at 30 seconds. Retries are logged at warning level; the final failure is logged at error level. |
 
-Provider redirects are accepted only within the initial origin (scheme, host and
-port). Cross-origin redirects are rejected before a request reaches the other
-endpoint, including requests with SDK credentials or custom `HTTP_HEADERS`.
+The client does not follow provider redirects. It rejects cross-origin redirects
+before credentials or custom headers can reach the other endpoint.
 The header map is snapshotted when the client is created.
 
 ## Provider request retries
@@ -325,30 +362,19 @@ sandbox or a guarantee that a suggested command is safe.
 ## Interface language
 
 The CLI and interactive prompts support English and Russian via `go-i18n`.
-`ZEV_LANG=auto` (default) detects the request language locally with `whatlanggo`: Russian
+`language: auto` (default) detects the request language locally with `whatlanggo`: Russian
 uses Russian UI; other or unidentified languages use English, regardless of system locale.
 Detection examines at most 4096 runes and is statistical: very short, mixed or similar-language
 texts can be misclassified. No extra network/model request is made. Refinements update the
 UI language; continuation without new clarification uses the latest restored user prompt,
 not attached files or command logs.
 
-Set `ZEV_LANG=en` or `ZEV_LANG=ru` in `~/.zev/config` to fix the interface language regardless
-of the request. A nonempty environment `ZEV_LANG` overrides the file; `auto` re-enables detection.
+To fix the interface language regardless of the prompt, set `language: en` or
+`language: ru` at the top level of `~/.zev/config.yaml`. Set `language: auto` to restore detection.
+
 Without a request (help/setup and the initial input prompt), auto uses the first nonempty
 `LC_ALL`, `LC_MESSAGES`, or `LANG` (including `ru_RU.UTF-8`); unsupported locales use English.
 Invalid configured language values are rejected when loading the full configuration.
-
-```bash
-ZEV_LANG=auto zev query "Покажи самые большие файлы"
-ZEV_LANG=ru zev query "list files"
-ZEV_LANG=en zev alias list
-```
-
-To pin the UI persistently, add one line to `~/.zev/config`:
-
-```dotenv
-ZEV_LANG=ru
-```
 
 Safety checks inspect operations inside pipelines/chains; separators such as `|`, `&&`
 or `;` alone do not mark a command dangerous. Warnings for destructive operations,
@@ -368,7 +394,7 @@ saved history are not translated. Lower-level system/library errors may remain E
 A query may attach one or more bounded files to the model request:
 
 ```bash
-zev --context-file README.md -cf docs/ARCHITECTURE.md "explain the startup path"
+zev --context-file README.md -cf docs/en/ARCHITECTURE.md "explain the startup path"
 zev --print --context-file README.md "find the relevant command"
 zev --json --context-file README.md "find the relevant command"
 ```
@@ -408,7 +434,7 @@ zev script show <name>
 `alias edit` opens the stored alias template and saves it after the editor exits
 successfully, provided its template has not changed since editing began; a stale
 editor cannot overwrite a newer template. Alias listings are sorted by name. `script edit` opens the registered Bash script through the configured
-editor (`$SCRIPT_EDITOR`, `$EDITOR`, `nano`, `vim`, or `vi`). `script show` writes the
+editor (`script_editor`, `$EDITOR`, `nano`, `vim`, or `vi`). `script show` writes the
 exact script body to stdout without executing it; it uses direct safe file reading rather
 than launching an external shell command.
 ## Machine-readable output
@@ -475,7 +501,7 @@ Windows verification; cross-compilation alone does not prove it.
 
 ## Editor resolution for `zev script create`
 
-1. `$SCRIPT_EDITOR`
+1. `script_editor`
 2. `$EDITOR`
 3. first available binary from `nano`, `vim`, `vi`
 
@@ -488,16 +514,15 @@ non-regular files and multiply linked script/working files are rejected.
 The initial script is registered before the editor opens. If the editor cannot be
 found, fails or is cancelled, the registered script remains, while the temporary
 working copy is cleaned up. An error may mention that temporary path; it is not a
-persistent recovery file. `SKIP_EDITOR=1` skips opening the editor.
+persistent recovery file.
 
 ## Files on disk
 
 | Path | Contents |
 |---|---|
-| `~/.zev/config` | Configuration, `KEY=VALUE` lines |
+| `~/.zev/config.yaml` | YAML settings and named provider profiles; credentials are stored in plaintext |
 | `~/.zev/history.db` | Persistent SQLite conversation history without count-based rotation |
-| `~/.zev/history` | Legacy JSONL source; automatically imported/archived when queries or history commands open the repository |
-| `~/.zev/history.migrated.*.jsonl` | Preserved legacy archive; not the active store |
+| `~/.zev/history` | Legacy JSONL source; imported once and deleted after verified migration |
 | `~/.zev/aliases` | Alias templates, YAML |
 | `~/.zev/scripts` | Script metadata, YAML |
 | `~/.zev/script_files` | Script bodies |
@@ -521,15 +546,17 @@ as a symlink in the home-directory path) are allowed. This cooperative protocol 
 not a sandbox against hostile same-user processes or writers that ignore locks.
 Malformed existing storage is reported, not silently reset. A corrupt legacy history
 source blocks migration activation instead of discarding earlier entries. Logical deletion
-does not erase copies in WAL/free pages, exports, backups or the JSONL archive. Back up an
+does not erase copies in WAL/free pages, exports, backups or remote copies. Back up an
 active WAL database with a consistent SQLite snapshot, not a copy of only `history.db`.
 
 Script metadata paths must remain relative beneath `script_files`: absolute paths,
 traversal, symlinked application-owned components and multiply linked script files
 are rejected. Execution reads the already-open validated script, rather than
-reopening a checked pathname. Script creation/removal serializes metadata and body
-changes and attempts rollback on pre-commit failures, but **does not provide a
-crash-atomic transaction across both files**.
+reopening a checked pathname. Script creation/removal coordinates metadata and body
+publication, but does not provide rollback or a crash-atomic transaction across both files.
+The shared `internal/migrations/filetxn` primitives are for filesystem migrations, not
+script CRUD. Zev does not sweep or delete user-owned backups or historical copies; logical
+delete and migration provide no secure-erasure guarantee.
 
 For an atomic replacement, a failure before rename leaves the previous destination
 unchanged. A directory-sync error after rename means the new file is already visible

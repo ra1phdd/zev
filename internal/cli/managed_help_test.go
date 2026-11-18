@@ -17,7 +17,7 @@ func TestManagedHelpWithoutBody(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv("LLM_PROVIDER", "invalid")
+	writeCLIConfig(t, home, invalidProviderFixture())
 	svc := service.New(repository.New(filepath.Join(home, ".zev")))
 	if err := svc.Create(t.Context(), domain.Script{Name: "detached", ScriptFile: "detached.sh", Description: "Metadata only"}, []byte("exit 0\n")); err != nil {
 		t.Fatal(err)

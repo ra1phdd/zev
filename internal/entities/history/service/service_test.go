@@ -8,6 +8,7 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/entities/history/repository"
 	history "github.com/ra1phdd/zev/internal/entities/history/service"
+	historymigration "github.com/ra1phdd/zev/internal/migrations/history"
 )
 
 const (
@@ -31,7 +32,11 @@ const (
 
 func openHistoryStore(t *testing.T) *repository.Store {
 	t.Helper()
-	store, err := repository.Open(t.Context(), filepath.Join(t.TempDir(), "private", "history.db"))
+	path := filepath.Join(t.TempDir(), "private", "history.db")
+	if err := historymigration.Migrate(t.Context(), path, true); err != nil {
+		t.Fatal(err)
+	}
+	store, err := repository.Open(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
 	}

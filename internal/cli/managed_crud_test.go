@@ -33,7 +33,7 @@ func TestManagedAliasCRUD(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &result); err != nil {
 		t.Fatal(err)
 	}
-	if string(result["schemaVersion"]) != "1" || string(result["type"]) != `"alias"` {
+	if string(result["schemaVersion"]) != "1" || string(result[cliFixtureType]) != `"alias"` {
 		t.Fatalf("schema %s", out)
 	}
 	out, err = managedCommand(t, managedKindAlias, managedOpEdit, "inspect", "--description", "new", historyJSONFlag)

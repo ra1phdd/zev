@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -74,36 +75,27 @@ func TestCreatePersistsCanonicalV2AndBodyEditRetainsRecordID(t *testing.T) {
 	}
 }
 
-func TestLegacyMetadataMigratesBeforeMutation(t *testing.T) {
+func TestRepositoryRefusesUnversionedScripts(t *testing.T) {
 	t.Parallel()
-	r := New(testDir(t))
-	dir := filepath.Dir(r.scriptsYAMLPath)
-	if err := os.MkdirAll(filepath.Join(dir, "script_files"), 0o700); err != nil {
+	dir := testDir(t)
+	path := filepath.Join(dir, "scripts")
+	source := []byte("safe: {script: safe.sh, description: old}\n")
+	if err := os.WriteFile(path, source, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	legacy := []byte("safe:\n  script: safe.sh\n  description: legacy\n")
-	if err := os.WriteFile(filepath.Join(dir, "scripts"), legacy, 0o600); err != nil {
-		t.Fatal(err)
+	r := New(dir)
+	if _, err := r.LoadAll(); err == nil {
+		t.Fatal("unversioned read succeeded")
 	}
-	if err := os.WriteFile(filepath.Join(dir, "script_files", "safe.sh"), []byte(scriptBody), 0o700); err != nil { //nolint:gosec // The fixture models executable script permissions.
-		t.Fatal(err)
+	if err := r.Create(t.Context(), domain.Script{Name: "new", ScriptFile: "new.sh"}, []byte("new body")); err == nil {
+		t.Fatal("unversioned mutation succeeded")
 	}
-	scripts, err := r.LoadAll()
-	if err != nil || scripts[safeName].Description != "legacy" || scripts[safeName].RecordID == "" {
-		t.Fatalf("legacy metadata read = %#v, %v", scripts, err)
+	if _, err := os.Lstat(filepath.Join(dir, "script_files", "new.sh")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("body published: %v", err)
 	}
-	if err := r.Create(t.Context(), domain.Script{Name: newScriptName, ScriptFile: "new.sh"}, []byte("new body")); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.Remove(safeName); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(filepath.Join(dir, "scripts")) //nolint:gosec // The test reads its isolated TempDir fixture.
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(data), "version: 2") {
-		t.Fatalf("metadata was not canonicalized: %q", data)
+	got, err := os.ReadFile(filepath.Clean(path))
+	if err != nil || !bytes.Equal(source, got) {
+		t.Fatalf("source changed: %q, %v", got, err)
 	}
 }
 

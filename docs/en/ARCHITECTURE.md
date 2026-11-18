@@ -13,7 +13,7 @@ cmd/zev/                        Thin process launcher
 internal/cli/                    Cobra commands, composition and query orchestration
 internal/core/
   domain/                       domain types, InferenceProvider interface, errors
-  config/                       ~/.zev/config loading (godotenv + caarlos0/env)
+  config/                       ~/.zev/config.yaml loading (current YAML only)
   httpclient/                   shared HTTP client and transport
 internal/entities/
   query/
@@ -26,16 +26,35 @@ internal/entities/
     repository/factory/         provider selection from config
     repository/prompt.go          embeds system_prompt.txt; user template is "%s"
   history/service/              lifecycle rules, consumer ports, lexical/vector orchestration
-  history/repository/           SQLite transactions, schema migrations and derived indexes
+  history/repository/           current SQLite transactions and derived indexes
   history/client/               opt-in OpenAI-compatible embedding HTTP adapter
   history/lexical/              local normalization, Snowball stemming and typo primitives
   alias/{service,repository}/   argument substitution and YAML persistence
   script/{service,repository}/  bash scripts, metadata, editor and execution
   setup/service/                interactive TUI setup wizard
+internal/migrations/             ordered store migrators and registry
+  filetxn/                       shared filesystem migration staging, publication and journal recovery
+  history/                       v1.0.0 JSONL importer and embedded SQLite `.up.sql` baseline
+  metadatafile/                  configuration/alias/script metadata migration
+  config/                        v1.0.0 dotenv migration
+  aliases/, scripts/              released metadata migration steps
 pkg/tui/prompt/                 text input with wrapping
 pkg/tui/list/                   generic lists and command warnings
 pkg/terminal/                   shell execution and platform-specific input injection
 ```
+
+## Migration boundary
+
+Migration orchestration runs before the selected store is opened. The supported legacy
+inputs are the v1.0.0 dotenv configuration, unversioned v1.0.0 aliases/scripts metadata,
+and v1.0.0 JSONL history. The current readers in `internal/core` and `internal/entities`
+accept current formats only; they do not detect legacy data or invoke migration while
+reading or writing. Development snapshots are not compatibility inputs. Future steps are
+retained only for transitions between released formats.
+
+The history JSONL importer is separate from the one embedded SQLite `.up.sql` baseline.
+It imports legacy records first; the current repository then opens the current SQLite
+format. The baseline does not replay a development schema history.
 
 ## Query flow
 
@@ -92,12 +111,20 @@ CLI handlers do not assemble SQL.
 
 ## History boundaries and limits
 
-- `history/repository` owns SQLite, related-record transactions, schema migrations,
-  foreign keys, WAL and derived indexes. Opening it never imports legacy JSONL.
-- `history/migrator` owns legacy detection, snapshot verification, import ledger and
-  archive/recovery. CLI history startup checks it explicitly before opening the active
-  store. Enabled queries and explicit history commands use this path; help, version,
-  local doctor and history-disabled queries do not. Migration makes no network calls.
+- `history/repository` owns the current SQLite store, related-record transactions,
+  foreign keys, WAL and derived indexes. Opening it never imports legacy JSONL or
+  interprets migration formats.
+- `internal/migrations/filetxn` provides shared filesystem-migration staging, atomic
+  publication, durability classification and recovery for recognized current-protocol
+  journals. It does not implement SQLite transactions, database rollback, or rollback
+  for alias/script CRUD. Migrations generate no archives or backup copies; pre-existing
+  user-owned backups and other copies are outside its scope. Markerless or unpublished
+  development artifacts are not swept or recovered.
+- `internal/migrations/history` owns the supported v1.0.0 JSONL detection,
+  snapshot verification, import ledger and source deletion/recovery. CLI orchestration
+  checks it before opening the current store. Enabled queries and explicit history
+  commands use this path; help, version, local doctor and history-disabled queries do
+  not. Migration makes no network calls.
 - `history/service` owns conversation lifecycle and search orchestration. Full responses
   and alternatives are atomic; selected does not mean executed, and a completed
   interaction is not proof that terminal input ran. A failed history write warns the
@@ -114,7 +141,7 @@ CLI handlers do not assemble SQL.
 Semantic search is disabled by default, does not backfill old history automatically and
 does not inject matches into new prompts. Full cosine search is O(N × dimensions), not
 an ANN index or a constant-latency guarantee. Literal substring search may scan canonical
-text. Deletion is logical rather than forensic erasure of WAL, backups or legacy archives.
+text. Deletion is logical rather than forensic erasure of WAL, backups or remote copies.
 
 The CLI loads history configuration and supplies the opt-in embedding client to the
 search service. `history index status` reports coverage; `history index rebuild --fts`

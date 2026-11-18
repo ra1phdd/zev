@@ -11,13 +11,11 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/core/httpclient"
 	"github.com/ra1phdd/zev/internal/core/locale"
-	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
-	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
+	"github.com/ra1phdd/zev/internal/core/metadata"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/ra1phdd/zev/internal/entities/query/repository"
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
 	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
-	scriptrepo "github.com/ra1phdd/zev/internal/entities/script/repository"
 	"github.com/spf13/cobra"
 )
 
@@ -116,24 +114,20 @@ func machineNamedQuery(cmd *cobra.Command, flags parsedFlags) (bool, error) {
 		return false, nil
 	}
 	name, args := words[0], words[1:]
-	dir, err := config.GetZevDir()
+	_, alias, script, err := lookupNamedEntity(cmd.Context(), name, false)
 	if err != nil {
 		return true, machineError(exitProvider, err)
 	}
-	resolved, err := aliasservice.New(aliasrepo.New(dir)).Resolve(name, args)
-	if err == nil {
+	if alias != nil {
+		resolved, err := metadata.RenderAlias(*alias, args)
+		if err != nil {
+			return true, machineError(exitArguments, err)
+		}
 		response := &domain.OptionsResponse{IsValid: true, Commands: []domain.Command{{Command: resolved}}}
 		queryservice.ApplyDangerousValidation(response)
 		return true, writeMachineResult(cmd, flags, response)
 	}
-	if err != nil && !errors.Is(err, aliasservice.ErrAliasNotFound) {
-		return true, fmt.Errorf(locale.Text(locale.KeyCliResolveAliasError), err)
-	}
-	scripts, err := scriptrepo.New(dir).LoadAllContext(cmd.Context())
-	if err != nil {
-		return true, fmt.Errorf(locale.Text(locale.KeyCliReadScriptMetadataError), err)
-	}
-	if _, ok := scripts[name]; ok {
+	if script != nil {
 		return true, machineError(exitArguments, fmt.Errorf(locale.Text(locale.KeyCliScriptQCannotPrintedAutomaticallyZevScript), name, name))
 	}
 	return false, nil
@@ -151,11 +145,11 @@ func runMachineConfigured(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	if handled, err := machineNamedQuery(cmd, flags); handled {
 		return err
 	}
-	cfg, err := config.Load()
+	cfg, err := loadConfig(cmd.Context())
 	if err != nil {
 		return machineError(exitProvider, fmt.Errorf(locale.Text(locale.KeyCliLoadProviderConfigurationError), err))
 	}
-	provider, err := factory.NewProvider(cfg, httpclient.New(cfg.HTTPHeaders, logger))
+	provider, err := factory.NewProvider(cfg, httpclient.New(cfg.EffectiveHTTPHeaders(), logger))
 	if err != nil {
 		return machineError(exitProvider, err)
 	}

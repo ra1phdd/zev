@@ -10,20 +10,13 @@ import (
 	"strings"
 	"testing"
 
-	historyrepo "github.com/ra1phdd/zev/internal/entities/history/repository"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/spf13/cobra"
 )
 
+//nolint:paralleltest // newCLIConfigHome mutates process-global HOME and USERPROFILE.
 func TestContinueMachineRestoresFullDialogue(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("LLM_PROVIDER", "openai")
-	t.Setenv("OPENAI_API_KEY", "fixture-only-key")
-	t.Setenv("OPENAI_MODEL", "fixture-model")
-	t.Setenv("HISTORY_ENABLED", "true")
-	t.Setenv("CONTEXT_ENABLED", "false")
-	t.Setenv("HTTP_HEADERS", "")
+	home := newCLIConfigHome(t)
 	var requests [][]struct{ Role, Content string }
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var payload struct {
@@ -39,8 +32,11 @@ func TestContinueMachineRestoresFullDialogue(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	t.Setenv("OPENAI_BASE_URL", server.URL)
-	store, err := historyrepo.Open(t.Context(), filepath.Join(home, ".zev", "history.db"))
+	cfg := openAITestConfig(server.URL, "fixture-only-key")
+	cfg.ContextEnabled = false
+	cfg.HTTPHeaders = nil
+	writeCLIConfig(t, home, cfg)
+	store, err := openHistoryStore(t.Context(), filepath.Join(home, ".zev", "history.db"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,12 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Version `config.yaml` explicitly. Supported migration inputs are the released v1.0.0
+  dotenv/metadata/JSONL formats and the current formats; development snapshots are not
+  compatibility targets. Future migration chains retain only released transitions.
+
+- Load available models from each configured provider during `zev setup` and let the user select one interactively, with manual model entry retained as a fallback when the catalog endpoint is unavailable.
+
+- Add `zev update` to install the latest stable GitHub Release after SHA-256 and
+  update-protocol verification, then immediately run all local data migrations in
+  the new executable. Already-current versions retry migrations; the hidden
+  `--migrate-only` maintenance flag supports offline recovery. Migration failures
+  retain the installed version instead of rolling back potentially migrated data.
+
 - Add managed aliases and scripts with strict v2 metadata, argv-safe execution, descriptions,
   ordered positional arguments, CRUD/help/machine flows, and crash-recoverable migration/publication.
-  Legacy data is archived only after verified migration; keep a backup before upgrading and do not
-  downgrade to a version that cannot read the v2 store. Optional metadata generation is explicit and
-  never required for successful migration. Post-migration bulk enrichment and its one-time
-  startup consent are deferred to a follow-up release slice.
+  Optional metadata generation is explicit and never required for successful migration. Post-migration
+  bulk enrichment and its one-time startup consent are deferred to a follow-up release slice.
 
 - Add contributor onboarding guides in English and Russian, a pull request template,
   issue templates and a GitHub Actions verification workflow.
@@ -29,8 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   explicit actionable messages, secret-safe output, and opt-in confirmed provider verification.
 - Add persistent SQLite history with incremental conversation lifecycle records and
   no automatic count-based retention.
-- Add explicit legacy JSONL detection and migration through `history/migrator`, with
-  verified archival, recovery, and no migration side effects in `repository.Open`.
+- Add the v1.0.0 JSONL importer as a separate migration from the embedded current SQLite
+  `.up.sql` baseline. Orchestration imports legacy records before opening the current
+  repository; development SQLite schema history is not replayed.
   Local lexical search and CLI semantic/hybrid search remain available; vector input is
   limited to user messages and refinements.
 - Add history inspection/export/deletion commands, request-bound `--cursor` pagination,
@@ -61,6 +72,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Show the initial user prompt in the interactive history selector instead of migration
+  metadata, and treat selector cancellation like query's interactive cancellation.
+
 - Move localization Go code into `internal/core/locale`, keep only TOML catalogs in `locale/`,
   and rename the query catalogs to `query.en.toml` and `query.ru.toml`.
 - Refresh the README demos with separate English and Russian GIFs, unified JetBrains Mono Bold
@@ -68,15 +82,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   non-overlapping command prompts and full command-description selection.
 - Detect query UI language locally with `ZEV_LANG=auto` (Russian or English fallback),
   with persistent `ZEV_LANG=ru|en` overrides and unchanged machine output.
-- Repair legacy history permissions silently before import and archive recovery;
+- Repair legacy history permissions silently before import and deletion;
   fail only when repair or subsequent validation cannot complete.
 - Stop treating pipeline/chain separators alone as dangerous; retain operation checks
   inside every stage and inspect nested `find -exec` actions.
 - Keep `cmd/zev` as a thin launcher and move CLI routing/presentation into `internal/cli`.
 - Use named localization keys instead of English source strings; preserve existing
   translations and machine-readable output.
-- Run legacy JSONL migration explicitly from CLI history startup using a separate
-  migrator; opening the SQLite repository no longer imports or archives legacy data.
+- Run the legacy JSONL importer explicitly from CLI history startup; opening the SQLite
+  repository no longer imports or modifies legacy data.
 - Move black-box CLI and migration-concurrency tests into `e2e/`; `make test-e2e`
   builds and exercises the actual executable. Move the tool adapter guide into docs.
 - Move deployment-script integration tests into `e2e/deploy/` and include them in
@@ -103,6 +117,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Separate `go vet` and default unit tests from the optional race-test target;
   limit cleanup to the selected binary and its cross-compiled variants.
 
+- Restrict migration compatibility to released v1.0.0 sources: dotenv configuration,
+  unversioned named-profile YAML as the conversion intermediate, unversioned aliases/scripts
+  metadata, and JSONL history. Current `internal/core` and `internal/entities` readers are
+  strict current-only; orchestration runs before use. Development snapshots have no
+  backwards-compatibility promise, and future chains retain only released transitions.
+- Clarify that migrations create no archives or backup copies, never sweep existing user-owned
+  backups or historical copies, and recover only matching current-protocol journals/ledgers.
+
 ### Removed
 
 - Remove unused Go TUI wrappers `list.Select` and `prompt.Input`; Go callers should
@@ -111,6 +133,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reject alias and script metadata migrations if the source file is replaced
+  during conversion, even when the replacement has identical contents.
 - Fix terminal command injection on macOS: the kernel encodes the ioctl argument size
   in the request, so TIOCSTI is `_IOW('t', 114, char)` (0x80017472) on Darwin instead
   of the Linux value; the Linux encoding failed with ENOTTY and every `inject` fell
@@ -129,7 +153,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   context-file flags in localized query help.
 - Preserve immutable creation retries, observed execution outcomes, command timestamps
   during FTS rebuilds, and pagination after semantic fallback; protect existing SQLite
-  sidecars and migration archives with private POSIX permissions or Windows DACLs.
+  sidecars and migration journals with private POSIX permissions or Windows DACLs.
 - Apply history document filters before bounded FTS candidate limits, preserve source
   UUIDs in search hits, require all query terms across morphology/typo expansion, and
   retain exact-match priority with deterministic ranking and derived-index cleanup.
@@ -143,10 +167,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Confine saved-script paths, reject unsafe links, execute pinned script files and
   edit private temporary copies; atomically replace edited files and reject stale
   editor saves rather than overwriting a newer cooperating edit. Serialize script
-  metadata/body changes with rollback for pre-commit failures, without claiming
-  crash-atomic multi-file transactions.
-- Classify migration archive publication marker failures as committed-but-unknown,
-  remove completed migration markers during recovery, and reject shell re-evaluation
+  metadata/body changes with journaled publication and pre-commit failure handling, without claiming
+  crash-atomic multi-file transactions or script CRUD rollback.
+- Classify migration journal publication-marker failures as committed-but-unknown,
+  recover incomplete metadata journals before access, and reject shell re-evaluation
   and Bash reserved-word alias templates before persistence.
 - Refuse Windows script execution until a verified handle-safe Bash transport exists;
   do not pass script bodies through a shell command-line fallback.

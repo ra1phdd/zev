@@ -1,0 +1,35 @@
+["provider.short"]
+other = "Manage named LLM provider profiles."
+
+["provider.list_short"]
+other = "List configured provider profiles."
+
+["provider.use_short"]
+other = "Make a provider profile active."
+
+["provider.add_short"]
+other = "Add a named provider profile."
+
+["provider.remove_short"]
+other = "Remove a provider profile."
+
+["provider.list_empty"]
+other = "No providers configured."
+
+["provider.list_entry"]
+other = "%s %s (%s)"
+
+["provider.use_success"]
+other = "Active provider set to %s."
+
+["provider.remove_success"]
+other = "Provider %s removed."
+
+["provider.missing"]
+other = "Provider %q is not configured."
+
+["provider.active_removal"]
+other = "Cannot remove active provider %q; switch providers first."
+
+["provider.already_exists"]
+other = "Provider %q already exists."

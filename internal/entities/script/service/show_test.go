@@ -79,7 +79,7 @@ func TestShowRejectsSymlinkScript(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(scriptsDir, safeScriptFile)); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte("safe:\n  script: "+safeScriptFile+"\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "scripts"), []byte("version: 2\nscripts:\n  safe:\n    recordID: 550e8400-e29b-41d4-a716-446655440000\n    script: "+safeScriptFile+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

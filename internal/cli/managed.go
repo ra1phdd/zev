@@ -178,7 +178,7 @@ func readManagedFields(cmd *cobra.Command, positionals []string, kind, operation
 		}
 	}
 	if p.description != nil {
-		if err := metadata.ValidateLegacyScript(domain.Script{Name: "validation", ScriptFile: "validation.sh", Description: *p.description}); err != nil {
+		if err := metadata.ValidateScriptFields(domain.Script{Name: "validation", ScriptFile: "validation.sh", Description: *p.description}); err != nil {
 			return p, machineError(exitArguments, err)
 		}
 	}

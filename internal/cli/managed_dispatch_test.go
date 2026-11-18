@@ -18,8 +18,7 @@ func TestManagedDispatchOriginalArgv(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv("TOOL_APPROVAL_MODE", "invalid")
-	t.Setenv("LLM_PROVIDER", "invalid")
+	writeCLIConfig(t, home, invalidProviderFixture())
 	dir, err := config.GetZevDir()
 	if err != nil {
 		t.Fatal(err)
@@ -104,7 +103,7 @@ func TestExplicitQueryPrintUsesQueryProviderPath(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv("LLM_PROVIDER", "invalid")
+	writeCLIConfig(t, home, invalidProviderFixture())
 	dir, err := config.GetZevDir()
 	if err != nil {
 		t.Fatal(err)
@@ -129,7 +128,7 @@ func TestManagedEntityHelpBeforeProvider(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
-	t.Setenv("TOOL_APPROVAL_MODE", "invalid")
+	writeCLIConfig(t, home, map[string]any{"version": 1, "tool_approval_mode": cliFixtureInvalidValue})
 	dir, err := config.GetZevDir()
 	if err != nil {
 		t.Fatal(err)

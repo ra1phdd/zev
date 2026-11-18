@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/ra1phdd/zev/internal/entities/history/service"
+	"github.com/ra1phdd/zev/pkg/tui/list"
 	"github.com/spf13/cobra"
 )
 
@@ -254,8 +256,8 @@ func TestHistoryOpenMigratesLegacyFile(t *testing.T) {
 		t.Fatalf("legacy source still active: %v", err)
 	}
 	archives, err := filepath.Glob(filepath.Join(dir, "history.migrated.*.jsonl"))
-	if err != nil || len(archives) != 1 {
-		t.Fatalf("legacy archive count = %d, error = %v", len(archives), err)
+	if err != nil || len(archives) != 0 {
+		t.Fatalf("legacy archive count = %d, error = %v; migration must delete the source", len(archives), err)
 	}
 }
 
@@ -292,5 +294,32 @@ func TestHistoryShowMessageID(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), historyTestID) {
 		t.Fatal(out.String())
+	}
+}
+
+func TestHistoryBrowseUsesReadableConversationLabel(t *testing.T) {
+	t.Parallel()
+	conversation := service.Conversation{
+		ID:            historyTestID,
+		InitialPrompt: "find archival files",
+		MetadataJSON:  `{"source":"legacy_jsonl","source_line":17}`,
+	}
+	label := historyBrowsePrompt(conversation)
+	if !strings.Contains(label, "find archival files") || strings.Contains(label, "legacy_jsonl") || strings.Contains(label, "source_line") {
+		t.Fatalf("history label = %q", label)
+	}
+}
+
+func TestHistoryBrowseCancellationMatchesQueryInteractiveMode(t *testing.T) {
+	t.Parallel()
+	fake := &historyCLIFake{}
+	entries := []historyBrowseEntry{{conversation: service.Conversation{ID: historyTestID}}}
+	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
+	selectItem := func(list.SelectOptions) (list.Item, error) {
+		return nil, errors.New(queryCancelled)
+	}
+	if err := selectHistoryBrowseEntryWith(cmd, fake, entries, selectItem); err != nil {
+		t.Fatalf("cancelled history selection = %v, want nil", err)
 	}
 }

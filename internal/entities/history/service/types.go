@@ -29,6 +29,7 @@ type Conversation struct {
 	ID                                                             string
 	CreatedAt, UpdatedAt                                           time.Time
 	Status, Kind, Provider, Model, SelectedCommandID, MetadataJSON string
+	InitialPrompt                                                  string `json:"-"`
 }
 
 // Message is an immutable ordered conversation message.

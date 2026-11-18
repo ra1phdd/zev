@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/ra1phdd/zev/internal/core/filestore"
-	"github.com/ra1phdd/zev/internal/entities/history/service"
+	"github.com/ra1phdd/zev/internal/entities/history/current"
 )
 
 // CheckReadable checks an existing history database without creating or migrating
@@ -41,12 +41,8 @@ func CheckReadable(ctx context.Context, path string) (err error) {
 		return fmt.Errorf("open read-only history: %w", err)
 	}
 	defer func() { err = errors.Join(err, db.Close()) }()
-	var version int
-	if err := db.QueryRowContext(ctx, "SELECT COALESCE(MAX(version),0) FROM schema_migrations").Scan(&version); err != nil {
-		return fmt.Errorf("read history version: %w", err)
-	}
-	if version != 3 {
-		return fmt.Errorf("%w: history requires migration or a compatible zev version", service.ErrUnsupportedSchema)
+	if err := current.Validate(ctx, db); err != nil {
+		return fmt.Errorf("check history schema: %w", err)
 	}
 	var count int
 	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM (SELECT id FROM conversations LIMIT 1)").Scan(&count); err != nil {

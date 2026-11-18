@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/core/httpclient"
 	"github.com/ra1phdd/zev/internal/core/locale"
@@ -88,6 +87,13 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	if flags.NoHistory {
 		return errors.New(locale.Text(locale.KeyQueryContinueRequiresHistoryRemoveNoHistory))
 	}
+	cfg, err := loadConfig(cmd.Context())
+	if err != nil {
+		return fmt.Errorf(locale.Text(locale.KeyQueryFailedLoadConfigWRunZevSetup), err)
+	}
+	if !cfg.HistoryEnabled {
+		return errors.New(locale.Text(locale.KeyQueryContinuationRequiresHistoryEnabledTrue))
+	}
 	store, err := openQueryHistory(cmd.Context())
 	if err != nil {
 		return fmt.Errorf(locale.Text(locale.KeyQueryOpenContinuationHistoryError), err)
@@ -101,15 +107,6 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	if err != nil {
 		closeContinuationStore(store, logger)
 		return fmt.Errorf(locale.Text(locale.KeyQueryRestoreContinuationHistoryError), err)
-	}
-	cfg, err := config.Load()
-	if err != nil {
-		closeContinuationStore(store, logger)
-		return fmt.Errorf(locale.Text(locale.KeyQueryFailedLoadConfigWRunZevSetup), err)
-	}
-	if !cfg.HistoryEnabled {
-		closeContinuationStore(store, logger)
-		return errors.New(locale.Text(locale.KeyQueryContinuationRequiresHistoryEnabledTrue))
 	}
 	languageRequest := strings.Join(flags.Args, " ")
 	if strings.TrimSpace(languageRequest) == "" {
@@ -151,7 +148,7 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	if strings.TrimSpace(promptText) == "" {
 		promptText = locale.Text(locale.KeyQueryContinueUsingSuppliedContext)
 	}
-	provider, err := factory.NewProvider(cfg, httpclient.New(cfg.HTTPHeaders, logger))
+	provider, err := factory.NewProvider(cfg, httpclient.New(cfg.EffectiveHTTPHeaders(), logger))
 	if err != nil {
 		closeContinuationStore(store, logger)
 		return fmt.Errorf(locale.Text(locale.KeyQueryFailedCreateProviderError), err)

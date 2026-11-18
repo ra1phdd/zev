@@ -18,9 +18,9 @@ func TestResolveClassifiesOnlyMissingAliases(t *testing.T) {
 		missing bool
 	}{
 		{name: "missing file", missing: true},
-		{name: "missing entry", content: "other: echo ok\n", missing: true},
+		{name: "missing entry", content: "version: 2\naliases: {other: {template: echo ok}}\n", missing: true},
 		{name: "corrupt YAML", content: "broken: [\n"},
-		{name: "invalid template", content: "test: '{{.arg1'\n"},
+		{name: "invalid template", content: "version: 2\naliases: {test: {template: '{{.arg1'}}\n"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

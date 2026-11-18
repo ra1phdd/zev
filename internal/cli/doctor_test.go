@@ -11,10 +11,7 @@ import (
 	"github.com/ra1phdd/zev/internal/core/config"
 )
 
-const (
-	doctorTestInvalidMode = "invalid"
-	doctorFixturePath     = "/bin/fixture"
-)
+const doctorFixturePath = "/bin/fixture"
 
 func TestDoctorStaticChecksDoNotCallNetwork(t *testing.T) {
 	t.Parallel()
@@ -86,7 +83,7 @@ func TestDoctorStaticValidationAndHumanPrint(t *testing.T) {
 	deps := doctorDeps{
 		loadConfig: func() (*config.Config, error) {
 			cfg := doctorFixtureConfig()
-			cfg.CommandExecutionMode = doctorTestInvalidMode
+			cfg.CommandExecutionMode = cliFixtureInvalidValue
 			cfg.OpenAIModel = ""
 			return cfg, nil
 		},
@@ -130,7 +127,7 @@ func TestDoctorInteractiveConfirmationRunsNetwork(t *testing.T) {
 
 func doctorFixtureConfig() *config.Config {
 	return &config.Config{
-		LLMProvider: "openai", OpenAIModel: "fixture-model", OpenAIBaseURL: "https://provider.invalid/v1", OpenAIAPIKey: "fixture-key",
+		LLMProvider: "openai", OpenAIModel: cliFixtureModel, OpenAIBaseURL: "https://provider.invalid/v1", OpenAIAPIKey: "fixture-key",
 		CommandExecutionMode: "inject", ScriptEditor: "fixture-editor", HistoryEnabled: true, ContextEnabled: true,
 		HTTPHeaders: map[string]string{"Authorization": "Bearer fixture-key"},
 	}

@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 )
 
@@ -34,18 +33,29 @@ func TestHistoryMigrationRespectsLocalAndPrivacyModes(t *testing.T) {
 		{name: "version", args: []string{"version"}, enabled: true},
 		{name: "doctor", args: []string{"doctor", "--json"}, enabled: true},
 		{name: "query flag", args: []string{"query", "--print", "--no-history", "privacy fixture"}, enabled: true},
+		{name: "continue config", args: []string{"continue", "--print", "more"}, enabled: false},
 		{name: "query config", args: []string{"query", "--print", "privacy fixture"}, enabled: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			home := seedLegacyHistory(t)
 			cmd := cliCommand(t, home, tc.args...)
-			setCLIEnv(cmd, map[string]string{
-				envHistoryEnabled: strconv.FormatBool(tc.enabled), envProvider: providerOpenAI,
-				envBaseURL: server.URL, envModel: fixtureModel,
-				envAPIKey: fixtureOnly, "SHELL": "/bin/sh",
-			})
-			if output, err := cmd.CombinedOutput(); err != nil {
+			if tc.name == "query flag" {
+				dir := filepath.Join(home, ".zev")
+				legacy := "LLM_PROVIDER=openai\nOPENAI_MODEL=fixture\nOPENAI_API_KEY=" + fixtureOnly + "\nOPENAI_BASE_URL=" + server.URL + "\n"
+				if err := os.WriteFile(filepath.Join(dir, "config"), []byte(legacy), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				writeFixture(t, home, cliFixture{baseURL: server.URL, key: fixtureOnly, history: tc.enabled})
+			}
+			setCLIEnv(cmd, map[string]string{"SHELL": "/bin/sh"})
+			output, err := cmd.CombinedOutput()
+			if tc.name == "continue config" {
+				if err == nil {
+					t.Fatal("continued despite disabled history")
+				}
+			} else if err != nil {
 				t.Fatalf("CLI failed: %v; output: %s", err, output)
 			}
 			source := filepath.Join(home, ".zev", "history")

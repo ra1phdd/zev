@@ -182,7 +182,7 @@ func TestQueryDiagnosticOutputFailures(t *testing.T) {
 		response    *domain.OptionsResponse
 		providerErr error
 	}{
-		{name: "invalid request", response: &domain.OptionsResponse{ExplanationIfNotValid: "invalid", Commands: []domain.Command{{Command: queryRefineMarker}}}},
+		{name: "invalid request", response: &domain.OptionsResponse{ExplanationIfNotValid: cliFixtureInvalidValue, Commands: []domain.Command{{Command: queryRefineMarker}}}},
 		{name: "clarification warning", providerErr: domain.ErrNoResponse},
 	}
 	for _, tt := range tests {
@@ -210,7 +210,7 @@ func TestQueryDiagnosticOutputFailures(t *testing.T) {
 
 func TestQuerySelectionRejectsUnexpectedItems(t *testing.T) {
 	t.Parallel()
-	for _, item := range []list.Item{nil, list.NewSimpleItem("wrong", "type"), list.CommandItem{}} {
+	for _, item := range []list.Item{nil, list.NewSimpleItem("wrong", cliFixtureType), list.CommandItem{}} {
 		t.Run("unexpected item", func(t *testing.T) {
 			t.Parallel()
 			s := newTestQuerySession(t, &queryFlowProvider{})

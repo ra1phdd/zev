@@ -67,7 +67,7 @@ func TestServiceRejectsUnsafeScriptFiles(t *testing.T) {
 				case metadataSymlink:
 					link, target = filepath.Join(dir, "scripts"), filepath.Join(outside, "metadata")
 				}
-				metadata := []byte("safe:\n  script: " + file + "\n")
+				metadata := []byte("version: 2\nscripts:\n  safe:\n    recordID: 550e8400-e29b-41d4-a716-446655440000\n    script: " + file + "\n")
 				metadataPath := filepath.Join(dir, "scripts")
 				if attack == metadataSymlink {
 					metadataPath = target

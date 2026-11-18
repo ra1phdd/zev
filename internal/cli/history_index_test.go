@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
 )
 
@@ -91,19 +90,17 @@ func TestHistoryIndexRebuildModesAreMutuallyExclusive(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // newCLIConfigHome mutates process-global HOME and USERPROFILE.
 func TestOpenHistoryWiresOptInSemanticAdapter(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-	t.Setenv("HISTORY_SEMANTIC_ENABLED", "true")
-	t.Setenv("HISTORY_EMBEDDING_PROVIDER", "openai-compatible")
-	t.Setenv("HISTORY_EMBEDDING_BASE_URL", "http://127.0.0.1:18080/v1")
-	t.Setenv("HISTORY_EMBEDDING_MODEL", "test-embedding-model")
-	t.Setenv("HISTORY_EMBEDDING_DIMENSIONS", "2")
-	t.Setenv("HISTORY_EMBEDDING_MAX_BYTES", "1024")
-	if err := os.MkdirAll(filepath.Join(home, ".zev"), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	home := newCLIConfigHome(t)
+	cfg := config.DefaultConfig()
+	cfg.HistorySemanticEnabled = true
+	cfg.HistoryEmbeddingProvider = "openai-compatible"
+	cfg.HistoryEmbeddingBaseURL = "http://127.0.0.1:18080/v1"
+	cfg.HistoryEmbeddingModel = "test-embedding-model"
+	cfg.HistoryEmbeddingDimensions = 2
+	cfg.HistoryEmbeddingMaxBytes = 1024
+	writeCLIConfig(t, home, cfg)
 	opened, closer, err := openHistory(t.Context())
 	if err != nil {
 		t.Fatal(err)
@@ -117,11 +114,10 @@ func TestOpenHistoryWiresOptInSemanticAdapter(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // newCLIConfigHome mutates process-global HOME and USERPROFILE.
 func TestOpenHistoryLeavesSemanticAdapterOptIn(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-	t.Setenv("HISTORY_SEMANTIC_ENABLED", "false")
+	home := newCLIConfigHome(t)
+	writeCLIConfig(t, home, config.DefaultConfig())
 	opened, closer, err := openHistory(t.Context())
 	if err != nil {
 		t.Fatal(err)

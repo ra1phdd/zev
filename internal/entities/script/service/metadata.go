@@ -21,7 +21,7 @@ type Patch struct {
 
 // Create registers a validated complete model with the supplied body, without an editor.
 func (s *Service) Create(ctx context.Context, script domain.Script, body []byte) error {
-	if err := metadata.ValidateLegacyScript(script); err != nil {
+	if err := metadata.ValidateScriptFields(script); err != nil {
 		return fmt.Errorf("invalid script: %w", err)
 	}
 	if err := s.repo.Create(ctx, script, body); err != nil {

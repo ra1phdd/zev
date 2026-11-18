@@ -13,17 +13,12 @@ import (
 )
 
 const (
-	// CurrentVersion is the canonical metadata envelope version.
-	CurrentVersion       = 2
-	maxMetadataBytes     = 1 << 20
 	maxTemplateBytes     = 16 << 10
 	maxDescriptionBytes  = 4096
 	maxArgumentNameBytes = 64
 	maxArgumentDescBytes = 1024
 	maxArguments         = 32
 	maxScriptPathBytes   = 512
-	maxYAMLNodes         = 10000
-	maxYAMLDepth         = 16
 )
 
 var identifierPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`)
@@ -90,7 +85,7 @@ func ValidateAlias(alias domain.Alias) error {
 
 // ValidateScript validates a canonical script model with its immutable record ID.
 func ValidateScript(script domain.Script) error {
-	if err := ValidateLegacyScript(script); err != nil {
+	if err := ValidateScriptFields(script); err != nil {
 		return err
 	}
 	if script.RecordID == "" {
@@ -102,9 +97,8 @@ func ValidateScript(script domain.Script) error {
 	return nil
 }
 
-// ValidateLegacyScript validates a decoded legacy script before migration assigns
-// its record ID. It never creates or changes an ID.
-func ValidateLegacyScript(script domain.Script) error {
+// ValidateScriptFields validates user-supplied fields independently of the repository-assigned ID.
+func ValidateScriptFields(script domain.Script) error {
 	if err := ValidateName(script.Name); err != nil {
 		return err
 	}

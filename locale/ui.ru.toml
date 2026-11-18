@@ -38,6 +38,16 @@ other = "Введите модель для использования"
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["ui.setup.select_model"]
+other = "Выберите модель (загружено с сервера провайдера)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["ui.setup.manual_model"]
+other = "Ввести модель вручную"
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["ui.setup.base_url"]
 other = "Введите свой базовый URL"
 leftDelim = "[[["
