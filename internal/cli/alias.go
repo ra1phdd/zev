@@ -41,13 +41,15 @@ func newAliasListCmd() *cobra.Command {
 }
 
 func newAliasRemoveCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "remove [name]", Aliases: []string{"rm"}, Short: locale.Text(locale.KeyCliRemoveAlias), Args: managedRangeArgs(0, 1), RunE: runAliasRemove}
+	cmd := &cobra.Command{Use: "remove [name]", Aliases: []string{"rm", "delete"}, Short: locale.Text(locale.KeyCliRemoveAlias), Args: managedRangeArgs(0, 1), RunE: runAliasRemove}
 	addManagedFlags(cmd, managedKindAlias, managedOpRemove)
 	return cmd
 }
 
 func newAliasLastCmd() *cobra.Command {
-	return &cobra.Command{Use: "last <alias-name>", Short: locale.Text(locale.KeyCliSaveLastUsedHistoryCommandAlias), Args: managedRangeArgs(1, 1), RunE: runAliasLast}
+	cmd := &cobra.Command{Use: "last <alias-name>", Short: locale.Text(locale.KeyCliSaveLastUsedHistoryCommandAlias), Args: managedRangeArgs(1, 1), RunE: runAliasLast}
+	addManagedFlags(cmd, managedKindAlias, "last")
+	return cmd
 }
 
 //nolint:gocognit // The add mode matrix validates every field before publishing.
@@ -309,6 +311,10 @@ func runAliasList(cmd *cobra.Command, _ []string) error {
 }
 
 func runAliasLast(cmd *cobra.Command, args []string) (err error) {
+	p, err := readManagedFields(cmd, args, managedKindAlias, "last")
+	if err != nil {
+		return fmt.Errorf("read alias metadata: %w", err)
+	}
 	dir, err := config.GetZevDir()
 	if err != nil {
 		return fmt.Errorf("resolve Zev directory: %w", err)
@@ -325,11 +331,24 @@ func runAliasLast(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return fmt.Errorf(locale.Text(locale.KeyCliReadLastHistoryCommandError), err)
 	}
+	alias := domain.Alias{Name: args[0], Template: last.Command}
+	if p.description != nil {
+		alias.Description = *p.description
+	}
+	if p.arguments != nil {
+		alias.Arguments = *p.arguments
+	}
+	if err := generateManagedMetadata(cmd, managedGeneration{Alias: &alias, Description: p.generateDescription, Arguments: p.generateArguments, Interactive: false}); err != nil {
+		return fmt.Errorf("generate alias metadata: %w", err)
+	}
+	if err := metadata.ValidateAlias(alias); err != nil {
+		return machineError(exitArguments, err)
+	}
 	if err := aliasmigration.Migrate(cmd.Context(), dir); err != nil {
 		return fmt.Errorf("migrate aliases: %w", err)
 	}
 	if err := createManagedEntity(cmd.Context(), cmd, dir, managedKindAlias, args[0], func() error {
-		return aliasservice.New(aliasrepo.New(dir)).AddCommand(args[0], last.Command)
+		return aliasservice.New(aliasrepo.New(dir)).AddAlias(alias)
 	}); err != nil {
 		if errors.Is(err, aliasservice.ErrAliasExists) {
 			return fmt.Errorf(locale.Text(locale.KeyCliAliasQAlreadyExistsChooseDifferentName), args[0], err)

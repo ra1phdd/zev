@@ -87,10 +87,8 @@ shell history, не сканирует старые терминальные с�
 ```bash
 zev run -- go test ./...
 zev run --on-failure=none -- go test ./...
-zev run --on-failure=retry --max-retries=2 --retry-delay=2s -- go test ./...
 zev run --no-interactive --on-failure=analyze -- go test ./...
 zev run --no-interactive --on-failure=fix -- go test ./...
-zev run --exit-code=last --on-failure=retry -- go test ./...
 zev run -- sh -c 'go test ./... && go vet ./...'
 ```
 
@@ -101,11 +99,8 @@ zev run -- sh -c 'go test ./... && go vet ./...'
 
 | Флаг run | Default | Контракт |
 |---|---|---|
-| `--on-failure=ask\|none\|retry\|analyze\|fix` | `ask` | Меню / без действий / retry / анализ без исправления / исправление через LLM |
+| `--on-failure=ask\|none\|analyze\|fix` | `ask` | Меню / без действий / анализ без исправления / исправление через LLM |
 | `--no-interactive` | `false` | Запретить все вопросы run/recovery |
-| `--max-retries=N` | `1` | Число повторов исходной команды, 0–10; всего не больше N+1 попыток |
-| `--retry-delay=D` | `0s` | Отменяемая задержка автоматического retry, 0–5 минут |
-| `--exit-code=original\|last` | `original` | Код первой / последней фактически выполненной попытки исходной команды |
 | `--log-limit=BYTES` | `1048576` | Суммарный encoded sanitized tail на попытку, 1024–16777216 байт |
 | `--timeout=D` | `0s` | Deadline одной попытки; 0 не добавляет deadline |
 | `--events-file=PATH` | не задан | Отдельный приватный JSONL metadata sink |
@@ -125,8 +120,8 @@ ID сессии — непрозрачный ключ длиной 10 симво
 без SQLite и загрузки диалога; команда всё равно исполняется. Это единое правило для
 явного и generated invocation. In-process связь с активной памятью допустима без SQLite.
 
-`--on-failure=retry` разрешает повтор **всей** команды с возможными частично применёнными
-побочными эффектами. `analyze` и `fix` разрешают раскрыть видимый очищенный diagnostic bundle
+Каждый вызов выполняет одну попытку; любой повтор требует нового явного `zev run`.
+`analyze` и `fix` разрешают раскрыть видимый очищенный diagnostic bundle
 настроенному провайдеру, но не выполнить исправление. Help MUST объяснять оба последствия,
 возможность terminal echo и отсутствие гарантии удаления любых секретов. Автономная
 политика не включается сохранённым «всегда исправлять» config. Ранее предложенное имя

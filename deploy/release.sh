@@ -7,6 +7,11 @@ version="${1:?usage: release.sh VERSION}"
 	printf 'invalid version\n' >&2
 	exit 1
 }
+file_version="$(tr -d '[:space:]' < VERSION)"
+[[ "$file_version" == "$version" ]] || {
+	printf 'VERSION file (%s) does not match requested release (%s)\n' "$file_version" "$version" >&2
+	exit 1
+}
 tag="v$version"
 # Make release inputs independent of ignored workspace/vendor state.
 export GOWORK=off

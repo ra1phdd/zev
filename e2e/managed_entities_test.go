@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ra1phdd/zev/internal/core/config"
 )
 
 const (
@@ -34,7 +36,7 @@ func TestManagedOriginalArgvNative(t *testing.T) {
 	marker := filepath.Join(home, "marker")
 	argv := []string{"a b", "", "x\ty", "x\ny", "Юникод", "'\"", "$HOME", "*", "; touch " + marker, "&& touch " + marker, "$(touch " + marker + ")", "`touch " + marker + "`", managedE2EJSONFlag, "--context-file", "missing", "--", managedE2EHelpFlag, "--"}
 	cmd := cliCommand(t, home, append([]string{"capture"}, argv...)...)
-	writeFixture(t, home, cliFixture{toolApproval: "invalid"})
+	writeFixture(t, home, cliFixture{toolApproval: "manual", securityMode: config.SecurityModeBypass})
 	setCLIEnv(cmd, map[string]string{managedE2EShellEnv: "/bin/sh"})
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

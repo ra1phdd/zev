@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -33,22 +32,30 @@ func TestCheckCacheRefreshesOncePerDay(t *testing.T) {
 	}
 }
 
-func TestCheckCacheStoresFailedAttemptForDailyWindow(t *testing.T) {
+func TestCheckCacheStoresFailedAttemptForOneHour(t *testing.T) {
 	t.Parallel()
 	cache := NewCheckCache(filepath.Join(t.TempDir(), "update-check.json"))
 	now := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
 	calls := 0
 	check := func(context.Context) (updateservice.CheckResult, error) {
 		calls++
-		return updateservice.CheckResult{}, errors.New("network unavailable")
+		if calls == 1 {
+			return updateservice.CheckResult{}, context.DeadlineExceeded
+		}
+		return updateservice.CheckResult{Branch: updateservice.Main, Current: "main-abc", Version: "main-def"}, nil
 	}
 	entry, checked, err := cache.Refresh(t.Context(), now, updateservice.Main, "main-abc", check)
 	if err != nil || !checked || !entry.Failed || entry.Available {
 		t.Fatalf("failed refresh = %+v, checked=%t, err=%v", entry, checked, err)
 	}
-	entry, checked, err = cache.Refresh(t.Context(), now.Add(time.Hour), updateservice.Main, "main-abc", check)
+	cache = NewCheckCache(cache.path)
+	entry, checked, err = cache.Refresh(t.Context(), now.Add(59*time.Minute), updateservice.Main, "main-abc", check)
 	if err != nil || checked || !entry.Failed || calls != 1 {
-		t.Fatalf("cached failure = %+v, checked=%t, calls=%d, err=%v", entry, checked, calls, err)
+		t.Fatalf("cached failure at 59m = %+v, checked=%t, calls=%d, err=%v", entry, checked, calls, err)
+	}
+	entry, checked, err = cache.Refresh(t.Context(), now.Add(time.Hour), updateservice.Main, "main-abc", check)
+	if err != nil || !checked || entry.Failed || calls != 2 || entry.Latest != "main-def" {
+		t.Fatalf("retry at 1h = %+v, checked=%t, calls=%d, err=%v", entry, checked, calls, err)
 	}
 }
 

@@ -16,7 +16,6 @@ import (
 
 const (
 	runTestPrintf       = "printf"
-	runTestRetryFlag    = "--on-failure=retry"
 	runSessionFixtureID = "A1b2C3d4E5"
 )
 
@@ -152,38 +151,41 @@ func TestRunHelpDocumentsRecoveryActionsAndLogLimit(t *testing.T) {
 	if err := writeRunHelp(cmd); err != nil {
 		t.Fatal(err)
 	}
-	for _, option := range []string{"--on-failure=ask|none|retry|analyze|fix", "--log-limit=BYTES", "--session=ID", "--proxy=URL"} {
+	for _, option := range []string{"--on-failure=ask|none|analyze|fix", "--log-limit=BYTES", "--session=ID", "--proxy=URL"} {
 		if !strings.Contains(output.String(), option) {
 			t.Errorf("run help missing %q: %s", option, output.String())
 		}
 	}
-}
-
-func TestParseRunArgsValidatesSeparatorAndRetryPolicy(t *testing.T) {
-	t.Parallel()
-	opts, err := parseRunArgs([]string{runTestRetryFlag, "--max-retries=2", "--retry-delay=10ms", "--timeout=1s", "--", runTestPrintf, "ok"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if opts.onFailure != runFailureRetry || opts.maxRetries != 2 || len(opts.command) != 2 || opts.timeout == 0 {
-		t.Fatalf("unexpected options: %+v", opts)
-	}
-	analyze, err := parseRunArgs([]string{"--on-failure=analyze", "--", runTestPrintf, "ok"})
-	if err != nil || analyze.onFailure != runFailureAnalyze {
-		t.Fatalf("analyze recovery option = %+v, %v", analyze, err)
-	}
-	for _, args := range [][]string{
-		{runTestPrintf, "ok"},
-		{runTestRetryFlag, "--max-retries=0", "--", runTestPrintf, "ok"},
-		{"--on-failure=unknown", "--", runTestPrintf, "ok"},
-	} {
-		if _, err := parseRunArgs(args); err == nil {
-			t.Fatalf("parseRunArgs(%q) accepted invalid invocation", args)
+	for _, removed := range []string{"retry", "--max-retries", "--retry-delay", "--exit-code"} {
+		if strings.Contains(output.String(), removed) {
+			t.Errorf("run help retained removed retry option %q: %s", removed, output.String())
 		}
 	}
 }
 
-func TestRunArgvRetriesOriginalLiteralArgv(t *testing.T) {
+func TestParseRunArgsRejectsRetryOptionsAndKeepsSingleAttemptOptions(t *testing.T) {
+	t.Parallel()
+	opts, err := parseRunArgs([]string{"--on-failure=analyze", "--timeout=1s", "--", runTestPrintf, "ok"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opts.onFailure != runFailureAnalyze || len(opts.command) != 2 || opts.timeout == 0 {
+		t.Fatalf("unexpected options: %+v", opts)
+	}
+	for _, args := range [][]string{
+		{"--on-failure=retry", "--", runTestPrintf, "ok"},
+		{"--max-retries=1", "--", runTestPrintf, "ok"},
+		{"--retry-delay=10ms", "--", runTestPrintf, "ok"},
+		{"--exit-code=last", "--", runTestPrintf, "ok"},
+		{"--on-failure=unknown", "--", runTestPrintf, "ok"},
+	} {
+		if _, err := parseRunArgs(args); err == nil {
+			t.Fatalf("parseRunArgs(%q) accepted removed or invalid invocation", args)
+		}
+	}
+}
+
+func TestRunArgvMakesOnlyOneAttempt(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	zevDir := filepath.Join(home, ".zev")
@@ -200,13 +202,13 @@ func TestRunArgvRetriesOriginalLiteralArgv(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	runner := terminal.Runner{Stdout: &stdout, Stderr: &stderr}
-	command := []string{"--on-failure=retry", "--max-retries=1", "--", "sh", "-c", "n=$(cat \"$1\"); n=$((n+1)); printf '%s' \"$n\" > \"$1\"; test \"$n\" -ge 2", "sh", marker}
-	if err := runArgv(&cobra.Command{}, command, runner); err != nil {
-		t.Fatalf("runArgv() error = %v", err)
+	command := []string{"--on-failure=none", "--", "sh", "-c", "n=$(cat \"$1\"); n=$((n+1)); printf '%s' \"$n\" > \"$1\"; exit 1", "sh", marker}
+	if err := runArgv(&cobra.Command{}, command, runner); err == nil {
+		t.Fatal("runArgv() unexpectedly succeeded")
 	}
 	data, err := os.ReadFile(filepath.Clean(marker))
-	if err != nil || string(data) != "2" {
-		t.Fatalf("attempt marker = %q, err=%v", data, err)
+	if err != nil || string(data) != "1" {
+		t.Fatalf("attempt marker = %q, err=%v; want one attempt", data, err)
 	}
 }
 
@@ -216,7 +218,7 @@ func TestRunFailurePrintsCapturedChildOutputBeforeReturning(t *testing.T) {
 	runner := terminal.Runner{Stdin: strings.NewReader(""), Stderr: &stderr}
 	err := executeRunAttempts(t.Context(), runOptions{
 		command:   []string{"sh", "-c", "printf out; printf err >&2; exit 1"},
-		onFailure: runFailureNone, maxRetries: 0, logLimit: 1024,
+		onFailure: runFailureNone, logLimit: 1024,
 	}, runner, &stderr, false)
 	if err == nil {
 		t.Fatal("failed command returned nil error")
@@ -278,7 +280,7 @@ func TestRunDoesNotRecoverOrRetryAfterCancellationOrSignal(t *testing.T) {
 			var stderr bytes.Buffer
 			recoveryCalls := 0
 			err := executeRunAttempts(ctx, runOptions{
-				command: tc.command, onFailure: runFailureRetry, maxRetries: 2, logLimit: 1024,
+				command: tc.command, onFailure: runFailureNone, logLimit: 1024,
 				recover: func(context.Context, string, error, runOutput) error { recoveryCalls++; return nil },
 			}, terminal.Runner{Stderr: &stderr}, &stderr, false)
 			if err == nil {
@@ -327,5 +329,36 @@ func TestBoundedCaptureRetainsOnlyTail(t *testing.T) {
 	got, truncated := capture.snapshot()
 	if got != "cdef" || !truncated {
 		t.Fatalf("snapshot = %q, truncated=%t; want tail %q", got, truncated, "cdef")
+	}
+}
+
+func TestRootHidesHelpSubcommandButKeepsHelpFlagsAndCompletion(t *testing.T) {
+	t.Parallel()
+	root := NewRootCommand("test")
+	if cmd, _, err := root.Find([]string{entityHelpFlag[2:]}); err == nil && cmd != nil && cmd.Name() == entityHelpFlag[2:] {
+		t.Fatal("help subcommand is publicly registered")
+	}
+	root.InitDefaultCompletionCmd()
+	if cmd, _, err := root.Find([]string{"completion"}); err != nil || cmd == nil || cmd.Name() != "completion" {
+		t.Fatalf("completion command missing: cmd=%v err=%v", cmd, err)
+	}
+	root.InitDefaultHelpFlag()
+	if root.Flag("help") == nil {
+		t.Fatal("root --help flag missing")
+	}
+}
+
+func TestManagedDeleteAliases(t *testing.T) {
+	t.Parallel()
+	for name, command := range map[string]*cobra.Command{managedKindAlias: newAliasRemoveCmd(), managedKindScript: newScriptRemoveCmd()} {
+		found := false
+		for _, alias := range command.Aliases {
+			if alias == "delete" {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%s remove command does not expose delete alias: %v", name, command.Aliases)
+		}
 	}
 }

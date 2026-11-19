@@ -6,12 +6,13 @@
 
 # Specification: standalone zev run — execution, failure analysis, and correction
 
-**Status:** literal argv execution, bounded output capture, retry, and interactive failure
-recovery are implemented. Analyze and fix request provider suggestions only after selection;
-injected commands restore the exact linked conversation, while direct runs send a standalone
-failure query. Query injection wrapping is controlled by `command_wrapper_enabled` (default
-`true`). Suggestions are never executed automatically. Run events, retained artifacts, several
-advanced flags, and independent review remain outstanding.
+**Status:** literal argv execution, bounded output capture, and interactive failure
+recovery are implemented. Each explicit run performs one command attempt. Analyze and fix
+request provider suggestions only after selection; injected commands restore the exact linked
+conversation, while direct runs send a standalone failure query. Query injection wrapping is
+controlled by `command_wrapper_enabled` (default `true`). Suggestions are never executed
+automatically. Run events, retained artifacts, several advanced flags, and independent review
+remain outstanding.
 
 ## 1. Objective and approved decisions
 
@@ -86,10 +87,8 @@ All runtime contracts below are targets; an existing package does not prove impl
 ```bash
 zev run -- go test ./...
 zev run --on-failure=none -- go test ./...
-zev run --on-failure=retry --max-retries=2 --retry-delay=2s -- go test ./...
 zev run --no-interactive --on-failure=analyze -- go test ./...
 zev run --no-interactive --on-failure=fix -- go test ./...
-zev run --exit-code=last --on-failure=retry -- go test ./...
 zev run -- sh -c 'go test ./... && go vet ./...'
 ```
 
@@ -100,11 +99,8 @@ program. `cd` is not an executable in argv mode.
 
 | Run flag | Default | Contract |
 |---|---|---|
-| `--on-failure=ask\|none\|retry\|analyze\|fix` | `ask` | Menu / no action / retry / analysis without correction / LLM correction |
+| `--on-failure=ask\|none\|analyze\|fix` | `ask` | Menu / no action / analysis without correction / LLM correction |
 | `--no-interactive` | `false` | Prohibit all run/recovery prompts |
-| `--max-retries=N` | `1` | Original-command repeats, 0–10; at most N+1 attempts total |
-| `--retry-delay=D` | `0s` | Cancellable automatic retry delay, 0–5 minutes |
-| `--exit-code=original\|last` | `original` | First / last actually executed original-command attempt's code |
 | `--log-limit=BYTES` | `1048576` | Combined encoded sanitized tail per attempt, 1024–16777216 bytes |
 | `--timeout=D` | `0s` | Per-attempt deadline; 0 adds none |
 | `--events-file=PATH` | unset | Separate private JSONL metadata sink |
@@ -124,8 +120,8 @@ With effective history disabled, ignore a supplied session key with a warning, w
 dialogue loading, and still execute the command. This rule is identical for explicit and
 generated invocations. An active in-memory link is allowed without SQLite.
 
-`--on-failure=retry` authorizes repeating the **entire** command, including partially applied
-side effects. `analyze` and `fix` authorize disclosure of the visible sanitized diagnostic bundle to
+Each invocation performs one attempt; any rerun requires a new explicit `zev run` invocation.
+`analyze` and `fix` authorize disclosure of the visible sanitized diagnostic bundle to
 the configured provider, not executing a correction. Help MUST explain both consequences,
 possible terminal echo, and lack of guaranteed arbitrary-secret removal. Persistent
 “always repair” configuration cannot enable an autonomous policy. Previously proposed

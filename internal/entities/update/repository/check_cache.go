@@ -15,11 +15,12 @@ import (
 )
 
 const (
-	updateCheckInterval      = 24 * time.Hour
-	maxUpdateCheckCacheBytes = 4096
+	updateCheckInterval       = 24 * time.Hour
+	failedUpdateCheckInterval = time.Hour
+	maxUpdateCheckCacheBytes  = 4096
 )
 
-// CachedCheck stores the last successful or failed daily update-check attempt.
+// CachedCheck stores the last successful or failed update-check attempt.
 type CachedCheck struct {
 	CheckedAt time.Time      `json:"checked_at"` //nolint:tagliatelle // Preserve the published cache key.
 	Branch    service.Branch `json:"branch"`
@@ -35,9 +36,20 @@ type CheckCache struct{ path string }
 // NewCheckCache creates an update-check cache at path.
 func NewCheckCache(path string) *CheckCache { return &CheckCache{path: path} }
 
-// IsFresh reports whether entry is usable for the current daily cache window.
+// IsFresh reports whether entry is usable within its success or failure cache window.
 func (c *CheckCache) IsFresh(entry CachedCheck, now time.Time) bool {
-	return !entry.CheckedAt.IsZero() && now.Sub(entry.CheckedAt) >= 0 && now.Sub(entry.CheckedAt) < updateCheckInterval
+	if entry.CheckedAt.IsZero() {
+		return false
+	}
+	age := now.Sub(entry.CheckedAt)
+	if age < 0 {
+		return false
+	}
+	interval := updateCheckInterval
+	if entry.Failed {
+		interval = failedUpdateCheckInterval
+	}
+	return age < interval
 }
 
 // Load reads a valid cached check. A missing or malformed cache is treated as absent.

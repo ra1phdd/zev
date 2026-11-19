@@ -97,8 +97,8 @@ func cliCommand(t *testing.T, home string, args ...string) *exec.Cmd {
 }
 
 type cliFixture struct {
-	baseURL, key, language, toolApproval string
-	history                              bool
+	baseURL, key, language, toolApproval, securityMode string
+	history                                            bool
 }
 
 func writeFixture(t *testing.T, home string, f cliFixture) {
@@ -109,6 +109,9 @@ func writeFixture(t *testing.T, home string, f cliFixture) {
 	cfg.Providers = map[string]config.ProviderConfig{"fixture": {Type: "openai", Model: fixtureModel, BaseURL: cmp.Or(f.baseURL, "http://127.0.0.1:1"), APIKey: f.key}}
 	cfg.UILanguage = cmp.Or(f.language, "auto")
 	cfg.ToolApprovalMode = cmp.Or(f.toolApproval, "manual")
+	if f.securityMode != "" {
+		cfg.Security.Mode = f.securityMode
+	}
 	cfg.HistoryEnabled = f.history
 	cfg.ContextEnabled = false
 	cfg.ToolsEnabled = false
@@ -128,7 +131,7 @@ func writeFixture(t *testing.T, home string, f cliFixture) {
 func fixtureHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
-	writeFixture(t, home, cliFixture{})
+	writeFixture(t, home, cliFixture{securityMode: config.SecurityModeBypass})
 	return home
 }
 

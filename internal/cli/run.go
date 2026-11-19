@@ -23,10 +23,8 @@ import (
 const (
 	runFailureAsk           = "ask"
 	runFailureNone          = "none"
-	runFailureRetry         = "retry"
 	runFailureAnalyze       = "analyze"
 	runFailureFix           = "fix"
-	runExitCodeLast         = "last"
 	runToolApprovalFlagName = "--tool-approval"
 )
 
@@ -38,9 +36,6 @@ type runOptions struct {
 	recover    func(context.Context, string, error, runOutput) error
 	onFailure  string
 	noInteract bool
-	maxRetries int
-	retryDelay time.Duration
-	exitCode   string
 	timeout    time.Duration
 }
 
@@ -123,7 +118,7 @@ func buildInjectedRunInvocation(zevPath, shell, command, sessionID string) (stri
 
 //nolint:gocognit // The standalone parser keeps all pre-separator validation in one fail-closed boundary.
 func parseRunArgs(args []string) (runOptions, error) {
-	opts := runOptions{onFailure: runFailureAsk, exitCode: "original", maxRetries: 1, logLimit: 1 << 20}
+	opts := runOptions{onFailure: runFailureAsk, logLimit: 1 << 20}
 	separator := -1
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -157,24 +152,11 @@ func parseRunArgs(args []string) (runOptions, error) {
 				return runOptions{}, errors.New("--on-failure requires a value")
 			}
 			switch value {
-			case runFailureAsk, runFailureNone, runFailureRetry, runFailureAnalyze, runFailureFix:
+			case runFailureAsk, runFailureNone, runFailureAnalyze, runFailureFix:
 				opts.onFailure = value
 			default:
 				return runOptions{}, fmt.Errorf("invalid --on-failure value %q", value)
 			}
-		case "--max-retries":
-			if !hasValue || !parseNonNegativeInt(value, &opts.maxRetries) || opts.maxRetries > 10 {
-				return runOptions{}, errors.New("--max-retries must be an integer from 0 to 10")
-			}
-		case "--retry-delay":
-			if !hasValue || !parseDuration(value, 5*time.Minute, &opts.retryDelay) {
-				return runOptions{}, errors.New("--retry-delay must be a duration from 0s to 5m")
-			}
-		case "--exit-code":
-			if !hasValue || (value != "original" && value != runExitCodeLast) {
-				return runOptions{}, errors.New("--exit-code must be original or last")
-			}
-			opts.exitCode = value
 		case "--timeout":
 			if !hasValue || !parseDuration(value, 24*time.Hour, &opts.timeout) {
 				return runOptions{}, errors.New("--timeout must be a duration from 0s to 24h")
@@ -202,9 +184,6 @@ func parseRunArgs(args []string) (runOptions, error) {
 	}
 	if separator == len(args)-1 {
 		return runOptions{}, errors.New("run requires an executable after --")
-	}
-	if opts.onFailure == runFailureRetry && opts.maxRetries == 0 {
-		return runOptions{}, errors.New("--on-failure=retry requires --max-retries greater than zero")
 	}
 	opts.command = append([]string(nil), args[separator+1:]...)
 	if opts.command[0] == "" {
@@ -246,92 +225,56 @@ func runAssessmentCertainty(known bool) security.Certainty {
 	return security.CertaintyUnknown
 }
 
-//nolint:gocognit // Attempt lifecycle, retry policy, and interactive recovery share one bounded state machine.
 func executeRunAttempts(ctx context.Context, opts runOptions, runner terminal.Runner, failureOut io.Writer, interactive bool) error {
-	attempts := 1
-	if opts.onFailure == runFailureRetry {
-		attempts += opts.maxRetries
+	attemptCtx := ctx
+	cancel := func() {}
+	if opts.timeout > 0 {
+		attemptCtx, cancel = context.WithTimeout(ctx, opts.timeout)
 	}
-	var firstErr, lastErr error
-	var lastOutput runOutput
-	for attempt := range attempts {
+	output, commandErr := runOneAttempt(attemptCtx, opts.command, runner, opts.logLimit)
+	cancel()
+	if commandErr == nil {
+		return nil
+	}
+	if err := writeRunFailureLog(failureOut, output); err != nil {
+		return errors.Join(commandErr, err)
+	}
+	if !recoverableRunFailure(ctx, commandErr) {
+		if err := writeRunStatus(failureOut, "Recovery skipped because the process was interrupted or its outcome could not be confirmed."); err != nil {
+			return errors.Join(commandErr, err)
+		}
+		return commandErr
+	}
+	action := opts.onFailure
+	if opts.onFailure == runFailureAsk && interactive {
+		var err error
+		action, err = selectRunRecovery(ctx)
+		if err != nil {
+			return errors.Join(commandErr, err)
+		}
+	}
+	if err := runFailureRecovery(ctx, opts, action, commandErr, output, failureOut); err != nil {
+		return errors.Join(commandErr, err)
+	}
+	return commandErr
+}
 
-		attemptCtx := ctx
-		cancel := func() {}
-		if opts.timeout > 0 {
-			attemptCtx, cancel = context.WithTimeout(ctx, opts.timeout)
-		}
-		lastOutput, lastErr = runOneAttempt(attemptCtx, opts.command, runner, opts.logLimit)
-		cancel()
-		if lastErr == nil {
-			return nil
-		}
-		if firstErr == nil {
-			firstErr = lastErr
-		}
-		if err := writeRunFailureLog(failureOut, lastOutput); err != nil {
-			return errors.Join(firstErr, err)
-		}
-		if !recoverableRunFailure(ctx, lastErr) {
-			if err := writeRunStatus(failureOut, "Recovery skipped because the process was interrupted or its outcome could not be confirmed."); err != nil {
-				return errors.Join(firstErr, err)
-			}
-			if opts.exitCode == runExitCodeLast {
-				return lastErr
-			}
-			return firstErr
-		}
-		//nolint:nestif // Retry and recovery actions must remain ordered after the failed attempt.
-		if attempt+1 == attempts || opts.onFailure != runFailureRetry {
-			action := opts.onFailure
-			manualRetry := false
-			if opts.onFailure == runFailureAsk && interactive && attempt == 0 {
-				selectedAction, selectErr := selectRunRecovery(ctx)
-				if selectErr != nil {
-					return errors.Join(firstErr, selectErr)
-				}
-				action = selectedAction
-				manualRetry = selectedAction == runFailureRetry
-			}
-			switch action {
-			case runFailureRetry:
-				if manualRetry {
-					attempts = attempt + 2
-					opts.onFailure = runFailureRetry
-					continue
-				}
-			case runFailureAnalyze, runFailureFix:
-				if opts.recover == nil {
-					if err := writeRunStatus(failureOut, "AI recovery is unavailable for this invocation."); err != nil {
-						return errors.Join(firstErr, err)
-					}
-				} else {
-					if err := writeRunStatus(failureOut, "Warning: captured command output will be sent to the configured provider and may contain secrets."); err != nil {
-						return errors.Join(firstErr, err)
-					}
-					if err := opts.recover(ctx, action, lastErr, lastOutput); err != nil {
-						if writeErr := writeRunStatus(failureOut, "AI recovery failed; the command result is unchanged."); writeErr != nil {
-							return errors.Join(firstErr, err, writeErr)
-						}
-					}
-				}
-			}
-			break
-		}
-		if opts.retryDelay > 0 {
-			timer := time.NewTimer(opts.retryDelay)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return fmt.Errorf("retry command: %w", ctx.Err())
-			case <-timer.C:
-			}
+func runFailureRecovery(ctx context.Context, opts runOptions, action string, commandErr error, output runOutput, failureOut io.Writer) error {
+	if action != runFailureAnalyze && action != runFailureFix {
+		return nil
+	}
+	if opts.recover == nil {
+		return writeRunStatus(failureOut, "AI recovery is unavailable for this invocation.")
+	}
+	if err := writeRunStatus(failureOut, "Warning: captured command output will be sent to the configured provider and may contain secrets."); err != nil {
+		return err
+	}
+	if err := opts.recover(ctx, action, commandErr, output); err != nil {
+		if writeErr := writeRunStatus(failureOut, "AI recovery failed; the command result is unchanged."); writeErr != nil {
+			return errors.Join(err, writeErr)
 		}
 	}
-	if opts.exitCode == runExitCodeLast {
-		return lastErr
-	}
-	return firstErr
+	return nil
 }
 
 func writeRunStatus(out io.Writer, status string) error {
@@ -349,14 +292,13 @@ type runRecoveryItem struct {
 
 func (i runRecoveryItem) Title() string       { return i.title }
 func (i runRecoveryItem) Description() string { return i.detail }
-func (i runRecoveryItem) IsWarning() bool     { return i.action == runFailureRetry }
+func (i runRecoveryItem) IsWarning() bool     { return false }
 
 func selectRunRecovery(ctx context.Context) (string, error) {
 	selected, err := list.SelectContext(ctx, list.SelectOptions{
 		Title: "Command failed. Choose the next action:",
 		Items: []list.Item{
 			runRecoveryItem{action: runFailureNone, title: "Do nothing", detail: "Keep the original failure and exit."},
-			runRecoveryItem{action: runFailureRetry, title: "Retry command", detail: "Run the exact original argv one more time."},
 			runRecoveryItem{action: runFailureAnalyze, title: "Analyze error", detail: "Send the captured failure to the provider for an explanation."},
 			runRecoveryItem{action: runFailureFix, title: "Fix command", detail: "Ask the provider for corrected command suggestions; nothing runs automatically."},
 		},
@@ -434,11 +376,8 @@ func writeRunHelp(cmd *cobra.Command) error {
 	_, err := fmt.Fprintln(cmd.OutOrStdout(), `Usage: zev run [options] -- command [args...]
 
 Options:
-  --on-failure=ask|none|retry|analyze|fix
+  --on-failure=ask|none|analyze|fix
                                Failure policy; analyze/fix send captured output to the configured provider
-  --max-retries=N              Repeat the original argv at most N times (0-10)
-  --retry-delay=D              Cancellable delay between retries (0-5m)
-  --exit-code=original|last    Return the first or last failed attempt
   --timeout=D                  Per-attempt timeout (0-24h)
   --log-limit=BYTES            Maximum captured stdout/stderr combined per attempt (1 KiB-16 MiB)
   --session=ID                  10-character key for the linked conversation/command

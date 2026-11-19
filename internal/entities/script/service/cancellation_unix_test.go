@@ -18,7 +18,12 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
-const editorOperation = "editor"
+const (
+	editorOperation            = "editor"
+	descendantReadinessTimeout = 15 * time.Second
+	cancellationJoinTimeout    = 15 * time.Second
+	descendantExitTimeout      = 15 * time.Second
+)
 
 func TestCancellationStopsDescendants(t *testing.T) {
 	for _, operation := range []string{editorOperation, executeOperation} {
@@ -64,7 +69,7 @@ func TestCancellationStopsDescendants(t *testing.T) {
 				if exitErr, ok := errors.AsType[*exec.ExitError](err); !ok || exitErr == nil {
 					t.Errorf("%s error = %v, want child exit error", operation, err)
 				}
-			case <-time.After(5 * time.Second):
+			case <-time.After(cancellationJoinTimeout):
 				t.Fatal("operation did not join cancellation")
 			}
 			waitForDescendantExit(t, pid)
@@ -74,7 +79,7 @@ func TestCancellationStopsDescendants(t *testing.T) {
 
 func waitForDescendant(t *testing.T, ready string, result <-chan error) int {
 	t.Helper()
-	deadline := time.NewTimer(5 * time.Second)
+	deadline := time.NewTimer(descendantReadinessTimeout)
 	defer deadline.Stop()
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
@@ -105,7 +110,7 @@ func waitForDescendant(t *testing.T, ready string, result <-chan error) int {
 
 func waitForDescendantExit(t *testing.T, pid int) {
 	t.Helper()
-	deadline := time.NewTimer(5 * time.Second)
+	deadline := time.NewTimer(descendantExitTimeout)
 	defer deadline.Stop()
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()

@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ra1phdd/zev/internal/core/config"
 )
 
 const (
@@ -52,6 +54,7 @@ func TestCLIStorageRequiresAbsoluteHome(t *testing.T) {
 			writeHomeStorageAlias(t, projectRoot, projectMarker)
 			trustedMarker := filepath.Join(project, "trusted-alias-executed")
 			if filepath.IsAbs(home) {
+				writeFixture(t, home, cliFixture{securityMode: config.SecurityModeBypass})
 				writeHomeStorageAlias(t, filepath.Join(home, ".zev"), trustedMarker)
 			}
 			cmd := cliCommand(t, home, "storagefixture")

@@ -105,7 +105,7 @@ func newContinueCmd() *cobra.Command {
 			return runQuery(cmd, append([]string{"--continue"}, args...))
 		},
 	}
-	registerToolFlags(cmd)
+	registerQueryFlags(cmd, false)
 	return cmd
 }
 
@@ -116,19 +116,36 @@ func newQueryCmd() *cobra.Command {
 		Args:  cobra.ArbitraryArgs,
 		RunE:  runQuery,
 	}
-	cmd.Flags().BoolVar(&executeFlag, "execute", false, locale.Text(locale.KeyQueryExecuteSelectedCommandImmediately))
-	cmd.Flags().BoolVar(&injectFlag, "inject", false, locale.Text(locale.KeyQueryInjectSelectedCommandIntoTerminalDefault))
-	cmd.Flags().BoolVar(&noHistoryFlag, "no-history", false, locale.Text(locale.KeyQueryNotPersistQueryHistory))
-	cmd.Flags().BoolVar(&noContextFlag, "no-context", false, locale.Text(locale.KeyQueryNotSendLocalEnvironmentContext))
-	registerToolFlags(cmd)
+	registerQueryFlags(cmd, true)
 	cmd.DisableFlagParsing = true
+	cmd.MarkFlagsMutuallyExclusive("execute", "inject")
+	return cmd
+}
+
+func registerQueryFlags(cmd *cobra.Command, bindExecutionFlags bool) {
+	var execute, inject, noHistory, noContext bool
+	if bindExecutionFlags {
+		cmd.Flags().BoolVarP(&execute, "execute", "e", false, locale.Text(locale.KeyQueryExecuteSelectedCommandImmediately))
+		cmd.Flags().BoolVar(&inject, "inject", false, locale.Text(locale.KeyQueryInjectSelectedCommandIntoTerminalDefault))
+		cmd.Flags().BoolVar(&noHistory, "no-history", false, locale.Text(locale.KeyQueryNotPersistQueryHistory))
+		cmd.Flags().BoolVar(&noContext, "no-context", false, locale.Text(locale.KeyQueryNotSendLocalEnvironmentContext))
+	} else {
+		cmd.Flags().BoolP("execute", "e", false, locale.Text(locale.KeyQueryExecuteSelectedCommandImmediately))
+		cmd.Flags().Bool("inject", false, locale.Text(locale.KeyQueryInjectSelectedCommandIntoTerminalDefault))
+		cmd.Flags().Bool("no-history", false, locale.Text(locale.KeyQueryNotPersistQueryHistory))
+		cmd.Flags().Bool("no-context", false, locale.Text(locale.KeyQueryNotSendLocalEnvironmentContext))
+	}
+	cmd.Flags().Bool("continue", false, locale.Text(locale.KeyQueryContinueLatestUsableConversation))
 	cmd.Flags().Bool("print", false, locale.Text(locale.KeyQueryPrintChosenCommandExecuting))
 	cmd.Flags().Bool("json", false, locale.Text(locale.KeyQueryOutputCommandOptionsSchemaVersion1JSON))
 	cmd.Flags().Int("option", 1, locale.Text(locale.KeyQueryChoose1BasedCommandOptionMachineMode))
 	cmd.Flags().StringArray("context-file", nil, locale.Text(locale.KeyCliAttachProjectContextFileRepeatableShortForm))
 	cmd.Flags().Bool("allow-sensitive-context", false, locale.Text(locale.KeyCliAllowExplicitlyRequestedSensitiveContextPathsSymlink))
-	cmd.MarkFlagsMutuallyExclusive("execute", "inject")
-	return cmd
+	registerToolFlags(cmd)
+}
+
+func registerRootQueryFlags(cmd *cobra.Command) {
+	registerQueryFlags(cmd, false)
 }
 
 // resolveExecutionMode gives flags priority over configuration and defaults to inject.
@@ -308,7 +325,7 @@ func runQuery(cmd *cobra.Command, args []string) error {
 }
 
 func queryUILanguage(configured string, help bool) string {
-	if help {
+	if help || configured == "ru" || configured == "en" {
 		return configured
 	}
 	return "auto"

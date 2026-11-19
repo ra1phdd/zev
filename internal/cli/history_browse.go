@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,13 +20,13 @@ type historyBrowseEntry struct {
 func historyBrowse(open historyOpener) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		return withHistory(cmd, open, func(s historyOperations) error {
-			return runHistoryBrowse(cmd, s)
+			return runHistoryBrowse(cmd.Context(), cmd, s)
 		})
 	}
 }
 
-func runHistoryBrowse(cmd *cobra.Command, store historyOperations) error {
-	entries, err := loadHistoryBrowseEntries(cmd, store)
+func runHistoryBrowse(ctx context.Context, cmd *cobra.Command, store historyOperations) error {
+	entries, err := loadHistoryBrowseEntries(ctx, store)
 	if err != nil {
 		return err
 	}
@@ -35,16 +36,16 @@ func runHistoryBrowse(cmd *cobra.Command, store historyOperations) error {
 		}
 		return nil
 	}
-	return selectHistoryBrowseEntry(cmd, store, entries)
+	return selectHistoryBrowseEntry(ctx, cmd, store, entries)
 }
 
-func selectHistoryBrowseEntry(cmd *cobra.Command, store historyOperations, entries []historyBrowseEntry) error {
-	return selectHistoryBrowseEntryWith(cmd, store, entries, func(options list.SelectOptions) (list.Item, error) {
-		return list.SelectContext(cmd.Context(), options)
+func selectHistoryBrowseEntry(ctx context.Context, cmd *cobra.Command, store historyOperations, entries []historyBrowseEntry) error {
+	return selectHistoryBrowseEntryWith(ctx, cmd, store, entries, func(options list.SelectOptions) (list.Item, error) {
+		return list.SelectContext(ctx, options)
 	})
 }
 
-func selectHistoryBrowseEntryWith(cmd *cobra.Command, store historyOperations, entries []historyBrowseEntry, selectItem func(list.SelectOptions) (list.Item, error)) error {
+func selectHistoryBrowseEntryWith(ctx context.Context, cmd *cobra.Command, store historyOperations, entries []historyBrowseEntry, selectItem func(list.SelectOptions) (list.Item, error)) error {
 	items := makeHistoryBrowseItems(entries)
 	selected, err := selectItem(list.SelectOptions{Title: locale.Text(locale.KeyCliQueryHistory), Items: items})
 	if err != nil {
@@ -57,7 +58,7 @@ func selectHistoryBrowseEntryWith(cmd *cobra.Command, store historyOperations, e
 	if !ok {
 		return errors.New("selected history item not found")
 	}
-	view, err := store.GetConversation(cmd.Context(), entry.conversation.ID)
+	view, err := store.GetConversation(ctx, entry.conversation.ID)
 	if err != nil {
 		return fmt.Errorf(locale.Text(locale.KeyCliGetConversationError), err)
 	}
@@ -67,14 +68,14 @@ func selectHistoryBrowseEntryWith(cmd *cobra.Command, store historyOperations, e
 	return nil
 }
 
-func loadHistoryBrowseEntries(cmd *cobra.Command, store historyOperations) ([]historyBrowseEntry, error) {
-	if err := cmd.Context().Err(); err != nil {
+func loadHistoryBrowseEntries(ctx context.Context, store historyOperations) ([]historyBrowseEntry, error) {
+	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf(locale.Text(locale.KeyCliListHistoryError), err)
 	}
 	var entries []historyBrowseEntry
 	req := service.ListRequest{Limit: 100}
 	for {
-		page, err := store.ListConversations(cmd.Context(), req)
+		page, err := store.ListConversations(ctx, req)
 		if err != nil {
 			return nil, fmt.Errorf(locale.Text(locale.KeyCliListHistoryError), err)
 		}

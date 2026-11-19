@@ -48,8 +48,10 @@ func addManagedFlags(cmd *cobra.Command, kind, operation string) {
 	f.Bool("generate-description", false, locale.Text(locale.KeyManagedGenerateDescriptionFlag))
 	f.Bool("generate-arguments", false, locale.Text(locale.KeyManagedGenerateArgumentsFlag))
 	if kind == managedKindAlias {
-		f.String("template", "", locale.Text(locale.KeyManagedTemplateFlag))
-		f.Bool("no-metadata", false, locale.Text(locale.KeyManagedNoMetadataFlag))
+		if operation != "last" {
+			f.String("template", "", locale.Text(locale.KeyManagedTemplateFlag))
+			f.Bool("no-metadata", false, locale.Text(locale.KeyManagedNoMetadataFlag))
+		}
 	} else {
 		f.String("body-file", "", locale.Text(locale.KeyManagedBodyFileFlag))
 		f.Bool("body-stdin", false, locale.Text(locale.KeyManagedBodyStdinFlag))

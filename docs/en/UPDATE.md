@@ -19,12 +19,19 @@ channel runs an installation shell script or uses LLM credentials, provider
 endpoints, or custom provider HTTP headers. Versioned stable builds never
 automatically downgrade.
 
-Zev starts a best-effort update check asynchronously and caches a successful
-result for 24 hours in `~/.zev/update-check.json`. When a command exits, the check
-is canceled and Zev waits at most 250 ms for it to stop; short-lived commands may
-exit before a fresh result is cached. A cached or completed result can print an
-update notice; run `zev update` to install the latest stable release, or
-`zev update main` to build the latest development commit.
+For ordinary interactive/query commands, Zev performs a synchronous best-effort
+startup update check with a 5-second deadline. It is skipped for help, `version`,
+machine-output (`--print`/`--json`) and provider/alias/script list commands. Errors
+and timeouts do not block the requested command. A failed or timed-out check is
+cached for 1 hour; successful results are cached for 24 hours in
+`~/.zev/update-check.json`. The check does not create `~/.zev` or its cache lock
+when that directory is absent. A cached or successful result can print an update
+notice; run `zev update` to install the latest stable release, or `zev update main`
+to build the latest development commit. `--proxy URL` applies to the check.
+
+An explicit `zev update [stable|main]` operation has a 1-minute timeout for its
+network and installation work. The hidden `zev update --migrate-only` operation
+retains a separate 10-minute timeout for local migrations.
 
 The `main` branch is under active development and may contain regressions or
 errors. Compatibility between `main` and a stable release is not guaranteed;
@@ -110,8 +117,9 @@ If replacement succeeded but a migration failed, the command exits unsuccessfull
 and **keeps the new executable**. It never rolls back the binary automatically:
 some stores may already have migrated, and an older binary may no longer read
 them. Fix the reported local problem and retry migration. A crash between
-replacement and migration likewise requires a retry; the background startup check
-only reads update metadata and never replaces the executable or runs migrations.
+replacement and migration likewise requires a retry; the synchronous startup check
+has a five-second deadline, caches failures for one hour and never replaces the
+executable or runs migrations.
 
 Checksums from the same GitHub Release verify integrity, not an independent
 publisher signature. GitHub/network failures and API rate limits are reported as

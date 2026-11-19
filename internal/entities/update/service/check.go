@@ -28,8 +28,13 @@ func UpdateAvailable(branch Branch, current, latest string) bool {
 	if branch != Stable {
 		return false
 	}
-	if current == devVersion || strings.HasPrefix(current, "main-") {
+	if current == devVersion {
 		return true
+	}
+	// Stable releases cannot be ordered against main commits from the
+	// available metadata, so do not advertise a possible downgrade.
+	if strings.HasPrefix(current, "main-") {
+		return false
 	}
 	installed, err := normalizeVersion(current)
 	if err != nil {

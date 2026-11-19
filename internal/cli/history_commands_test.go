@@ -319,7 +319,7 @@ func TestHistoryBrowseCancellationMatchesQueryInteractiveMode(t *testing.T) {
 	selectItem := func(list.SelectOptions) (list.Item, error) {
 		return nil, errors.New(queryCancelled)
 	}
-	if err := selectHistoryBrowseEntryWith(cmd, fake, entries, selectItem); err != nil {
+	if err := selectHistoryBrowseEntryWith(cmd.Context(), cmd, fake, entries, selectItem); err != nil {
 		t.Fatalf("cancelled history selection = %v, want nil", err)
 	}
 }

@@ -44,6 +44,7 @@ func TestCheckLatest(t *testing.T) {
 		{name: "stable update", branch: Stable, current: "1.0.0", source: checkSourceFake{release: Release{Version: stableLatestVersion}}, want: stableLatestVersion, update: true},
 		{name: "stable current", branch: Stable, current: stableLatestVersion, source: checkSourceFake{release: Release{Version: stableLatestVersion}}, want: stableLatestVersion},
 		{name: "stable newer", branch: Stable, current: "2.0.0", source: checkSourceFake{release: Release{Version: stableLatestVersion}}, want: stableLatestVersion},
+		{name: "stable notice suppressed for main build", branch: Stable, current: "main-0123456789abcdef0123456789abcdef01234567", source: checkSourceFake{release: Release{Version: "99.0.0"}}, want: "99.0.0"},
 		{name: "main update", branch: Main, current: "main-old", source: checkSourceFake{commit: MainCommit{SHA: sha}}, want: "main-" + sha, update: true},
 		{name: "main current", branch: Main, current: "main-" + sha, source: checkSourceFake{commit: MainCommit{SHA: sha}}, want: "main-" + sha},
 		{name: "invalid main commit", branch: Main, current: "main-old", source: checkSourceFake{commit: MainCommit{SHA: "bad"}}, wantErr: true},

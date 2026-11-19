@@ -82,7 +82,7 @@ func runBranchUpdate(cmd *cobra.Command, updater branchUpdateRunner, branch, cur
 }
 
 func runUpdateWithBranch(cmd *cobra.Command, update func(context.Context, updateservice.Branch) (updateservice.Result, error), branch, currentBranch updateservice.Branch) error {
-	ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(cmd.Context(), time.Minute)
 	defer cancel()
 	if branch == updateservice.Main {
 		if err := writeQueryOutput(cmd.ErrOrStderr(), "%s", locale.Text(locale.KeyUpdateMainWarning)); err != nil {

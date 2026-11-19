@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/ra1phdd/zev/internal/core/config"
 )
 
 const (
@@ -72,13 +74,14 @@ func TestReleasedStoresUpgradeOnUse(t *testing.T) {
 	}
 	run("echo", "query", managedE2EPrintFlag, "greet", "world")
 	unchanged("config", "history", startupScripts)
-	run("hello", "hello")
-	unchanged("config", "history", "script_files/hello.sh")
 	run("execute", "setup", "mode")
 	unchanged("history")
 	if _, err := os.Lstat(filepath.Join(dir, "config")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("setup did not consume released config: %v", err)
 	}
+	writeFixture(t, home, cliFixture{securityMode: config.SecurityModeBypass})
+	run("hello", "hello")
+	unchanged("history", "script_files/hello.sh")
 	for _, name := range []string{"config.yaml", startupAliases, startupScripts} {
 		b, err := os.ReadFile(filepath.Join(dir, name)) //nolint:gosec // Only reads the upgraded fixtures.
 		if err != nil || !bytes.Contains(b, []byte("version:")) {

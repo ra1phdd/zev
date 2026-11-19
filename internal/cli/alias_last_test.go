@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	lastAliasName       = "recent"
-	aliasHistoryFixture = "fixture"
-	lastAliasCommand    = "printf hello"
+	lastAliasName          = "recent"
+	aliasHistoryFixture    = "fixture"
+	lastAliasCommand       = "printf hello"
+	managedDescriptionFlag = "--description"
 )
 
 func TestAliasLast(t *testing.T) {
@@ -114,6 +115,43 @@ func TestAliasLast(t *testing.T) {
 				t.Fatalf("resolved=%q err=%v", resolved, err)
 			}
 		})
+	}
+}
+
+func TestAliasLastSupportsManualMetadata(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	dir := filepath.Join(home, ".zev")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	store, err := openHistoryStore(t.Context(), filepath.Join(dir, "history.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedAliasHistory(t, store, "last-metadata", "printf {{.arg1}}", "completed", "printed", time.Unix(100, 0))
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newAliasCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"last", lastAliasName, managedDescriptionFlag, "manual description", "--arguments-json", `[{"name":"value","description":"a value","required":false}]`})
+	if err := cmd.ExecuteContext(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "aliases")) //nolint:gosec // Isolated fixture store.
+	if err != nil {
+		t.Fatal(err)
+	}
+	aliases, err := metadata.DecodeAliases(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alias := aliases[lastAliasName]
+	if alias.Template != "printf {{.arg1}}" || alias.Description != "manual description" || len(alias.Arguments) != 1 || alias.Arguments[0].Required {
+		t.Fatalf("saved alias = %#v", alias)
 	}
 }
 

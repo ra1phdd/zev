@@ -13,13 +13,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "dev"
-
 var verbosityLevel int
 
 // NewRootCommand creates the command tree for the supplied build version.
 func NewRootCommand(buildVersion string) *cobra.Command {
-	version = buildVersion
+	return NewRootCommandContext(context.Background(), buildVersion)
+}
+
+// NewRootCommandContext creates the command tree bound to ctx for the supplied build version.
+//
+//nolint:contextcheck // The composition root intentionally injects the caller context into Cobra.
+func NewRootCommandContext(ctx context.Context, buildVersion string) *cobra.Command {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	if configured, err := config.LoadUILanguage(); err == nil {
 		locale.SetLanguage(configured, "")
 	}
@@ -33,12 +41,16 @@ func NewRootCommand(buildVersion string) *cobra.Command {
 		SilenceErrors:      true,
 		DisableFlagParsing: true, // Preserve flags intended for aliases.
 	}
+	rootCmd.SetContext(ctx)
 	// Find preserves pre-subcommand flags for the query's manual parser; Traverse
 	// would discard them when DisableFlagParsing is set on the root.
 	rootCmd.TraverseChildren = false
-	registerToolFlags(rootCmd)
+	// Keep Cobra's help flag while moving its internal command out of the public tree.
+	rootCmd.SetHelpCommand(&cobra.Command{Use: "__zev_help [command]", Hidden: true})
+	registerRootQueryFlags(rootCmd)
 
-	rootCmd.PersistentFlags().CountVarP(&verbosityLevel, "verbose", "v", locale.Text(locale.KeyQueryIncreaseVerbosityLevelVInfoVvDebug))
+	var rootVerbosity int
+	rootCmd.PersistentFlags().CountVarP(&rootVerbosity, "verbose", "v", locale.Text(locale.KeyQueryIncreaseVerbosityLevelVInfoVvDebug))
 	rootCmd.PersistentFlags().String("proxy", "", locale.Text(locale.KeyQueryProxyModelAndWebRequests))
 
 	rootCmd.AddCommand(newQueryCmd())
@@ -49,7 +61,7 @@ func NewRootCommand(buildVersion string) *cobra.Command {
 	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.AddCommand(newAliasCmd())
 	rootCmd.AddCommand(newScriptCmd())
-	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newVersionCmd(buildVersion))
 	rootCmd.AddCommand(newRunCmd())
 	rootCmd.AddCommand(newUpdateCmd(buildVersion))
 	localizeCommandHelp(rootCmd)
@@ -111,19 +123,19 @@ func Execute(ctx context.Context, root *cobra.Command) int {
 	return 1
 }
 
-func newVersionCmd() *cobra.Command {
+func newVersionCmd(buildVersion string) *cobra.Command {
 	var updateProtocol, updateBuild bool
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: locale.Text(locale.KeyQueryShowZevVersion),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if updateBuild {
-				return writeQueryOutput(cmd.OutOrStdout(), "%s\n", version)
+				return writeQueryOutput(cmd.OutOrStdout(), "%s\n", buildVersion)
 			}
 			if updateProtocol {
 				return writeQueryOutput(cmd.OutOrStdout(), "zev-update-v1\n")
 			}
-			if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text(locale.KeyQueryZevVersionMessage), version); err != nil {
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text(locale.KeyQueryZevVersionMessage), buildVersion); err != nil {
 				return fmt.Errorf("write version: %w", err)
 			}
 			return nil

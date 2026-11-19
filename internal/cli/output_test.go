@@ -29,7 +29,7 @@ func TestCommandOutputErrors(t *testing.T) {
 		aliases    string
 		scripts    string
 	}{
-		{name: "version", newCommand: newVersionCmd},
+		{name: "version", newCommand: func() *cobra.Command { return newVersionCmd("test") }},
 		{name: "empty aliases", newCommand: newAliasListCmd},
 		{name: "alias table", newCommand: newAliasListCmd, aliases: "version: 2\naliases:\n  hello:\n    template: echo hello\n"},
 		{name: "add alias", newCommand: newAliasAddCmd, args: []string{name, "echo hello"}},

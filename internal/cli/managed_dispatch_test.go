@@ -126,6 +126,14 @@ func TestManagedDispatchKeepsExplicitQueryAndRootHelp(t *testing.T) {
 			t.Fatalf("root help not shown for %v: %q", args, out.String())
 		}
 	}
+	root = NewRootCommand("test")
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{entityHelpFlag[2:]})
+	err = root.ExecuteContext(t.Context())
+	if exitErr, ok := errors.AsType[*machineExitError](err); !ok || exitErr.code != exitArguments {
+		t.Fatalf("removed help command error = %v, want usage error", err)
+	}
 }
 
 func TestExplicitQueryPrintUsesQueryProviderPath(t *testing.T) {

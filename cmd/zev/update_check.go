@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ra1phdd/zev/internal/core/config"
@@ -17,55 +17,32 @@ import (
 	updateservice "github.com/ra1phdd/zev/internal/entities/update/service"
 )
 
-const (
-	updateCheckTimeout         = 55 * time.Second
-	updateCheckShutdownTimeout = 250 * time.Millisecond
-)
+const updateCheckTimeout = 5 * time.Second
 
-type (
-	backgroundCheck       func(context.Context) (string, error)
-	backgroundCheckResult struct {
-		value string
-		err   error
-	}
-)
-
-func startBoundedBackgroundCheck(ctx context.Context, timeout time.Duration, check backgroundCheck) func() (string, error) {
-	checkCtx, cancel := context.WithTimeout(ctx, timeout)
-	result := make(chan backgroundCheckResult, 1)
-	go func() {
-		defer cancel()
-		value, err := check(checkCtx)
-		result <- backgroundCheckResult{value: value, err: err}
-	}()
-	var once sync.Once
-	var completed backgroundCheckResult
-	return func() (string, error) {
-		once.Do(func() {
-			cancel()
-			timer := time.NewTimer(updateCheckShutdownTimeout)
-			defer timer.Stop()
-			select {
-			case completed = <-result:
-			case <-timer.C:
-				completed.err = context.DeadlineExceeded
-			}
-		})
-		return completed.value, completed.err
-	}
+func runSynchronousStartupCheck(ctx context.Context, check func(context.Context) (string, error)) (string, error) {
+	checkCtx, cancel := context.WithTimeout(ctx, updateCheckTimeout)
+	defer cancel()
+	return check(checkCtx)
 }
 
-func checkUpdatesOnStartup(ctx context.Context, proxyURL string, explicitProxy bool) func() (string, error) {
+func checkUpdatesOnStartup(ctx context.Context, proxyURL string, explicitProxy bool) (string, error) {
 	if explicitProxy && proxyURL == "" {
-		return func() (string, error) { return "", nil }
+		return "", nil
 	}
+
 	dir, err := config.GetZevDir()
 	if err != nil {
-		return func() (string, error) { return "", fmt.Errorf("resolve update check directory: %w", err) }
+		return "", fmt.Errorf("resolve update check directory: %w", err)
+	}
+	if _, err := os.Stat(dir); errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("inspect update check directory: %w", err)
 	}
 	branch := branchFromVersion(version)
 	cache := updaterepo.NewCheckCache(filepath.Join(dir, "update-check.json"))
-	return startBoundedBackgroundCheck(ctx, updateCheckTimeout, func(checkCtx context.Context) (string, error) {
+	return runSynchronousStartupCheck(ctx, func(checkCtx context.Context) (string, error) {
 		if entry, ok, err := cache.Load(); err == nil && ok && entry.Branch == branch && cache.IsFresh(entry, time.Now()) && !entry.Failed && updateservice.UpdateAvailable(branch, version, entry.Latest) {
 			return entry.Latest, nil
 		}
@@ -107,13 +84,13 @@ func startupProxy(args []string) (string, bool) {
 		if arg == "--" {
 			return "", false
 		}
-		if args[i] == "--proxy" {
+		if args[i] == startupProxyFlag {
 			if i+1 >= len(args) || args[i+1] == "" || strings.HasPrefix(args[i+1], "--") {
 				return "", true
 			}
 			return args[i+1], true
 		}
-		if value, ok := strings.CutPrefix(args[i], "--proxy="); ok {
+		if value, ok := strings.CutPrefix(args[i], startupProxyFlag+"="); ok {
 			return value, true
 		}
 	}

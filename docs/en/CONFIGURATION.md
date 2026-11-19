@@ -182,8 +182,8 @@ authorization. On failure, `--on-failure=analyze|fix` sends the bounded diagnost
 to the configured provider only after that action is selected and Zev warns that it may
 contain secrets; injected commands continue
 their linked conversation, while direct runs start a standalone recovery query. Suggestions
-are displayed as inert text and are never executed automatically. `retry`, `--max-retries`,
-`--retry-delay`, `--timeout`, `--log-limit`, and `--exit-code=original|last` control execution.
+are displayed as inert text and are never executed automatically. Each `zev run` invocation
+makes one attempt. `--timeout` and `--log-limit` bound the child run and captured output.
 Zev does not provide an OS sandbox; commands run with host privileges and environment policy.
 
 

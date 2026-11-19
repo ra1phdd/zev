@@ -13,80 +13,21 @@ import (
 
 const testStableVersion = "1.2.3"
 
-func TestUpdateCheckLifecycleWaitsForCompletionAndReturnsErrors(t *testing.T) {
+func TestRunSynchronousStartupCheckUsesFiveSecondTimeout(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(t.Context())
-	started := make(chan struct{})
-	finished := make(chan struct{})
-	finish := startBoundedBackgroundCheck(ctx, time.Second, func(ctx context.Context) (string, error) {
-		close(started)
-		<-ctx.Done()
-		close(finished)
-		return "", ctx.Err()
-	})
-	<-started
-	cancel()
-	_, err := finish()
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("finish error = %v, want canceled check error", err)
-	}
-	select {
-	case <-finished:
-	case <-time.After(time.Second):
-		t.Fatal("background check remained running after finish")
-	}
-}
-
-func TestUpdateCheckLifecycleReturnsSuccessfulValue(t *testing.T) {
-	t.Parallel()
-	finish := startBoundedBackgroundCheck(t.Context(), time.Second, func(context.Context) (string, error) {
-		return testStableVersion, nil
-	})
-	got, err := finish()
-	if err != nil || got != testStableVersion {
-		t.Fatalf("finish() = (%q, %v), want version", got, err)
-	}
-}
-
-func TestUpdateCheckLifecycleReturnsDeadlineError(t *testing.T) {
-	t.Parallel()
-	finished := make(chan struct{})
-	finish := startBoundedBackgroundCheck(t.Context(), time.Millisecond, func(ctx context.Context) (string, error) {
-		<-ctx.Done()
-		close(finished)
-		return "", ctx.Err()
-	})
-	<-finished
-	_, err := finish()
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("finish error = %v, want deadline exceeded", err)
-	}
-}
-
-func TestUpdateCheckFinishCancelsInFlightCheck(t *testing.T) {
-	t.Parallel()
-	started := make(chan struct{})
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
-	finish := startBoundedBackgroundCheck(ctx, time.Minute, func(ctx context.Context) (string, error) {
-		close(started)
-		<-ctx.Done()
-		return "", ctx.Err()
-	})
-	<-started
-
-	done := make(chan error, 1)
-	go func() {
-		_, err := finish()
-		done <- err
-	}()
-	select {
-	case err := <-done:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("finish error = %v, want canceled check", err)
+	_, err := runSynchronousStartupCheck(t.Context(), func(ctx context.Context) (string, error) {
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			t.Fatal("startup check context has no deadline")
 		}
-	case <-time.After(time.Second):
-		t.Fatal("finish waited for the update check instead of canceling it")
+		remaining := time.Until(deadline)
+		if remaining <= 4*time.Second || remaining > 5*time.Second {
+			t.Fatalf("startup check deadline in %s, want about 5s", remaining)
+		}
+		return "", nil
+	})
+	if err != nil {
+		t.Fatalf("runSynchronousStartupCheck() error = %v", err)
 	}
 }
 
@@ -120,6 +61,67 @@ func TestUpdateAvailableMessageMatchesBranch(t *testing.T) {
 	}
 	if !strings.Contains(main, "zev update main`") || !strings.Contains(main, "main-abc123") {
 		t.Fatalf("main update message = %q", main)
+	}
+}
+
+func TestStartupUpdateNoticeIsWrittenBeforeCommandOutput(t *testing.T) {
+	t.Parallel()
+	var events []string
+	code := executeAfterStartupUpdateCheck(
+		updateservice.Stable,
+		func() (string, error) { return testStableVersion, nil },
+		func(updateservice.Branch, string) { events = append(events, "notice") },
+		func() int {
+			events = append(events, "command")
+			return 7
+		},
+	)
+	if code != 7 {
+		t.Fatalf("code = %d, want 7", code)
+	}
+	if got := strings.Join(events, ","); got != "notice,command" {
+		t.Fatalf("events = %q, want notice,command", got)
+	}
+}
+
+func TestStartupUpdateNoticeWaitsForSynchronousCheck(t *testing.T) {
+	t.Parallel()
+	var events []string
+	code := executeAfterStartupUpdateCheck(
+		updateservice.Stable,
+		func() (string, error) {
+			events = append(events, "check-start")
+			events = append(events, "check-complete")
+			return testStableVersion, nil
+		},
+		func(updateservice.Branch, string) { events = append(events, "notice") },
+		func() int {
+			events = append(events, "command")
+			return 0
+		},
+	)
+	if code != 0 {
+		t.Fatalf("code = %d, want 0", code)
+	}
+	if got := strings.Join(events, ","); got != "check-start,check-complete,notice,command" {
+		t.Fatalf("events = %q, want synchronous check before notice and command", got)
+	}
+}
+
+func TestStartupUpdateFailureDoesNotPreventCommand(t *testing.T) {
+	t.Parallel()
+	commandRan := false
+	code := executeAfterStartupUpdateCheck(
+		updateservice.Stable,
+		func() (string, error) { return "", errors.New("check failed") },
+		func(updateservice.Branch, string) { t.Fatal("notice written without an available update") },
+		func() int {
+			commandRan = true
+			return 9
+		},
+	)
+	if code != 9 || !commandRan {
+		t.Fatalf("code = %d, commandRan = %t; startup check failure blocked command", code, commandRan)
 	}
 }
 

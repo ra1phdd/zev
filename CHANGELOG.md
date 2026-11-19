@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Skip startup update checks for help, version, machine-output queries and read-only list commands; do not create the update cache/lock or home directory solely for that check. Preserve configured command proxy behavior.
+- Keep persisted `language: en|ru` authoritative for query UI; auto-detection applies only to `language: auto`. Fix managed native execution fixtures to select the intended command-delivery policy.
+- Require the manual release version argument to match the tracked `VERSION` file before running release gates.
+- Make startup update checks synchronous with a five-second deadline, cache failed checks for one hour and successful checks for 24 hours, and limit explicit updates to one minute while keeping migration-only runs at ten minutes.
+- Remove `zev run` retry controls so each invocation makes one command attempt; keep failure analysis and fix suggestions without automatic reruns. Add `delete` aliases for alias/script removal, extend `alias last` metadata options, remove the public `help` command, and retain `--help`/`-h` plus shell completion.
+- Add a complete bilingual CLI reference and keep the README focused on common query, injection, alias, and script workflows.
+- Move the startup update notice before CLI output and suppress stable-release notices for installed `main` builds when release ordering cannot be proven.
 - Add `zev update main` for building the latest development commit, stable/main
   startup update checks with a 24-hour cache, and localized branch warnings.
-- Run storage migrations only on the command paths that need them, preserve existing configuration bytes when a migration conflicts, localize root help from the persisted language, and cancel the best-effort startup update check on command exit with at most 250 ms of shutdown wait. Show branch-specific update status/notifications and retain capped Go build diagnostics.
+- Run storage migrations only on the command paths that need them, preserve existing configuration bytes when a migration conflicts, localize root help from the persisted language, and show branch-specific update status/notifications while retaining capped Go build diagnostics.
 - Avoid classifying Bulgarian text containing `ъ` as Russian.
 - Route model, web-fetch, setup, doctor, history-embedding, recovery, update, and startup-update network requests through `--proxy` or environment defaults; explicit `--proxy` wins and `NO_PROXY` cannot bypass it. Support `socks5://` local DNS, `socks5h://` remote DNS, and HTTP(S) proxies, with the selected proxy documented as trusted infrastructure for remote destination resolution.
 - Localize natural-language query UI from the current request even when a persisted language is configured; inject now writes the selected command only when terminal injection fails.
@@ -23,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   child-process execution filters ambient environment variables, project context travels as
   an untrusted user-data envelope, and fetched URL diagnostics disclose only the public origin.
 - Add a literal `zev run -- <command> [args...]` wrapper for inject, with direct argv
-  forwarding, stream proxying, bounded failure logs, retry, and provider-backed analysis
+  forwarding, stream proxying, bounded failure logs, and provider-backed analysis
   or correction suggestions that never execute automatically.
 - Reject configuration files that are not private, regular files owned by the current
   user, and block automatic model-tool follow-ups after suspicious or incomplete output.
@@ -31,8 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   redirect and response limits, credential-free requests, redaction, and output probing.
 - Execute managed scripts from an immutable bounded snapshot; normal-mode approval now
   binds to the snapshot hash and arguments before the snapshot is launched.
-- Extend `zev run` with strict pre-separator parsing, bounded per-attempt timeout,
-  cancellable retry delay, bounded original-command retries, and original/last exit policy.
+- Extend `zev run` with strict pre-separator parsing and a bounded per-attempt timeout.
 - Redact common credential-shaped values from model-tool output before probing and
   provider disclosure; the redactor remains explicitly non-comprehensive.
 - Harden the local command gate against provider-flag bypasses and shell-neighbor
@@ -43,9 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of accepting a file based only on ineffective POSIX permission bits.
 - Keep machine-mode history selection aligned with the default printed option instead
   of recording an invalid negative command index.
-- Reauthorize every execute retry so a failed attempt cannot carry a stale
-  policy decision into a later attempt; injection warnings disclose the exact
-  command before terminal delivery.
+- Injection warnings disclose the exact command before terminal delivery.
 - Avoid rejecting ordinary Go source files solely because their names contain
   sensitive-word markers, while retaining protected path and credential-file checks.
 - Keep shell dialect and pathname/brace expansions conservative by requiring
@@ -59,9 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   joining it back into shell text. Register explicit application-level capability
   descriptors for host dispatches; these descriptors document enforcement scope
   and do not claim OS isolation.
-- Add an interactive post-failure menu for terminal runs: do nothing by default, retry,
-  analyze, or request corrected command suggestions. Injected commands continue their exact
-  saved conversation; direct runs send a standalone failure query. Recovery output stays inert.
+- Add an interactive post-failure menu for terminal runs: do nothing by default, analyze,
+  or request corrected command suggestions. Injected commands continue their exact saved
+  conversation; direct runs send a standalone failure query. Recovery output stays inert.
 - Add `command_wrapper_enabled` (default `true`) to control whether query inject wraps
   generated commands with `zev run`; rename `security.mode: normal` to `auto` while reading
   legacy `normal`, and remove runtime sandbox configuration (legacy `security.sandbox.mode: off`

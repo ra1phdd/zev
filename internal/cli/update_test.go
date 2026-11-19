@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	updateservice "github.com/ra1phdd/zev/internal/entities/update/service"
 	"github.com/spf13/cobra"
@@ -16,11 +17,12 @@ type updateRunnerFake struct {
 	err         error
 	calls       int
 	hasDeadline bool
+	deadline    time.Time
 }
 
 func (f *updateRunnerFake) Update(ctx context.Context) (updateservice.Result, error) {
 	f.calls++
-	_, f.hasDeadline = ctx.Deadline()
+	f.deadline, f.hasDeadline = ctx.Deadline()
 	return f.result, f.err
 }
 
@@ -51,6 +53,10 @@ func TestUpdateOutputOnlyReportsVerifiedSuccess(t *testing.T) {
 			}
 			if updater.calls != 1 || !updater.hasDeadline {
 				t.Fatalf("unbounded or missing update: %#v", updater)
+			}
+			remaining := time.Until(updater.deadline)
+			if remaining <= 59*time.Second || remaining > time.Minute {
+				t.Fatalf("update timeout = %s, want 1m", remaining)
 			}
 			if tc.err != nil && output.Len() != 0 {
 				t.Fatalf("failure reported success: %s", output.String())

@@ -40,7 +40,7 @@ func newScriptListCmd() *cobra.Command {
 }
 
 func newScriptRemoveCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "remove [name]", Aliases: []string{"rm"}, Short: locale.Text(locale.KeyCliRemoveScript), Args: managedRangeArgs(0, 1), RunE: runScriptRemove}
+	cmd := &cobra.Command{Use: "remove [name]", Aliases: []string{"rm", "delete"}, Short: locale.Text(locale.KeyCliRemoveScript), Args: managedRangeArgs(0, 1), RunE: runScriptRemove}
 	addManagedFlags(cmd, managedKindScript, managedOpRemove)
 	return cmd
 }
