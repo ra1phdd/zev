@@ -134,6 +134,9 @@ func TestManagedDispatchKeepsExplicitQueryAndRootHelp(t *testing.T) {
 	if exitErr, ok := errors.AsType[*machineExitError](err); !ok || exitErr.code != exitArguments {
 		t.Fatalf("removed help command error = %v, want usage error", err)
 	}
+	if _, err := os.Stat(filepath.Join(home, ".zev", "history.db")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("built-in help created query history: %v", err)
+	}
 }
 
 func TestExplicitQueryPrintUsesQueryProviderPath(t *testing.T) {

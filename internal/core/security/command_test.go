@@ -6,7 +6,11 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 )
 
-const testCommand = "ls -la"
+const (
+	testCommand        = "ls -la"
+	testRemovalCommand = "rm -rf ./tmp"
+	testForcePush      = "git push --force origin main"
+)
 
 func TestValidateCommand(t *testing.T) {
 	t.Parallel()
@@ -45,7 +49,7 @@ func TestValidateCommand(t *testing.T) {
 		{name: "hard git reset", command: "git reset --hard HEAD~1", dangerous: true},
 		{name: "hard git reset with repository option", command: "git -C ./repo reset --hard HEAD~1", dangerous: true},
 		{name: "force git clean", command: "git clean -fd", dangerous: true},
-		{name: "force push", command: "git push --force origin main", dangerous: true},
+		{name: "force push", command: testForcePush, dangerous: true},
 		{name: "privileged command", command: "sudo systemctl restart nginx", dangerous: true},
 		{name: "alternate privileged command", command: "doas /bin/rm -rf /tmp/cache", dangerous: true},
 		{name: "insecure permissions", command: "chmod -R 777 ./shared", dangerous: true},
@@ -95,7 +99,7 @@ func TestApplyDangerousValidation(t *testing.T) {
 	t.Parallel()
 
 	response := &domain.OptionsResponse{Commands: []domain.Command{
-		{Command: "rm -rf ./tmp", IsDangerous: false},
+		{Command: testRemovalCommand, IsDangerous: false},
 		{Command: testCommand, IsDangerous: true, DangerousExplanation: "provider warning"},
 		{Command: "pwd", IsDangerous: false},
 		{Command: "cat /etc/shadow", IsDangerous: true},
@@ -165,5 +169,42 @@ func TestValidateCommandKeepsDialectAndPathExpansionsUnknown(t *testing.T) {
 				t.Fatalf("ValidateCommand(%q) = %+v, want non-dangerous unknown", command, assessment)
 			}
 		})
+	}
+}
+
+func TestValidateCommandWithOverrides(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		command   string
+		overrides CommandOverrides
+		want      bool
+	}{
+		{name: "custom dangerous command", command: "deploy --force", overrides: CommandOverrides{Add: []string{"deploy --force"}}, want: true},
+		{name: "exact default exception", command: testRemovalCommand, overrides: CommandOverrides{Remove: []string{testRemovalCommand}}},
+		{name: "exception does not match other arguments", command: "rm -rf /", overrides: CommandOverrides{Remove: []string{testRemovalCommand}}, want: true},
+		{name: "exception does not suppress structural danger", command: "printf x > /etc/passwd", overrides: CommandOverrides{Remove: []string{"printf x > /etc/passwd"}}, want: true},
+		{name: "exception does not suppress another command segment", command: "rm -rf ./tmp; printf x > file", overrides: CommandOverrides{Remove: []string{"rm -rf ./tmp; printf x > file"}}, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ValidateCommandWithOverrides(tt.command, "sh", tt.overrides)
+			if got.Dangerous != tt.want {
+				t.Fatalf("ValidateCommandWithOverrides(%q) = %+v, want dangerous=%t", tt.command, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestApplyDangerousValidationReappliesCommandOverrides(t *testing.T) {
+	t.Parallel()
+	response := &domain.OptionsResponse{Commands: []domain.Command{{Command: testRemovalCommand}}}
+	ApplyDangerousValidation(response)
+	if !response.Commands[0].IsDangerous {
+		t.Fatal("built-in validation did not mark the command dangerous")
+	}
+	ApplyDangerousValidation(response, CommandOverrides{Remove: []string{testRemovalCommand}})
+	if response.Commands[0].IsDangerous {
+		t.Fatal("configured exact exception did not remove the built-in warning")
 	}
 }

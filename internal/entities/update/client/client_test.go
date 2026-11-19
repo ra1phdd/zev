@@ -191,6 +191,17 @@ func TestDownloadFetchesAndVerifiesReleaseArchive(t *testing.T) {
 	}
 }
 
+func TestRedirectAllowsGitHubArchiveHost(t *testing.T) {
+	t.Parallel()
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://codeload.github.com/ra1phdd/zev/tar.gz/abc", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkRedirect(request, []*http.Request{{URL: &url.URL{Scheme: "https", Host: "github.com"}}}); err != nil {
+		t.Fatalf("GitHub source archive redirect was rejected: %v", err)
+	}
+}
+
 func TestAssetURLsRejectForeignHostsAndPaths(t *testing.T) {
 	t.Parallel()
 	name := "checksums.txt"

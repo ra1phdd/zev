@@ -154,6 +154,7 @@ func authorizeManagedScript(cmd *cobra.Command, script domain.Script, body []byt
 		Source:        security.SourceScript,
 		Provenance:    security.Provenance{Kind: "saved_script", Identifier: script.Name, Digest: hex.EncodeToString(hash[:]), Trusted: true},
 		Delivery:      security.DeliveryExecute,
+		Command:       command,
 		Dangerous:     true,
 		AnalysisKnown: false,
 		Certainty:     security.CertaintyUnknown,
@@ -178,6 +179,9 @@ func authorizeManagedScript(cmd *cobra.Command, script domain.Script, body []byt
 			return fmt.Errorf("confirm script execution: %w", err)
 		}
 		if !approved {
+			if err := rememberDeniedQueryCommand(cmd.Context(), command); err != nil {
+				return fmt.Errorf("remember denied script command: %w", err)
+			}
 			return errors.New("script execution was not approved")
 		}
 	case security.DecisionAllow:
@@ -196,7 +200,7 @@ func authorizeManagedCommand(cmd *cobra.Command, command string) error {
 	if err != nil {
 		return fmt.Errorf("load security configuration: %w", err)
 	}
-	assessment := security.ValidateCommandForShell(command, terminal.DefaultShell())
+	assessment := security.ValidateCommandWithOverrides(command, terminal.DefaultShell(), cfg.Security.CommandOverrides())
 	needsReview := assessment.Dangerous || !assessment.Known
 	selected := &domain.Command{
 		Command:              command,
@@ -220,6 +224,7 @@ func authorizeManagedCommand(cmd *cobra.Command, command string) error {
 		Source:        security.SourceAlias,
 		Provenance:    security.Provenance{Kind: "saved_alias", Identifier: command, Trusted: true},
 		Delivery:      security.DeliveryExecute,
+		Command:       command,
 		Dangerous:     assessment.Dangerous,
 		AnalysisKnown: assessment.Known,
 		Certainty:     runAssessmentCertainty(assessment.Known),
@@ -245,6 +250,9 @@ func authorizeManagedCommand(cmd *cobra.Command, command string) error {
 			return fmt.Errorf("confirm managed command: %w", err)
 		}
 		if !approved {
+			if err := rememberDeniedQueryCommand(cmd.Context(), command); err != nil {
+				return fmt.Errorf("remember denied alias command: %w", err)
+			}
 			return errors.New("managed command execution was not approved")
 		}
 	case security.DecisionDeny:

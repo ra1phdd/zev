@@ -72,6 +72,7 @@ type policySnapshot struct {
 	Mode            Mode
 	DefaultDecision Decision
 	Rules           []Rule
+	DeniedCommands  []string
 	Workspace       string
 	Home            string
 }

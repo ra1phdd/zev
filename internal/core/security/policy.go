@@ -107,6 +107,7 @@ type Action struct {
 	Provenance          Provenance
 	Source              Source
 	Delivery            Delivery
+	Command             string
 	Dangerous           bool
 	AnalysisKnown       bool
 	Certainty           Certainty
@@ -143,6 +144,7 @@ type Policy struct {
 	Mode            Mode
 	DefaultDecision Decision
 	Rules           []Rule
+	DeniedCommands  []string
 	Workspace       string
 	Home            string
 }
@@ -161,6 +163,9 @@ func (p Policy) Evaluate(action Action) Decision {
 		return DecisionDeny
 	}
 	if action.Delivery != DeliveryInject && action.Delivery != DeliveryExecute {
+		return DecisionDeny
+	}
+	if action.Delivery == DeliveryExecute && slices.Contains(p.DeniedCommands, action.Command) {
 		return DecisionDeny
 	}
 	if action.Delivery == DeliveryInject {

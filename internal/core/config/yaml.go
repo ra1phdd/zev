@@ -28,6 +28,30 @@ func Parse(data []byte) (*Config, error) {
 	return cfg, nil
 }
 
+// ParseSecurity decodes only the security section of a current configuration.
+// Local-only commands can use this boundary without requiring a valid provider.
+func ParseSecurity(data []byte) (SecurityConfig, error) {
+	root, err := currentDocument(data)
+	if err != nil {
+		return SecurityConfig{}, err
+	}
+	security := DefaultConfig().Security
+	for i := 0; i < len(root.Content); i += 2 {
+		if root.Content[i].Value != "security" {
+			continue
+		}
+		node := root.Content[i+1]
+		if !validNode(node, reflect.TypeFor[SecurityConfig]()) || node.Decode(&security) != nil {
+			return SecurityConfig{}, errYAML
+		}
+		break
+	}
+	if err := security.Validate(); err != nil {
+		return SecurityConfig{}, err
+	}
+	return security, nil
+}
+
 func decodeYAML(data []byte) (*Config, error) {
 	cfg := DefaultConfig()
 	cfg.Version = 0
@@ -139,7 +163,7 @@ func init() {
 	for _, t := range []reflect.Type{
 		reflect.TypeFor[Config](), reflect.TypeFor[ProviderConfig](), reflect.TypeFor[SecurityConfig](),
 		reflect.TypeFor[SecurityStageConfig](), reflect.TypeFor[SecurityLimits](),
-		reflect.TypeFor[SecurityRules](), reflect.TypeFor[SecurityRule](), reflect.TypeFor[SecurityRuleMatch](),
+		reflect.TypeFor[SecurityRules](), reflect.TypeFor[SecurityRule](), reflect.TypeFor[SecurityRuleMatch](), reflect.TypeFor[SecurityCommandOverrides](),
 	} {
 		fields[t] = make(map[string]reflect.Type)
 		for f := range t.Fields() {

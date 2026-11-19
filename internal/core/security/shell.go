@@ -206,13 +206,13 @@ func (p *shellParser) command(words []shellLexeme) ShellAnalysis {
 	case safetyChmodCommand:
 		if shellInsecureChmod(args) {
 			analysis.Dangerous = true
-			analysis.Explanation = "Permission or ownership changes can weaken security."
+			analysis.Explanation = securityPermissionChangeExplanation
 			analysis.Effects = appendUniqueEffects(analysis.Effects, EffectWrite)
 		}
 	case "chown", "setfacl":
 		if !shellHelpOnly(args) {
 			analysis.Dangerous = true
-			analysis.Explanation = "Permission or ownership changes can weaken security."
+			analysis.Explanation = securityPermissionChangeExplanation
 			analysis.Effects = appendUniqueEffects(analysis.Effects, EffectWrite)
 		}
 	case "eval", "source", ".":

@@ -134,7 +134,7 @@ func queryRunRecovery(ctx context.Context, cmd *cobra.Command, cfg *config.Confi
 	if err != nil {
 		return fmt.Errorf("request command failure %s: %w", action, err)
 	}
-	security.ApplyDangerousValidation(response)
+	security.ApplyDangerousValidation(response, cfg.Security.CommandOverrides())
 	if err := response.Validate(); err != nil {
 		return fmt.Errorf("validate recovery suggestions: %w", err)
 	}

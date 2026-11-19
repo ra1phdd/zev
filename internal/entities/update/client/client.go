@@ -500,7 +500,7 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 
 func allowedHost(host string) bool {
 	switch host {
-	case "github.com", "api.github.com", "objects.githubusercontent.com", "github-releases.githubusercontent.com", "release-assets.githubusercontent.com":
+	case "github.com", "api.github.com", "codeload.github.com", "objects.githubusercontent.com", "github-releases.githubusercontent.com", "release-assets.githubusercontent.com":
 		return true
 	}
 	return false

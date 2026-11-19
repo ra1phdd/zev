@@ -108,6 +108,31 @@ func LoadContext(ctx context.Context) (*Config, error) {
 	return cfg, nil
 }
 
+// LoadSecurityContext reads only the security section of config.yaml. It is
+// intended for local-only commands that must not depend on provider settings.
+func LoadSecurityContext(ctx context.Context) (SecurityConfig, error) {
+	var security SecurityConfig
+	err := transaction(ctx, func(path string) error {
+		if err := ValidateFileSecurity(path); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				security = DefaultConfig().Security
+				return nil
+			}
+			return fmt.Errorf("validate configuration security: %w", err)
+		}
+		data, err := filestore.ReadSingleLink(path, maxConfigBytes)
+		if err != nil {
+			return fmt.Errorf("read configuration: %w", err)
+		}
+		security, err = ParseSecurity(data)
+		return err
+	})
+	if err != nil {
+		return SecurityConfig{}, fmt.Errorf("load security configuration: %w", err)
+	}
+	return security, nil
+}
+
 // Save replaces a validated YAML configuration atomically. Prefer Update when
 // changing an existing file. A failed directory sync can wrap filestore.ErrCommitted.
 func Save(cfg *Config) error {

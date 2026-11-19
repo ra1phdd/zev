@@ -31,14 +31,23 @@ const (
 // version-one policy configuration. Rules tighten built-in safeguards and
 // cannot create a global allow.
 type SecurityConfig struct {
-	Version         int                 `yaml:"version,omitempty"`
-	Mode            string              `yaml:"mode"`
-	DefaultDecision string              `yaml:"default_decision,omitempty"` //nolint:tagliatelle // YAML wire format uses snake_case.
-	Probe           SecurityStageConfig `yaml:"probe,omitempty"`
-	Classifier      SecurityStageConfig `yaml:"classifier,omitempty"`
-	Limits          SecurityLimits      `yaml:"limits,omitempty"`
-	Rules           SecurityRules       `yaml:"rules,omitempty"`
-	WebFetchEnabled bool                `yaml:"web_fetch_enabled"` //nolint:tagliatelle // YAML wire format uses snake_case.
+	Version           int                      `yaml:"version,omitempty"`
+	Mode              string                   `yaml:"mode"`
+	DefaultDecision   string                   `yaml:"default_decision,omitempty"` //nolint:tagliatelle // YAML wire format uses snake_case.
+	Probe             SecurityStageConfig      `yaml:"probe,omitempty"`
+	Classifier        SecurityStageConfig      `yaml:"classifier,omitempty"`
+	Limits            SecurityLimits           `yaml:"limits,omitempty"`
+	Rules             SecurityRules            `yaml:"rules,omitempty"`
+	DangerousCommands SecurityCommandOverrides `yaml:"dangerous_commands,omitempty"` //nolint:tagliatelle // YAML wire format uses snake_case.
+	DeniedCommands    []string                 `yaml:"denied_commands,omitempty"`    //nolint:tagliatelle // YAML wire format uses snake_case.
+	WebFetchEnabled   bool                     `yaml:"web_fetch_enabled"`            //nolint:tagliatelle // YAML wire format uses snake_case.
+}
+
+// SecurityCommandOverrides contains exact command strings added to or removed
+// from the built-in dangerous-command classifications.
+type SecurityCommandOverrides struct {
+	Add    []string `yaml:"add,omitempty"`
+	Remove []string `yaml:"remove,omitempty"`
 }
 
 // SecurityStageConfig configures one local analysis stage.
@@ -274,6 +283,8 @@ func (c *Config) Validate() error {
 }
 
 // Validate checks the version-one security policy schema before dispatch.
+//
+//nolint:gocognit // Validation keeps the fail-closed policy schema in one boundary.
 func (c *SecurityConfig) Validate() error {
 	if c == nil {
 		return errors.New("security configuration is missing")
@@ -317,7 +328,21 @@ func (c *SecurityConfig) Validate() error {
 	if c.Limits.MaxModelCalls < 0 {
 		return errors.New("security max_model_calls cannot be negative")
 	}
+	for _, values := range [][]string{c.DangerousCommands.Add, c.DangerousCommands.Remove, c.DeniedCommands} {
+		for _, command := range values {
+			if command == "" || strings.TrimSpace(command) != command || len(command) > 4096 || strings.ContainsRune(command, 0) || strings.ContainsFunc(command, unicode.IsControl) {
+				return errors.New("security command entries must be nonempty, trimmed, and contain no control characters")
+			}
+		}
+	}
 	return validateSecurityRules(c.Rules)
+}
+
+// CommandOverrides returns a detached runtime copy of command classification overrides.
+func (c SecurityConfig) CommandOverrides() security.CommandOverrides {
+	return security.CommandOverrides{
+		Add: append([]string(nil), c.DangerousCommands.Add...), Remove: append([]string(nil), c.DangerousCommands.Remove...),
+	}
 }
 
 func validateSecurityStage(stage *SecurityStageConfig, classifier bool) error {
@@ -404,7 +429,7 @@ func validateSecurityValues(values []string, allowed map[string]bool) error {
 
 // Policy converts the validated YAML policy into the runtime decision engine.
 func (c SecurityConfig) Policy() security.Policy {
-	policy := security.Policy{Mode: security.Mode(c.Mode), DefaultDecision: security.Decision(c.DefaultDecision)}
+	policy := security.Policy{Mode: security.Mode(c.Mode), DefaultDecision: security.Decision(c.DefaultDecision), DeniedCommands: append([]string(nil), c.DeniedCommands...)}
 	for decision, rules := range map[security.Decision][]SecurityRule{
 		security.DecisionDeny:  c.Rules.Deny,
 		security.DecisionAsk:   c.Rules.Ask,

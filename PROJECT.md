@@ -141,7 +141,10 @@ dotenv-ключи относятся только ко входу миграто
   и `--no-context` отключают соответствующее поведение для одного запроса.
   `tools_enabled` по умолчанию `true`, `tool_approval_mode` — `manual`; допустимы
   `manual`, `auto` и `bypass`, причём режим проверяется даже при отключённых инструментах.
-  При `--no-context` или `context_enabled: false` инструменты по умолчанию отключаются,
+  `security.dangerous_commands.add/remove` настраивают точные полные строки команд в локальном классификаторе;
+  точное совпадение исключения снимает только соответствующее default finding и не отменяет structural-проверки.
+  Отказ от interactive ask-подтверждения в query execute сохраняется в `security.denied_commands`,
+  и такой exact deny имеет приоритет над bypass. В `--no-context` или `context_enabled: false` инструменты по умолчанию отключаются,
   но явный `--tools` переопределяет это ограничение. В `--print`/`--json` `--tools`
   требуется явно; machine mode не открывает TUI, а manual-вызов возвращает модели отказ.
   В интерактивном manual требуется буквальное `yes` в stderr; auto ограничен `pwd`,

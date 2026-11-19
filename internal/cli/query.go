@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -380,6 +381,7 @@ func runConfiguredProvider(cmd *cobra.Command, flags parsedFlags, logger *slog.L
 	defer func() { resultErr = errors.Join(resultErr, closeQueryTools(provider)) }()
 	logger.Debug("Provider created", "name", provider.Name(), "model", provider.Model())
 	s := newQuerySessionWithProjectContext(queryservice.New(provider), cmd, userPrompt, projectContext)
+	s.commandOverrides = cfg.Security.CommandOverrides()
 	s.provider, s.model = provider.Name(), provider.Model()
 	s.updateLanguage = locale.UpdateRequestLanguage
 	s.prepareHistory(cfg.HistoryEnabled)
@@ -418,6 +420,7 @@ func runConfiguredProvider(cmd *cobra.Command, flags parsedFlags, logger *slog.L
 		command: selected, mode: mode, out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger,
 		wrapInject: cfg.CommandWrapperEnabled, sessionID: sessionID,
 		securityMode: security.Mode(cfg.Security.Mode), securityDefaultDecision: security.Decision(cfg.Security.DefaultDecision), securityPolicy: cfg.Security.Policy(),
+		commandOverrides: cfg.Security.CommandOverrides(), rememberDenied: rememberDeniedQueryCommand,
 		runner:  &terminal.Runner{Stdin: cmd.InOrStdin(), Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()},
 		confirm: confirmQueryExecution(cmd), outcome: &outcome,
 		reviewCommand: s.svc.ReviewCommandSafety, userRequest: s.userPrompt,
@@ -466,6 +469,7 @@ type querySession struct {
 	input                func(string) (string, error)
 	selectItem           func(list.SelectOptions) (list.Item, error)
 	updateLanguage       func(string)
+	commandOverrides     security.CommandOverrides
 }
 
 func newQuerySessionWithProjectContext(svc *queryservice.Service, cmd *cobra.Command, userPrompt, projectContext string) *querySession {
@@ -608,7 +612,7 @@ func (s *querySession) addRefinement(value string) {
 }
 
 func (s *querySession) acceptResponse() (bool, error) {
-	security.ApplyDangerousValidation(s.response)
+	security.ApplyDangerousValidation(s.response, s.commandOverrides)
 	if err := s.response.Validate(); err != nil {
 		if s.machine {
 			return false, machineError(4, err)
@@ -715,6 +719,8 @@ type queryDelivery struct {
 	securityMode            security.Mode
 	securityDefaultDecision security.Decision
 	securityPolicy          security.Policy
+	commandOverrides        security.CommandOverrides
+	rememberDenied          func(context.Context, string) error
 	out                     io.Writer
 	errOut                  io.Writer
 	logger                  *slog.Logger
@@ -750,7 +756,7 @@ func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
 }
 
 func deliverExecuteCommand(ctx context.Context, delivery queryDelivery, selected *domain.Command, outcome *historyservice.SelectionOutcome) error {
-	localAssessment := security.ValidateCommandForShell(selected.Command, terminal.DefaultShell())
+	localAssessment := security.ValidateCommandWithOverrides(selected.Command, terminal.DefaultShell(), delivery.commandOverrides)
 	localDangerous := localAssessment.Dangerous
 	reviewReason := ""
 	if !localAssessment.Known {
@@ -779,6 +785,7 @@ func deliverExecuteCommand(ctx context.Context, delivery queryDelivery, selected
 		Source:        security.SourceQuery,
 		Provenance:    security.Provenance{Kind: "provider_suggestion", Trusted: false},
 		Delivery:      security.DeliveryExecute,
+		Command:       selected.Command,
 		Dangerous:     localDangerous,
 		AnalysisKnown: localAssessment.Known || reviewReason != "",
 		Certainty:     querySecurityCertainty(localAssessment.Known || reviewReason != ""),
@@ -883,6 +890,18 @@ func querySecurityCertainty(known bool) security.Certainty {
 	return security.CertaintyUnknown
 }
 
+func rememberDeniedQueryCommand(ctx context.Context, command string) error {
+	if err := config.UpdateContext(ctx, func(cfg *config.Config) error {
+		if !slices.Contains(cfg.Security.DeniedCommands, command) {
+			cfg.Security.DeniedCommands = append(cfg.Security.DeniedCommands, command)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("update denied command list: %w", err)
+	}
+	return nil
+}
+
 func authorizeQueryExecution(ctx context.Context, delivery queryDelivery, selected *domain.Command, decision security.Decision) error {
 	if decision != security.DecisionAsk {
 		if decision != security.DecisionAllow {
@@ -898,13 +917,18 @@ func authorizeQueryExecution(ctx context.Context, delivery queryDelivery, select
 		return fmt.Errorf("confirm command execution: %w", err)
 	}
 	if !approved {
+		if delivery.rememberDenied != nil {
+			if err := delivery.rememberDenied(ctx, selected.Command); err != nil {
+				return fmt.Errorf("remember denied command: %w", err)
+			}
+		}
 		return errors.New("command execution was not approved")
 	}
 	return nil
 }
 
 func deliverInjectCommand(delivery queryDelivery, selected *domain.Command, outcome *historyservice.SelectionOutcome) error {
-	localAssessment := security.ValidateCommandForShell(selected.Command, terminal.DefaultShell())
+	localAssessment := security.ValidateCommandWithOverrides(selected.Command, terminal.DefaultShell(), delivery.commandOverrides)
 	if localAssessment.Dangerous {
 		selected.IsDangerous = true
 		if selected.DangerousExplanation == "" {

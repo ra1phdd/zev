@@ -88,3 +88,48 @@ security:
 		t.Fatal("unsupported sandbox mode was accepted")
 	}
 }
+
+func TestSecurityCommandOverridesRoundTrip(t *testing.T) {
+	t.Parallel()
+	cfg, err := Parse([]byte(`version: 1
+active_provider: openai
+providers:
+  openai:
+    type: openai
+security:
+  dangerous_commands:
+    add: ["deploy --force"]
+    remove: ["rm -rf ./tmp"]
+  denied_commands: ["git push --force origin main"]
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := encodeYAML(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roundTrip, err := Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(roundTrip.Security.DangerousCommands.Add) != 1 || len(roundTrip.Security.DangerousCommands.Remove) != 1 || len(roundTrip.Security.DeniedCommands) != 1 {
+		t.Fatalf("security command overrides did not round-trip: %+v", roundTrip.Security)
+	}
+}
+
+func TestSecurityCommandOverridesRejectEmptyEntries(t *testing.T) {
+	t.Parallel()
+	for _, yaml := range []string{
+		`dangerous_commands: {add: [""]}`,
+		`dangerous_commands: {remove: [""]}`,
+		`denied_commands: [""]`,
+	} {
+		t.Run(yaml, func(t *testing.T) {
+			input := "version: 1\nactive_provider: openai\nproviders:\n  openai:\n    type: openai\nsecurity:\n  " + yaml + "\n"
+			if _, err := Parse([]byte(input)); err == nil {
+				t.Fatal("empty command override was accepted")
+			}
+		})
+	}
+}

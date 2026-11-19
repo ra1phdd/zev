@@ -22,10 +22,11 @@ const (
 
 // Command is a terminal command suggestion with an explanation and safety metadata.
 type Command struct {
-	Command              string `json:"command"`
-	ShortExplanation     string `json:"short_explanation"`               //nolint:tagliatelle // Snake_case is the established LLM response and persisted history format.
-	IsDangerous          bool   `json:"is_dangerous"`                    //nolint:tagliatelle // Snake_case is the established LLM response and persisted history format.
-	DangerousExplanation string `json:"dangerous_explanation,omitempty"` //nolint:tagliatelle // Snake_case is the established LLM response and persisted history format.
+	Command                  string `json:"command"`
+	ShortExplanation         string `json:"short_explanation"`               //nolint:tagliatelle // Snake_case is the established LLM response and persisted history format.
+	IsDangerous              bool   `json:"is_dangerous"`                    //nolint:tagliatelle // Snake_case is the established LLM response and persisted history format.
+	DangerousExplanation     string `json:"dangerous_explanation,omitempty"` //nolint:tagliatelle // Snake_case is the established LLM response and persisted history format.
+	LocallyAssessedDangerous bool   `json:"-" yaml:"-"`
 }
 
 // OptionsResponse contains command suggestions or an explanation of an invalid request.

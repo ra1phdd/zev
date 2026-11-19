@@ -171,6 +171,7 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 		envContext = queryLocalContextDisabled
 	}
 	s := newQuerySession(queryservice.New(provider), cmd, promptText)
+	s.commandOverrides = cfg.Security.CommandOverrides()
 	s.machine = flags.Print || flags.JSON
 	s.updateLanguage = locale.UpdateRequestLanguage
 	s.historyStore, s.persistence = store, historyservice.NewLifecycle(store)
@@ -211,6 +212,7 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	s.warnHistory(s.persistence.Select(cmd.Context(), outcome))
 	err = deliverQueryCommand(cmd.Context(), queryDelivery{
 		command: selected, mode: mode, securityMode: security.Mode(cfg.Security.Mode), securityDefaultDecision: security.Decision(cfg.Security.DefaultDecision), securityPolicy: cfg.Security.Policy(),
+		commandOverrides: cfg.Security.CommandOverrides(), rememberDenied: rememberDeniedQueryCommand,
 		out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger,
 		runner:  &terminal.Runner{Stdin: cmd.InOrStdin(), Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()},
 		confirm: confirmQueryExecution(cmd), outcome: &outcome,

@@ -114,10 +114,30 @@ valid global fallback. `probe` and `classifier` accept only `mode: local`,
 other legacy sandbox values are rejected. No sandbox setting is supported.
 Optional `limits` fields are bounded review durations/call counts. `rules.deny`,
 `rules.ask`, and `rules.allow` use unique IDs and non-empty conjunctive matches for
-`sources`, `deliveries`, `effects`, `paths`, `executables`, `argv_prefix`, `certainty`,
-and `risk`. Matching priority is always deny, then ask, then allow, regardless of
-YAML order; an allow must cover every requested effect. Invalid, duplicate, null, or
-unknown policy values fail closed before dispatch.
+`sources`, `deliveries`, `effects`, `paths`, `executables`, `argv_prefix`, `certainty`, and `risk`. Priority is always deny, then ask, then allow,
+regardless of YAML order; an allow must cover every requested effect. `dangerous_commands.add`
+and `dangerous_commands.remove` add or exclude exact full command strings in local
+risk classification (not shell patterns or executable names). An exception does not
+bypass independent structural checks: dangerous redirects or shell constructs still
+require confirmation. When the user denies an `ask` confirmation for interactive
+`execute`, Zev persists the exact command in `security.denied_commands`; future exact
+matches are denied automatically, including in `bypass` mode. Invalid, duplicate, null, or
+unknown policy values fail closed before dispatch. Example `~/.zev/config.yaml` fragment:
+
+```yaml
+security:
+  dangerous_commands:
+    add:
+      - "terraform destroy -auto-approve"
+    remove:
+      - "rm -rf ./build"
+  denied_commands:
+    - "git push --force origin main"
+```
+
+`denied_commands` is populated after denying an interactive `ask` confirmation for
+`execute`. Remove an entry to restore the confirmation prompt. Machine output and
+non-interactive review do not persist denials because they have no interactive approval prompt.
 
 The user home (`HOME` on Unix, `USERPROFILE` on Windows) must be an absolute path. A missing or relative home is an
 error; Zev never falls back to `.zev` inside the current project.

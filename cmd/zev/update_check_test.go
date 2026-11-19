@@ -125,6 +125,16 @@ func TestStartupUpdateFailureDoesNotPreventCommand(t *testing.T) {
 	}
 }
 
+func TestSkipStartupUpdateCheckForDevelopmentBuild(t *testing.T) {
+	t.Parallel()
+	if !skipStartupUpdateCheck(nil, "dev") {
+		t.Fatal("development build should not check for a stable release update")
+	}
+	if skipStartupUpdateCheck([]string{"ask for help"}, testStableVersion) {
+		t.Fatal("stable query should retain startup update checks")
+	}
+}
+
 func TestStartupProxy(t *testing.T) {
 	t.Parallel()
 	const updateCommand = "update"

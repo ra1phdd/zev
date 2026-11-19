@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Allow exact dangerous-command classification overrides in security YAML; persist an exact command in `security.denied_commands` when an interactive `execute` confirmation is denied, and enforce that denial even in bypass mode.
+- Suppress startup stable-release update notices for unversioned `dev` builds, and allow the bounded updater to follow GitHub source-archive redirects to `codeload.github.com`.
 - Add bilingual implementation guides for centralized security, managed aliases/scripts, and the literal `zev run` wrapper; replace README links to deleted specification documents.
 - Skip startup update checks for help, version, machine-output queries and read-only list commands; do not create the update cache/lock or home directory solely for that check. Preserve configured command proxy behavior.
 - Keep persisted `language: en|ru` authoritative for query UI; auto-detection applies only to `language: auto`. Fix managed native execution fixtures to select the intended command-delivery policy.

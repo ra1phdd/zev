@@ -22,7 +22,9 @@ automatically downgrade.
 For ordinary interactive/query commands, Zev performs a synchronous best-effort
 startup update check with a 5-second deadline. It is skipped for help, `version`,
 machine-output (`--print`/`--json`) and provider/alias/script list commands. Errors
-and timeouts do not block the requested command. A failed or timed-out check is
+and timeouts do not block the requested command. Unversioned development builds
+such as `go run ./cmd/zev` skip the startup check because the release API cannot
+meaningfully order them against a stable release. A failed or timed-out check is
 cached for 1 hour; successful results are cached for 24 hours in
 `~/.zev/update-check.json`. The check does not create `~/.zev` or its cache lock
 when that directory is absent. A cached or successful result can print an update

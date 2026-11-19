@@ -2,6 +2,7 @@ package security
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -22,6 +23,12 @@ type CommandAssessment struct {
 	Known       bool
 }
 
+// CommandOverrides adjusts exact command strings without changing structural checks.
+type CommandOverrides struct {
+	Add    []string
+	Remove []string
+}
+
 // ValidateCommand analyzes command text using the POSIX sh grammar.
 func ValidateCommand(command string) CommandAssessment {
 	return ValidateCommandForShell(command, "sh")
@@ -30,6 +37,16 @@ func ValidateCommand(command string) CommandAssessment {
 // ValidateCommandForShell selects the parser from the resolved interpreter.
 // Unsupported interpreters remain unknown instead of being treated as POSIX.
 func ValidateCommandForShell(command, interpreter string) CommandAssessment {
+	return ValidateCommandWithOverrides(command, interpreter, CommandOverrides{})
+}
+
+// ValidateCommandWithOverrides applies exact command overrides after structural analysis.
+//
+//nolint:gocognit // The bounded analyzer preserves conservative checks in one path.
+func ValidateCommandWithOverrides(command, interpreter string, overrides CommandOverrides) CommandAssessment {
+	if slices.Contains(overrides.Add, command) {
+		return dangerousAssessment("Command is marked dangerous by user configuration.")
+	}
 	const (
 		zsh = safetyZshCommand
 		ksh = safetyKshCommand
@@ -48,6 +65,9 @@ func ValidateCommandForShell(command, interpreter string) CommandAssessment {
 	}
 	structural := AnalyzeShell(command, dialect)
 	if structural.Dangerous {
+		if slices.Contains(overrides.Remove, command) && overridableCommandOnly(command, structural.Explanation) {
+			return CommandAssessment{Known: true}
+		}
 		return CommandAssessment{Dangerous: true, Known: structural.Known, Explanation: structural.Explanation}
 	}
 	if !structural.Known {
@@ -58,6 +78,9 @@ func ValidateCommandForShell(command, interpreter string) CommandAssessment {
 
 	for _, segment := range segments {
 		if assessment, ok := assessCommandSegment(segment); ok {
+			if slices.Contains(overrides.Remove, command) && len(segments) == 1 && overridableDanger(assessment.Explanation) {
+				return CommandAssessment{Known: true}
+			}
 			return assessment
 		}
 	}
@@ -88,20 +111,30 @@ func ValidateCommandForShell(command, interpreter string) CommandAssessment {
 
 // ApplyDangerousValidation upgrades provider responses using the local structural analyzer.
 // Existing provider warnings and explanations are never changed.
-func ApplyDangerousValidation(response *domain.OptionsResponse) {
+func ApplyDangerousValidation(response *domain.OptionsResponse, overrides ...CommandOverrides) {
 	if response == nil {
 		return
+	}
+	var commandOverrides CommandOverrides
+	if len(overrides) > 0 {
+		commandOverrides = overrides[0]
 	}
 
 	for i := range response.Commands {
 		command := &response.Commands[i]
-		if command.IsDangerous {
+		if command.IsDangerous && !command.LocallyAssessedDangerous {
 			continue
 		}
-		assessment := ValidateCommand(command.Command)
+		if command.LocallyAssessedDangerous {
+			command.IsDangerous = false
+			command.DangerousExplanation = ""
+			command.LocallyAssessedDangerous = false
+		}
+		assessment := ValidateCommandWithOverrides(command.Command, "sh", commandOverrides)
 		if assessment.Dangerous {
 			command.IsDangerous = true
 			command.DangerousExplanation = assessment.Explanation
+			command.LocallyAssessedDangerous = true
 		}
 	}
 }
@@ -630,6 +663,33 @@ func isCommandBoundary(token safetyToken) bool {
 func isShellName(name string) bool {
 	switch name {
 	case "sh", safetyBashCommand, safetyDashCommand, safetyZshCommand, safetyKshCommand, safetyFishCommand, safetyPwshCommand, safetyPowerShellCommand, safetyCmdCommand:
+		return true
+	default:
+		return false
+	}
+}
+
+func overridableCommandOnly(command, explanation string) bool {
+	if !overridableDanger(explanation) {
+		return false
+	}
+	tokens, _ := tokenizeCommand(command)
+	segments := splitCommandSegments(tokens)
+	if len(segments) != 1 {
+		return false
+	}
+	assessment, ok := assessCommandSegment(segments[0])
+	return ok && assessment.Dangerous && assessment.Explanation == explanation
+}
+
+const securityPermissionChangeExplanation = "Permission or ownership changes can weaken security."
+
+func overridableDanger(explanation string) bool {
+	switch explanation {
+	case "File or directory removal can cause data loss.",
+		"Filesystem or raw-device operations can destroy data.",
+		"Elevated privileges can affect protected system resources.",
+		securityPermissionChangeExplanation:
 		return true
 	default:
 		return false

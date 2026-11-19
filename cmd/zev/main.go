@@ -43,7 +43,7 @@ func executeAfterStartupUpdateCheck(
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	if skipStartupUpdateCheck(os.Args[1:]) {
+	if skipStartupUpdateCheck(os.Args[1:], version) {
 		code := cli.Execute(ctx, cli.NewRootCommandContext(ctx, version))
 		stop()
 		os.Exit(code)
@@ -59,7 +59,10 @@ func main() {
 	os.Exit(code)
 }
 
-func skipStartupUpdateCheck(args []string) bool {
+func skipStartupUpdateCheck(args []string, buildVersion string) bool {
+	if buildVersion == "dev" {
+		return true
+	}
 	if len(args) == 0 {
 		return false
 	}

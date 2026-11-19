@@ -71,8 +71,8 @@ type machineOutput struct {
 	Commands       []domain.Command `json:"commands"`
 }
 
-func writeMachineResult(cmd *cobra.Command, flags parsedFlags, response *domain.OptionsResponse) error {
-	security.ApplyDangerousValidation(response)
+func writeMachineResult(cmd *cobra.Command, flags parsedFlags, response *domain.OptionsResponse, overrides ...security.CommandOverrides) error {
+	security.ApplyDangerousValidation(response, overrides...)
 	if err := response.Validate(); err != nil {
 		return machineError(exitInvalidResponse, err)
 	}
@@ -121,13 +121,16 @@ func machineNamedQuery(cmd *cobra.Command, flags parsedFlags) (bool, error) {
 		return true, machineError(exitProvider, err)
 	}
 	if alias != nil {
+		securityConfig, err := config.LoadSecurityContext(cmd.Context())
+		if err != nil {
+			return true, machineError(exitProvider, err)
+		}
 		resolved, err := metadata.RenderAlias(*alias, args)
 		if err != nil {
 			return true, machineError(exitArguments, err)
 		}
 		response := &domain.OptionsResponse{IsValid: true, Commands: []domain.Command{{Command: resolved}}}
-		security.ApplyDangerousValidation(response)
-		return true, writeMachineResult(cmd, flags, response)
+		return true, writeMachineResult(cmd, flags, response, securityConfig.CommandOverrides())
 	}
 	if script != nil {
 		return true, machineError(exitArguments, fmt.Errorf(locale.Text(locale.KeyCliScriptQCannotPrintedAutomaticallyZevScript), name, name))
@@ -196,7 +199,8 @@ func runMachineProvider(cmd *cobra.Command, flags parsedFlags, params machinePro
 	}
 	s := &querySession{
 		svc: queryservice.New(params.Provider), cmd: cmd, userPrompt: params.Prompt,
-		history: &domain.ConversationHistory{SystemPrompt: fmt.Sprintf(repository.SystemPrompt, env), Messages: messages}, machine: true,
+		commandOverrides: cfg.Security.CommandOverrides(),
+		history:          &domain.ConversationHistory{SystemPrompt: fmt.Sprintf(repository.SystemPrompt, env), Messages: messages}, machine: true,
 	}
 	s.provider, s.model = params.Provider.Name(), params.Provider.Model()
 	s.prepareHistory(params.History)
@@ -210,7 +214,7 @@ func runMachineProvider(cmd *cobra.Command, flags parsedFlags, params machinePro
 	if _, err := s.acceptResponse(); err != nil {
 		return err
 	}
-	if err := writeMachineResult(cmd, flags, s.response); err != nil {
+	if err := writeMachineResult(cmd, flags, s.response, s.commandOverrides); err != nil {
 		return err
 	}
 	if s.persistence != nil {

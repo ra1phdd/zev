@@ -111,3 +111,14 @@ func TestPolicyAllowRuleMustCoverEveryEffect(t *testing.T) {
 		t.Fatalf("decision = %q", decision)
 	}
 }
+
+func TestPolicyDeniedCommandCannotBeApprovedOrBypassed(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []Mode{ModeAuto, ModeBypass} {
+		policy := Policy{Mode: mode, DeniedCommands: []string{testForcePush}}
+		got := policy.Evaluate(Action{Delivery: DeliveryExecute, Command: testForcePush})
+		if got != DecisionDeny {
+			t.Fatalf("mode %q allowed remembered denied command: %q", mode, got)
+		}
+	}
+}

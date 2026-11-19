@@ -5,9 +5,13 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/core/security"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
@@ -243,5 +247,42 @@ func TestInjectDeliveryDoesNotUseRunWrapperWhenDisabled(t *testing.T) {
 	}
 	if injected != command {
 		t.Fatalf("injected command = %q, want original %q", injected, command)
+	}
+}
+
+func TestAskDenialRemembersExactCommand(t *testing.T) {
+	t.Parallel()
+	const command = "git push --force origin main"
+	remembered := ""
+	delivery := queryDelivery{
+		confirm:        func(context.Context, *domain.Command) (bool, error) { return false, nil },
+		rememberDenied: func(_ context.Context, value string) error { remembered = value; return nil },
+	}
+	err := authorizeQueryExecution(t.Context(), delivery, &domain.Command{Command: command}, security.DecisionAsk)
+	if err == nil || remembered != command {
+		t.Fatalf("authorizeQueryExecution() = %v, remembered %q", err, remembered)
+	}
+}
+
+func TestRememberDeniedQueryCommandPersistsExactCommandOnce(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	zevDir := filepath.Join(home, ".zev")
+	if err := os.Mkdir(zevDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	const command = "git push --force origin main"
+	if err := rememberDeniedQueryCommand(t.Context(), command); err != nil {
+		t.Fatal(err)
+	}
+	if err := rememberDeniedQueryCommand(t.Context(), command); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(cfg.Security.DeniedCommands, []string{command}) {
+		t.Fatalf("persisted denied commands = %q", cfg.Security.DeniedCommands)
 	}
 }
