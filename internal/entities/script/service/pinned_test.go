@@ -121,3 +121,30 @@ func TestExecutePreservesArgumentsAndStdin(t *testing.T) {
 		t.Fatalf("execution: %q %v", data, err)
 	}
 }
+
+func TestAuthorizedExecutionUsesImmutableBodySnapshot(t *testing.T) {
+	t.Parallel()
+	svc, dir := newTestService(t)
+	out := filepath.Join(t.TempDir(), "result")
+	source := []byte("#!/bin/bash\nprintf original > \"$1\"\n")
+	if err := svc.repo.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, source); err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(dir, "script_files", safeScriptFile)
+	authorized := false
+	if err := svc.ExecuteAuthorized(t.Context(), safeScriptName, []string{out}, func(_ domain.Script, body []byte) error {
+		authorized = true
+		if string(body) != string(source) {
+			t.Fatalf("authorized body = %q, want original snapshot", body)
+		}
+		return os.WriteFile(scriptPath, []byte("#!/bin/bash\nexit 9\n"), 0o700) //nolint:gosec // Test changes only its private fixture.
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !authorized {
+		t.Fatal("authorization callback was not called")
+	}
+	if data, err := os.ReadFile(filepath.Clean(out)); err != nil || string(data) != "original" {
+		t.Fatalf("execution used changed body: %q %v", data, err)
+	}
+}

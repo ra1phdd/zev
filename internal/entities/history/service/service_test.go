@@ -98,6 +98,10 @@ func TestLifecyclePersistsRefinementBeforeResponse(t *testing.T) {
 	if err := lifecycle.Response(t.Context(), response); err != nil {
 		t.Fatal(err)
 	}
+	conversationID, commandID, ok := lifecycle.SelectedCommandReference(0)
+	if !ok || conversationID == "" || commandID == "" {
+		t.Fatalf("selected command reference = (%q, %q, %t)", conversationID, commandID, ok)
+	}
 
 	conversations, err := store.ListConversations(t.Context(), history.ListRequest{Limit: 10})
 	if err != nil {

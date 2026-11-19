@@ -97,10 +97,28 @@ zev query "list all docker containers by size"
 
 ```bash
 zev --inject "compress the logs"   # put it in the terminal for review (default)
-zev --execute "restart nginx"      # run it right away
+zev --execute "restart nginx"      # proxy stdout/stderr while it runs
 ```
 
-The default comes from `COMMAND_EXECUTION_MODE` and can be changed with `zev setup mode`.
+`inject` shows warnings only; choosing a suggestion is not an approval and Zev never
+presses Enter. `execute` is the secondary proxy mode: dangerous commands are warned
+and confirmed before launch, then the child's stdout/stderr and exit status pass
+through Zev. The default can be changed with `zev setup mode`. `security.mode: auto`
+and `security.mode: bypass` are peer command-delivery modes;
+`bypass` skips execute confirmation but does not change the separate tool-approval mode.
+
+For an explicit literal argv proxy, use `run`; arguments are forwarded without shell
+joining or reparsing:
+
+```bash
+zev run -- go test ./...
+zev run -- printf '%s' '$HOME'
+```
+
+`zev run` forwards literal argv and is also used by query injection by default. On failure,
+you can ask Zev to analyze the error or suggest a correction; suggestions are not executed.
+Set `command_wrapper_enabled: false` in `~/.zev/config.yaml` to inject generated commands
+without the `zev run` wrapper. Zev does not provide an OS sandbox.
 
 ### History
 

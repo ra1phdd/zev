@@ -49,6 +49,7 @@ func NewRootCommand(buildVersion string) *cobra.Command {
 	rootCmd.AddCommand(newAliasCmd())
 	rootCmd.AddCommand(newScriptCmd())
 	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newRunCmd())
 	rootCmd.AddCommand(newUpdateCmd(buildVersion))
 	localizeCommandHelp(rootCmd)
 	return rootCmd

@@ -38,6 +38,9 @@ func decodeYAML(data []byte) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := discardLegacySandbox(root); err != nil {
+		return nil, err
+	}
 	if !validNode(root, reflect.TypeFor[Config]()) {
 		return nil, errYAML
 	}
@@ -48,6 +51,31 @@ func decodeYAML(data []byte) (*Config, error) {
 		cfg.HTTPHeaders = DefaultConfig().HTTPHeaders
 	}
 	return cfg, nil
+}
+
+func discardLegacySandbox(root *yaml.Node) error {
+	for i := 0; i < len(root.Content); i += 2 {
+		if root.Content[i].Value != "security" {
+			continue
+		}
+		security := root.Content[i+1]
+		if security.Kind != yaml.MappingNode {
+			return nil
+		}
+		for j := 0; j < len(security.Content); j += 2 {
+			if security.Content[j].Value != "sandbox" {
+				continue
+			}
+			legacy := security.Content[j+1]
+			if legacy.Kind != yaml.MappingNode || len(legacy.Content) != 2 || legacy.Content[0].Value != "mode" || legacy.Content[0].ShortTag() != yamlString || legacy.Content[1].Kind != yaml.ScalarNode || legacy.Content[1].ShortTag() != yamlString || legacy.Content[1].Value != "off" {
+				return errors.New("legacy security.sandbox supports only mode: off")
+			}
+			security.Content = append(security.Content[:j], security.Content[j+2:]...)
+			break
+		}
+		break
+	}
+	return nil
 }
 
 // currentDocument checks the envelope without decoding unrelated settings for help.
@@ -116,6 +144,16 @@ func validNode(n *yaml.Node, t reflect.Type) bool {
 		return n.Kind == yaml.ScalarNode && n.ShortTag() == "!!bool"
 	case reflect.Int:
 		return n.Kind == yaml.ScalarNode && n.ShortTag() == "!!int"
+	case reflect.Slice:
+		if n.Kind != yaml.SequenceNode || n.ShortTag() != "!!seq" || len(n.Content) > 4096 {
+			return false
+		}
+		for _, child := range n.Content {
+			if !validNode(child, t.Elem()) {
+				return false
+			}
+		}
+		return true
 	case reflect.Map, reflect.Struct:
 		return validMapping(n, t)
 	default:
@@ -126,7 +164,11 @@ func validNode(n *yaml.Node, t reflect.Type) bool {
 var fields = map[reflect.Type]map[string]reflect.Type{}
 
 func init() {
-	for _, t := range []reflect.Type{reflect.TypeFor[Config](), reflect.TypeFor[ProviderConfig]()} {
+	for _, t := range []reflect.Type{
+		reflect.TypeFor[Config](), reflect.TypeFor[ProviderConfig](), reflect.TypeFor[SecurityConfig](),
+		reflect.TypeFor[SecurityStageConfig](), reflect.TypeFor[SecurityLimits](),
+		reflect.TypeFor[SecurityRules](), reflect.TypeFor[SecurityRule](), reflect.TypeFor[SecurityRuleMatch](),
+	} {
 		fields[t] = make(map[string]reflect.Type)
 		for f := range t.Fields() {
 			name, _, _ := strings.Cut(f.Tag.Get("yaml"), ",")

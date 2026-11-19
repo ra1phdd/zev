@@ -23,6 +23,11 @@ other = "\n⚠️  WARNING: %s\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["query.injection_warning"]
+other = "⚠️  This command will be inserted into your terminal. Zev will not press Enter; your shell will execute it only after you submit it.\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["query.selected_command_message"]
 other = "\n✓ Selected command:\n\n  %s\n\n"
 leftDelim = "[[["

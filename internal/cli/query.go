@@ -18,6 +18,7 @@ import (
 	"github.com/ra1phdd/zev/internal/core/filestore"
 	"github.com/ra1phdd/zev/internal/core/httpclient"
 	"github.com/ra1phdd/zev/internal/core/locale"
+	"github.com/ra1phdd/zev/internal/core/security"
 	historyrepo "github.com/ra1phdd/zev/internal/entities/history/repository"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/ra1phdd/zev/internal/entities/query/repository"
@@ -38,6 +39,8 @@ const (
 	queryLocalContextDisabled = "Local environment context is disabled."
 	queryDeliverySelected     = "selected"
 	queryDeliveryPrinted      = "printed"
+	queryDeliveryExecuted     = "executed"
+	queryDeliveryUnknown      = "unknown"
 )
 
 var (
@@ -154,7 +157,7 @@ func parseArgsFlags(args []string) parsedFlags {
 			break
 		}
 		switch {
-		case arg == "-h", arg == "--help":
+		case arg == "-h", arg == entityHelpFlag:
 			result.Help = true
 		case arg == "-v", arg == "--verbose":
 			result.Verbosity++
@@ -176,7 +179,7 @@ func parseArgsFlags(args []string) parsedFlags {
 			result.Tools = true
 		case arg == "--no-tools":
 			result.NoTools = true
-		case arg == "--tool-approval":
+		case arg == runToolApprovalFlagName:
 			result.ToolApprovalSet = true
 			if i+1 >= len(args) {
 				result.ParseError = "--tool-approval requires a mode"
@@ -287,7 +290,6 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-//nolint:gocognit // Existing query orchestration owns configuration, provider setup, history, and delivery.
 func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logger) (resultErr error) {
 	if flags.Continue {
 		return runContinuationQuery(cmd, flags, logger)
@@ -335,11 +337,7 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	s.prepareHistory(cfg.HistoryEnabled)
 	defer s.closeHistory(cmd.Context(), &resultErr)
 	if !cfg.ContextEnabled {
-		contextPrompt := queryLocalContextDisabled
-		if projectContext != "" {
-			contextPrompt += "\n\n" + projectContextSection(projectContext)
-		}
-		s.history.SystemPrompt = fmt.Sprintf(repository.SystemPrompt, contextPrompt)
+		s.history.SystemPrompt = fmt.Sprintf(repository.SystemPrompt, queryLocalContextDisabled)
 	}
 	if err := s.start(cmd.Context()); err != nil {
 		return err
@@ -357,8 +355,18 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	if s.persistence != nil {
 		s.warnHistory(s.persistence.Select(cmd.Context(), outcome))
 	}
+	conversationID, commandID := "", ""
+	if s.persistence != nil {
+		conversationID, commandID, _ = s.persistence.SelectedCommandReference(index)
+	}
 	err = deliverQueryCommand(cmd.Context(), queryDelivery{
-		command: selected, mode: mode, out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger, outcome: &outcome,
+		command: selected, mode: mode, out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger,
+		wrapInject:     cfg.CommandWrapperEnabled,
+		conversationID: conversationID, commandID: commandID,
+		securityMode: security.Mode(cfg.Security.Mode), securityDefaultDecision: security.Decision(cfg.Security.DefaultDecision), securityPolicy: cfg.Security.Policy(),
+		runner:  &terminal.Runner{Stdin: cmd.InOrStdin(), Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()},
+		confirm: confirmQueryExecution(cmd), outcome: &outcome,
+		reviewCommand: s.svc.ReviewCommandSafety, userRequest: s.userPrompt,
 	})
 	if s.persistence != nil {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(cmd.Context()), 5*time.Second)
@@ -407,15 +415,15 @@ type querySession struct {
 }
 
 func newQuerySessionWithProjectContext(svc *queryservice.Service, cmd *cobra.Command, userPrompt, projectContext string) *querySession {
-	ctx := svc.GetEnvContext()
+	messages := []domain.Message{{Role: queryUserRole, Content: userPrompt}}
 	if projectContext != "" {
-		ctx += "\n\n" + projectContextSection(projectContext)
+		messages = []domain.Message{projectContextMessage(projectContext), {Role: queryUserRole, Content: userPrompt}}
 	}
 	return &querySession{
 		svc: svc, cmd: cmd, userPrompt: userPrompt, projectContext: projectContext,
 		history: &domain.ConversationHistory{
-			SystemPrompt: fmt.Sprintf(repository.SystemPrompt, ctx),
-			Messages:     []domain.Message{{Role: queryUserRole, Content: userPrompt}},
+			SystemPrompt: fmt.Sprintf(repository.SystemPrompt, svc.GetEnvContext()),
+			Messages:     messages,
 		},
 		input: func(title string) (string, error) {
 			return prompt.InputContext(cmd.Context(), title)
@@ -546,6 +554,7 @@ func (s *querySession) addRefinement(value string) {
 }
 
 func (s *querySession) acceptResponse() (bool, error) {
+	queryservice.ApplyDangerousValidation(s.response)
 	if err := s.response.Validate(); err != nil {
 		if s.machine {
 			return false, machineError(4, err)
@@ -643,12 +652,23 @@ func (s *querySession) refine(ctx context.Context) (bool, error) {
 }
 
 type queryDelivery struct {
-	command *domain.Command
-	mode    string
-	out     io.Writer
-	errOut  io.Writer
-	logger  *slog.Logger
-	outcome *historyservice.SelectionOutcome
+	command                 *domain.Command
+	wrapInject              bool
+	conversationID          string
+	commandID               string
+	userRequest             string
+	reviewCommand           func(context.Context, string, string, string) (queryservice.CommandSafetyReview, error)
+	mode                    string
+	securityMode            security.Mode
+	securityDefaultDecision security.Decision
+	securityPolicy          security.Policy
+	out                     io.Writer
+	errOut                  io.Writer
+	logger                  *slog.Logger
+	runner                  *terminal.Runner
+	inject                  func(string) error
+	confirm                 func(context.Context, *domain.Command) (bool, error)
+	outcome                 *historyservice.SelectionOutcome
 }
 
 func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
@@ -666,43 +686,223 @@ func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
 		return fmt.Errorf("validate selected command: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
-		outcome.DeliveryOutcome = "unknown"
+		outcome.DeliveryOutcome = queryDeliveryUnknown
 		outcome.ExecutionError = err.Error()
 		return fmt.Errorf("deliver selected command: %w", err)
 	}
 	if delivery.mode == executionModeExecute {
-		if err := terminal.Execute(ctx, selected.Command); err != nil {
-			outcome.DeliveryOutcome = "unknown"
-			outcome.ExecutionError = err.Error()
-			if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
-				code := exitErr.ExitCode()
-				outcome.DeliveryOutcome = "failed"
-				outcome.ExecutionExitCode = &code
-			}
-			return fmt.Errorf(locale.Text(locale.KeyQueryFailedExecuteCommandError), err)
-		}
-		now := time.Now()
-		code := 0
-		outcome.DeliveryOutcome = "executed"
-		outcome.ExecutedAt = &now
-		outcome.ExecutionExitCode = &code
-		return writeQueryWarning(delivery.errOut, selected)
+		return deliverExecuteCommand(ctx, delivery, selected, outcome)
 	}
-	if err := terminal.Inject(selected.Command); err != nil {
-		delivery.logger.Debug("Failed to inject command into terminal", "error", err)
-		if err := writeQueryOutput(delivery.out, locale.Text(locale.KeyQuerySelectedCommandMessage), selected.Command); err != nil {
-			outcome.DeliveryOutcome = "failed"
-			outcome.ExecutionError = err.Error()
-			return err
+	return deliverInjectCommand(delivery, selected, outcome)
+}
+
+func deliverExecuteCommand(ctx context.Context, delivery queryDelivery, selected *domain.Command, outcome *historyservice.SelectionOutcome) error {
+	localAssessment := queryservice.ValidateCommandForShell(selected.Command, terminal.DefaultShell())
+	localDangerous := localAssessment.Dangerous
+	reviewReason := ""
+	if !localAssessment.Known {
+		review, err := reviewUnknownQueryCommand(ctx, delivery, selected)
+		if err != nil {
+			return recordDeliveryFailure(outcome, err)
 		}
-		outcome.DeliveryOutcome = queryDeliveryPrinted
-		if selected.IsDangerous {
-			return writeQueryOutput(delivery.out, locale.Text(locale.KeyQueryWarningS2), selected.DangerousExplanation)
+		reviewReason = review.Reason
+	}
+	if localAssessment.Dangerous {
+		selected.IsDangerous = true
+		selected.DangerousExplanation = localAssessment.Explanation
+	}
+	if !localAssessment.Known && selected.DangerousExplanation == "" {
+		selected.DangerousExplanation = "Command safety checked by the configured provider: " + reviewReason
+	}
+	runner, err := queryExecutionRunner(delivery.runner)
+	if err != nil {
+		return recordDeliveryFailure(outcome, err)
+	}
+	policy, err := queryExecutionPolicy(delivery, runner)
+	if err != nil {
+		return recordDeliveryFailure(outcome, err)
+	}
+	action := security.Action{
+		Source:        security.SourceQuery,
+		Provenance:    security.Provenance{Kind: "provider_suggestion", Trusted: false},
+		Delivery:      security.DeliveryExecute,
+		Dangerous:     localDangerous,
+		AnalysisKnown: localAssessment.Known || reviewReason != "",
+		Certainty:     querySecurityCertainty(localAssessment.Known || reviewReason != ""),
+		Effects:       []security.Effect{security.EffectProcess, security.EffectTerminal},
+		Interpreter:   terminal.DefaultShell(),
+		WorkingDir:    runner.Dir,
+	}
+	if err := (security.CapabilitySet{security.HostActionCapability(action)}).Require(action); err != nil {
+		return recordDeliveryFailure(outcome, fmt.Errorf("query capability is not enforced: %w", err))
+	}
+	decision := policy.Evaluate(action)
+	grant, err := security.NewGrant(action, policy, queryRunnerEnvironment(*runner), []byte(selected.Command))
+	if err != nil {
+		return recordDeliveryFailure(outcome, fmt.Errorf("create query security grant: %w", err))
+	}
+	if err := writeQueryWarning(delivery.errOut, selected); err != nil {
+		return recordDeliveryFailure(outcome, err)
+	}
+	if err := authorizeQueryExecution(ctx, delivery, selected, decision); err != nil {
+		return recordDeliveryFailure(outcome, err)
+	}
+	if err := grant.Consume(action, policy, queryRunnerEnvironment(*runner), []byte(selected.Command)); err != nil {
+		return recordDeliveryFailure(outcome, fmt.Errorf("validate query security grant: %w", err))
+	}
+	if err := runner.RunArgv(ctx, terminal.DefaultShell(), []string{"-c", selected.Command}); err != nil {
+		outcome.DeliveryOutcome = queryDeliveryUnknown
+		outcome.ExecutionError = err.Error()
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+			code := exitErr.ExitCode()
+			outcome.DeliveryOutcome = historyStatusFailed
+			outcome.ExecutionExitCode = &code
+		}
+		return fmt.Errorf(locale.Text(locale.KeyQueryFailedExecuteCommandError), err)
+	}
+	now := time.Now()
+	code := 0
+	outcome.DeliveryOutcome = queryDeliveryExecuted
+	outcome.ExecutedAt = &now
+	outcome.ExecutionExitCode = &code
+	return nil
+}
+
+func reviewUnknownQueryCommand(ctx context.Context, delivery queryDelivery, selected *domain.Command) (queryservice.CommandSafetyReview, error) {
+	if delivery.reviewCommand == nil || strings.TrimSpace(delivery.userRequest) == "" || strings.TrimSpace(selected.ShortExplanation) == "" {
+		return queryservice.CommandSafetyReview{}, errors.New("automatic execution stopped: command could not be checked")
+	}
+	review, err := delivery.reviewCommand(ctx, selected.Command, delivery.userRequest, selected.ShortExplanation)
+	if err != nil {
+		return queryservice.CommandSafetyReview{}, fmt.Errorf("automatic execution stopped: command safety review failed: %w", err)
+	}
+	if !review.Safe {
+		return queryservice.CommandSafetyReview{}, fmt.Errorf("automatic execution stopped: provider did not approve the command: %s", review.Reason)
+	}
+	if strings.TrimSpace(review.Reason) == "" {
+		return queryservice.CommandSafetyReview{}, errors.New("automatic execution stopped: provider review was unclear")
+	}
+	return review, nil
+}
+
+func queryRunnerEnvironment(runner terminal.Runner) []string {
+	if runner.Env == nil {
+		return security.SanitizedEnvironment(os.Environ())
+	}
+	return append([]string(nil), runner.Env...)
+}
+
+func queryExecutionRunner(runner *terminal.Runner) (*terminal.Runner, error) {
+	if runner == nil {
+		defaultRunner := terminal.DefaultRunner()
+		runner = &defaultRunner
+	}
+	if runner.Dir != "" {
+		return runner, nil
+	}
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("resolve command working directory: %w", err)
+	}
+	runner.Dir = workingDir
+	return runner, nil
+}
+
+func queryExecutionPolicy(delivery queryDelivery, runner *terminal.Runner) (security.Policy, error) {
+	policy := delivery.securityPolicy
+	if policy.Mode == "" {
+		policy = security.Policy{Mode: delivery.securityMode, DefaultDecision: delivery.securityDefaultDecision}
+	}
+	if policy.Workspace != "" {
+		return policy, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return security.Policy{}, fmt.Errorf("resolve policy home: %w", err)
+	}
+	return policy.WithContext(runner.Dir, home), nil
+}
+
+func querySecurityCertainty(known bool) security.Certainty {
+	if known {
+		return security.CertaintyComplete
+	}
+	return security.CertaintyUnknown
+}
+
+func authorizeQueryExecution(ctx context.Context, delivery queryDelivery, selected *domain.Command, decision security.Decision) error {
+	if decision != security.DecisionAsk {
+		if decision != security.DecisionAllow {
+			return errors.New("command execution was denied by security policy")
 		}
 		return nil
 	}
+	if delivery.confirm == nil {
+		return errors.New("execute requires interactive confirmation")
+	}
+	approved, err := delivery.confirm(ctx, selected)
+	if err != nil {
+		return fmt.Errorf("confirm command execution: %w", err)
+	}
+	if !approved {
+		return errors.New("command execution was not approved")
+	}
+	return nil
+}
+
+func deliverInjectCommand(delivery queryDelivery, selected *domain.Command, outcome *historyservice.SelectionOutcome) error {
+	localAssessment := queryservice.ValidateCommandForShell(selected.Command, terminal.DefaultShell())
+	if localAssessment.Dangerous {
+		selected.IsDangerous = true
+		if selected.DangerousExplanation == "" {
+			selected.DangerousExplanation = localAssessment.Explanation
+		}
+	}
+	if err := writeQueryWarning(delivery.errOut, selected); err != nil {
+		return recordDeliveryFailure(outcome, err)
+	}
+	commandToInject := selected.Command
+	if delivery.wrapInject {
+		var err error
+		commandToInject, err = injectedRunInvocation(selected.Command, delivery.conversationID, delivery.commandID)
+		if err != nil {
+			return recordDeliveryFailure(outcome, err)
+		}
+	}
+	injectedCommand := *selected
+	injectedCommand.Command = commandToInject
+	if err := writeInjectionWarning(delivery.errOut, &injectedCommand); err != nil {
+		return recordDeliveryFailure(outcome, err)
+	}
+	inject := delivery.inject
+	if inject == nil {
+		inject = terminal.Inject
+	}
+	if err := inject(commandToInject); err != nil {
+		delivery.logger.Debug("Failed to inject command into terminal", "error", err)
+		var partial *terminal.PartialInjectionError
+		if errors.As(err, &partial) && partial.Written > 0 {
+			outcome.DeliveryOutcome = queryDeliveryUnknown
+			outcome.ExecutionError = err.Error()
+			if warningErr := writeQueryOutput(delivery.errOut, locale.Text(locale.KeyQueryWarningMessage), "Terminal injection was partial; do not submit the terminal input and inspect it before continuing."); warningErr != nil {
+				return errors.Join(err, warningErr)
+			}
+			return fmt.Errorf("partial terminal injection: %w", err)
+		}
+		if err := writeQueryOutput(delivery.out, locale.Text(locale.KeyQuerySelectedCommandMessage), commandToInject); err != nil {
+			return recordDeliveryFailure(outcome, err)
+		}
+		outcome.DeliveryOutcome = queryDeliveryPrinted
+		return nil
+	}
 	outcome.DeliveryOutcome = "injected"
-	return writeQueryWarning(delivery.errOut, selected)
+	return nil
+}
+
+func recordDeliveryFailure(outcome *historyservice.SelectionOutcome, err error) error {
+	outcome.DeliveryOutcome = historyStatusFailed
+	outcome.ExecutionError = err.Error()
+	return err
 }
 
 func writeQueryWarning(out io.Writer, selected *domain.Command) error {
@@ -710,6 +910,19 @@ func writeQueryWarning(out io.Writer, selected *domain.Command) error {
 		return nil
 	}
 	return writeQueryOutput(out, locale.Text(locale.KeyQueryWarningMessage), selected.DangerousExplanation)
+}
+
+func writeInjectionWarning(out io.Writer, selected *domain.Command) error {
+	return writeQueryOutput(out, "%s\ncommand=%s", locale.Text(locale.KeyQueryInjectionWarning), strconv.QuoteToASCII(selected.Command))
+}
+
+func confirmQueryExecution(cmd *cobra.Command) func(context.Context, *domain.Command) (bool, error) {
+	return func(ctx context.Context, selected *domain.Command) (bool, error) {
+		return prompt.ConfirmContext(ctx, prompt.ApprovalOptions{
+			Prompt: fmt.Sprintf("command=%s\nexplanation=%s", strconv.QuoteToASCII(selected.Command), strconv.QuoteToASCII(selected.DangerousExplanation)),
+			Output: cmd.ErrOrStderr(),
+		})
+	}
 }
 
 func writeQueryOutput(out io.Writer, format string, args ...any) error {

@@ -12,6 +12,7 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
 	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
+	"github.com/spf13/cobra"
 )
 
 func TestManagedDispatchOriginalArgv(t *testing.T) {
@@ -55,6 +56,34 @@ func TestManagedDispatchOriginalArgv(t *testing.T) {
 	}
 	if _, err := os.Stat(marker); !os.IsNotExist(err) {
 		t.Fatal("machine alias executed")
+	}
+}
+
+func TestManagedExecutionUsesCommandDeliveryPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mode   string
+		wantOK bool
+	}{
+		{name: "normal requires review", mode: config.SecurityModeNormal},
+		{name: "bypass is scoped peer mode", mode: config.SecurityModeBypass, wantOK: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
+			cfg := config.DefaultConfig()
+			cfg.Security.Mode = tc.mode
+			writeCLIConfig(t, home, cfg)
+			cmd := &cobra.Command{}
+			cmd.SetContext(t.Context())
+			cmd.SetIn(bytes.NewBuffer(nil))
+			cmd.SetErr(&bytes.Buffer{})
+			err := authorizeManagedCommand(cmd, "project-reader --opaque")
+			if (err == nil) != tc.wantOK {
+				t.Fatalf("authorizeManagedCommand() error = %v, wantOK=%t", err, tc.wantOK)
+			}
+		})
 	}
 }
 

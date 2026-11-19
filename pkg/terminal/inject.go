@@ -6,9 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-
-	"github.com/ra1phdd/zev/internal/core/childprocess"
 )
 
 var (
@@ -22,24 +19,36 @@ var (
 	ErrInjectionUnsupported = errors.New("command injection is not supported on this platform")
 )
 
+// PartialInjectionError reports that terminal input may contain a prefix of the
+// requested text. Callers must not report a printed fallback as successful delivery.
+type PartialInjectionError struct {
+	Written int
+	Err     error
+}
+
+func (e *PartialInjectionError) Error() string {
+	return fmt.Sprintf("terminal injection wrote %d bytes: %v", e.Written, e.Err)
+}
+
+func (e *PartialInjectionError) Unwrap() error { return e.Err }
+
 // Execute runs command as shell code using SHELL, or sh when SHELL is unset,
 // with the current process's standard streams. The caller must authorize execution
 // of command; this function does not sanitize shell syntax or prompt for confirmation.
-// It returns a wrapped process error on failure, preserving errors.As for
-// *exec.ExitError and errors.Is for context cancellation before launch.
 func Execute(ctx context.Context, command string) error {
+	shell := shellFromEnvironment()
+	return defaultRunner().RunShell(ctx, shell, command)
+}
+
+func shellFromEnvironment() string {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "sh"
 	}
+	return shell
+}
 
-	cmd := exec.CommandContext(ctx, shell, "-c", command) //nolint:gosec // This authorized shell-execution boundary intentionally accepts shell syntax and the user's SHELL.
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := childprocess.Run(ctx, cmd); err != nil {
-		return fmt.Errorf("execute shell command: %w", err)
-	}
-	return nil
+// DefaultShell returns the configured shell, falling back to sh.
+func DefaultShell() string {
+	return shellFromEnvironment()
 }

@@ -6,7 +6,7 @@
 
 # Спецификация: централизованная безопасность действий
 
-**Статус:** проект для утверждения. Не реализовано. Написание спецификации не разрешает изменение кода, добавление зависимостей, миграции, коммит или новое раскрытие данных по сети. Текущая правка включает только этот документ и английскую версию.
+**Статус:** утверждённая цель v1; реализация выполняется поэтапно. Эта спецификация — source of truth для реализуемых security-срезов. Она не разрешает новые зависимости, миграции, коммиты или сетевое раскрытие сверх явно реализованных и проверенных путей.
 
 ## 1. Цель, явные требования и область
 
@@ -30,14 +30,14 @@
 
 ### Предлагаемые defaults, требующие утверждения
 
-1. В normal mode всегда используется детерминированная security gate; глобального `security.enabled=false` нет. Существующий настроенный `bypass` сохраняется как явно небезопасный режим для ленивого пользователя и не является новым обходом, управляемым моделью.
+1. `auto` и `bypass` — равноправные настроенные режимы доставки команд; глобального `security.enabled=false` нет. `bypass` — не legacy-ярлык и не обход, управляемый моделью: это явный режим с теми же техническими проверками и capability boundaries, что и `auto`, но без permission confirmation для otherwise valid host command delivery.
 2. В первой версии используется локальный input probe. Model-based inspection — будущая opt-in возможность и не требуется для первого релиза.
-3. В первой версии используется детерминированный локальный action classifier. Model-based output classifier — будущая opt-in возможность и не требуется для первого релиза. По умолчанию security review не отправляется второй модели.
-4. Неизвестный результат анализа или сбой обязательного review не разрешают автоматический эффект. Интерактивное согласие может разрешить обозримое действие, если политика допускает; headless-режим не отвечает на `ask`.
+3. В первой версии используется детерминированный локальный action classifier. Model-based output classifier — будущая opt-in возможность и не требуется для первого релиза. Отдельная проверка моделью не используется по умолчанию, кроме описанной ниже проверки незнакомой команды тем же провайдером в автоматическом режиме `execute`.
+4. Неизвестный результат анализа сам по себе не разрешает запуск. В автоматическом режиме `execute` отправляй тому же настроенному провайдеру точную команду, запрос пользователя и короткое описание команды. Проверка должна быть отдельной, без инструментов и доступа к обычной истории. Только корректный однозначный ответ «безопасно» может заменить неизвестный результат локального анализа; он не отменяет найденную локально опасность или запрет в настройках. При ошибке, тайм-ауте, неправильном или неясном ответе, а также при вердикте «небезопасно» команда не запускается. Интерактивное согласие может разрешить обозримое действие, если политика это допускает; в headless-режиме нельзя ответить на `ask`.
 5. Context tools в первой версии только read-only. Локальная инспекция использует ограниченные read-only builtins; web-инспекция — ограниченную fetch capability через публичную сеть. Ни одна из них по умолчанию не записывает файлы, не запускает произвольные процессы, не меняет локальное/удалённое состояние, не загружает данные и не получает credentials.
 6. В первой версии OS sandbox не реализуется и не рекламируется. `inject` — основной warning-only способ доставки в будущий shell пользователя; `execute` — явный дополнительный proxy mode, который после полной action gate запускает выбранную команду и проксирует её stdout/stderr. Будущий sandbox остаётся отдельной capability и не выводится из одного policy approval.
 
-MUST/MUST NOT далее означают проверяемый целевой контракт, а не реализованное поведение. До реализации требуется утверждение этого проекта.
+MUST/MUST NOT далее означают целевой контракт. Критерии, ещё не покрытые реализацией, остаются открытыми и не должны рекламироваться как готовые.
 
 ## 2. Модель угроз и полномочия
 
@@ -167,23 +167,21 @@ Shell text и argv — разные варианты. Нельзя склеив�
 3. Применить неотменяемые инварианты приложения и ограничения возможностей исполнителя.
 4. Проверить все подходящие configured rules для всех подкоманд, nested execution sites, targets и effects. Любой совпавший `deny` побеждает; затем `ask`, затем `allow`, иначе `default_decision`.
 5. Выполнить детерминированную локальную output classification. Если в будущем явно включён model review, передавать ему только allowlisted action/intent envelope; его findings могут повысить риск, потребовать согласие или выявить запрещённые политикой эффекты, но не отменяют детерминированный deny и не выдают новые технические возможности. Перед решением повторно проверить правила по итоговым объединённым фактам. Уверенность модели не повышает непокрытый parser/runtime behavior до complete; allow с неизвестным обязательным фактом не совпадает.
-6. В normal mode применить минимальные ограничения от неопределённости, недостаточного согласия, сбоев probe/classifier и sandbox requirements. Совпавший allow не снимает эти ограничения. Явно настроенный `bypass` — описанное исключение и разрешается до применения этого normal-mode floor.
+6. В auto mode применить минимальные ограничения от неопределённости, недостаточного согласия и сбоев probe/classifier. Совпавший allow не снимает эти ограничения. Явно настроенный `bypass` — описанное исключение и разрешается до применения этого auto-mode floor.
 7. Для `ask` показать точное действие и риски; явное подтверждение удовлетворяет только этому pending request. Оно не превращает правило в allow и не отменяет deny. В headless/при недоступном interaction отказать в эффекте со стабильной диагностикой.
 8. Перепроверить scoped grant непосредственно перед dispatch. Изменение action, policy, cwd identity, interpreter, значимого environment или проверенного script/input identity требует повторной оценки.
 
-Если активен существующий настроенный режим `bypass`, итоговое policy decision для
-каждого otherwise valid action и delivery — `allow`, независимо от risk,
-authorization, certainty, совпавших правил `deny`/`ask` или unknown analysis. Он
-отключает interactive approval и будущий model review. Warnings всё ещё могут
-выводиться; bypass не отключает technical validity checks, output limits, rejection
-control characters, path/descriptor integrity checks, cancellation и capability
-boundaries. Это не permission decisions и они не создают новых capabilities. В
-частности, context tools первой версии остаются read-only, а `execute` остаётся
-unconfined host execution. Bypass настраивается пользователем вне контроля модели,
-показывается как unsafe mode в help/doctor и никогда не называется sandbox или
+При `security.mode: bypass` для command delivery пропускается permission confirmation
+для технически валидного host `execute` в пределах этого scope. Это не меняет
+warning-only semantics `inject`, `tool_approval_mode` или будущие delivery modes.
+Warnings всё ещё могут выводиться; bypass не отключает technical validity checks,
+output limits, rejection control characters, path/descriptor integrity checks,
+cancellation и capability boundaries. Эти проверки не являются permission decisions
+и не создают capabilities. Context tools первой версии остаются read-only. Bypass
+настраивается пользователем вне контроля модели и никогда не называется sandbox или
 security guarantee.
 
-В normal mode полностью разобранная обычная нечувствительная диагностика может
+В auto mode полностью разобранная обычная нечувствительная диагностика может
 разрешаться встроенными узкими правилами. Изменения состояния, операции с большими
 последствиями, неразрешённые цели, opaque code и недостаточное согласие требуют
 `ask`, если доверенное узкое правило и достаточная авторизация явно не покрывают
@@ -332,7 +330,7 @@ destinations на DNS resolution и повторно перед каждым red
 Использовать текущий `~/.zev/config.yaml`, существующие именованные `providers` и атомарное хранилище конфигурации. Не возвращать dotenv/environment overrides. Часть текущей документации ещё описывает legacy format; синхронизировать её при реализации, не в этой двухфайловой правке.
 
 Configuration file является защищённым secret store, поскольку содержит provider API
-keys и custom headers. В normal mode только config subsystem может читать или
+keys и custom headers. В auto mode только config subsystem может читать или
 записывать credential fields. Context tools, aliases, scripts, input probe, local
 classifier, future model review, history output, logs и web fetch MUST NOT получать
 raw credential values. Generated commands не получают raw values от Zev, хотя явно
@@ -351,7 +349,7 @@ headers. Изменение конфигурации инвалидирует in
 ```yaml
 security:
   version: 1
-  mode: normal
+  mode: auto
   default_decision: ask
   probe:
     mode: local
@@ -366,8 +364,7 @@ security:
     review_timeout: 15s
     total_review_timeout: 60s
     max_model_calls: 24
-  sandbox:
-    mode: off
+
   rules:
     deny:
       - id: no-policy-self-edit
@@ -391,12 +388,12 @@ security:
 ### Схема и matching
 
 - `version` — строго `1`; неподдержанная версия останавливает соответствующий dispatch.
-- `mode` — `normal` или `bypass`, default `normal`. `bypass` — явно настроенный пользователем allow-all convenience mode по описанному выше контракту; его нельзя выбрать через model output, repository policy, command argument или approval response. Migration сохраняет существующий configured bypass, а не молча переводит его в `auto` или `normal`.
+- `mode` — `auto` или `bypass`, default `auto`. Старое `normal` принимается только при чтении и нормализуется в `auto`. `bypass` — явно настроенный пользователем command-delivery permission mode в пределах заявленного scope; его нельзя выбрать через model output, repository policy, command argument или approval response. Он не меняет `tool_approval_mode` и не создаёт capabilities.
 - `default_decision`: `ask` либо `deny`; глобального fallback allow намеренно нет. Удобство обеспечивают узкие allows.
 - В первой версии probe и classifier имеют только mode `local`. `model` — зарезервированный будущий opt-in mode и отклоняется как unsupported до реализации отдельного disclosure/failure contract. Ни один mode не отключает gate. Пустой provider означает уже выбранный primary profile, зафиксированный в начале invocation. Непустое имя ссылается на существующий profile; дублированных credentials внутри security нет.
 - `local_actions`: в первой версии принимается только `local`. Будущее значение `model` потребует явного согласия на раскрытие planned actions прямых alias/script выбранному classifier profile. Создавать только нужных провайдеров: невалидный неиспользуемый profile/недоступная модель не ломают local list/help/show и обычное локально разрешённое исполнение.
 - `on_failure`: `ask` либо `deny`, никогда `allow`. Ошибка отличается от завершённого deny verdict.
-- `sandbox.mode`: в первой версии принимается только `off`; это **host execution после авторизации**, а не sandboxed security. `required` зарезервирован для будущего backend и в первой версии отклоняется как unsupported. Ни один context-tool или execute path не может подразумевать, что host authorization является isolation.
+- Настройки sandbox и OS-изоляции нет. Старое `security.sandbox.mode: off` отбрасывается при чтении конфигурации; остальные старые значения sandbox отклоняются. Host authorization, command policy и restricted tools не изолируют процесс от хоста.
 - Rule IDs уникальны. Empty match, unknown key/effect/source, invalid path/glob, YAML duplicate/null ambiguity и duplicate ID — ошибки. YAML aliases/merge keys не обходят валидацию.
 - Match fields: `sources`, `deliveries`, `effects`, `paths`, `executables`, `argv_prefix`, `certainty`, `risk`. Заданные списки непусты. Между полями AND, внутри списка OR. Effect selector совпадает хотя бы с одним effect, но **allow должен покрывать все effects и targets всего action** через подходящие allow rules. Дополнительный unknown effect не позволяет полное allow coverage.
 - Component-aware path glob: `*`/`?` не выходят за компонент, `**` охватывает компоненты. Только `${workspace}`/`${home}` разрешены как expansions из trusted invocation context; произвольной environment substitution нет. Deny/ask проверяют requested и verified resolved target. Allow требует verified target внутри scope; unknown resolution не совпадает с allow. Использовать настоящие path/case semantics платформы, не всеобщее lowercasing.
@@ -416,34 +413,23 @@ metadata и model output в версии 1 не могут определять 
 самостоятельные `allow` или bypass. Effective policy revision входит в каждый
 assessment и grant.
 
-### Capability profiles и заявления о sandbox
+### Раскрытие возможностей
 
-Если `sandbox.mode` равен `required`, выбранный runner MUST подтвердить для точного
-invocation filesystem roots и режимы, network default/allowlist, изоляцию process
-tree и privileges, фильтрацию environment, доступность credentials, resource limits
-и версию platform/backend. Наличие container или выданного approval недостаточно.
-Network policy по умолчанию deny; каждый destination и credential должны быть явно
-brokered или allowlisted. Provider transport — отдельный канал, не наследующий
-network или credentials runner. Runner MUST использовать непривилегированную
-identity, где это поддерживает платформа, не открывать host sockets и unrestricted
-environment по умолчанию и не повторять отклонённое sandbox-действие на host.
-Неподдержанная платформа возвращает capability error. Это отражает разделение Codex
-между sandbox, approval, network и credentials и фильтрацию environment в Hermes
-Agent, сохраняя fail-closed правило Zev.
+Сейчас Zev не предоставляет OS-изоляцию процессов. Ни настройка, ни approval,
+ограниченный tool adapter или application-level policy не должны называться sandbox
+или представляться как изоляция от хоста.
 
 Существующие flags могут ужесточать effective policy, но не отменять deny. `--allow-sensitive-context` разрешает попытку явного disclosure после security checks, не автоматическое исключение для protected files. `--execute` выбирает delivery, не даёт согласия на произвольные эффекты.
 
-### Legacy tool approval modes
+### Tool approval modes
 
-`manual` сохраняет обязательное подтверждение каждого context-tool call. `auto`
-сохраняет restricted-builtin capability и дополнительно применяет общий gate. В
-normal mode ни один не отменяет deny. Существующий настроенный `bypass` сохраняется:
-его effective decision — `allow` для всех otherwise valid actions, без confirmation
-и future model review. Это явно unsafe convenience mode для ленивого пользователя,
-не sandbox и не security guarantee; модель не может включить его сама. Технические
-валидации и capability boundaries сохраняются, а version-one context tools остаются
-read-only. Обычная локальная проверка конфигурации должна предупреждать о режиме.
-Нового `--yes`/`--force` security bypass не добавляется.
+`manual`, `auto` и `bypass` — равноправные режимы approval context tools. `manual`
+спрашивает для каждого вызова; `auto` использует restricted builtin и текущий reviewer;
+`bypass` пропускает prompt и reviewer. Все три сохраняют одну и ту же read-only builtin
+capability и технические проверки. Выбор tool mode не меняет `security.mode` или delivery
+команд, а command-delivery bypass не переписывает tool mode. Ни один режим не создаёт
+capabilities и не превращает context tools в write tools. Нового `--yes`/`--force`
+security bypass не добавляется.
 
 ## 10. Доставка, согласие и совместимость
 
@@ -471,19 +457,18 @@ protected-resource findings и заметное предупреждение: п
 запускает выбранную команду и проксирует stdout и stderr child-процесса в
 соответствующие stdout/stderr Zev, а stdin передаёт по контракту runner. Через
 обычную process boundary Zev возвращает exit status/error child-процесса. Это не
-sandbox. В normal mode `execute` не обходит policy, protected-path checks,
+sandbox. В auto mode `execute` не обходит policy, protected-path checks,
 unknown-analysis floors или обязательного confirmation. Настроенный `bypass` —
 явное исключение.
 
-Одно-attempt execution path для `execute` MUST использовать ту же runner abstraction,
-что и самостоятельный `zev run -- <command> [args...]`; security policy применяется
-до запуска runner, а не через две разные реализации исполнения. Разница только в
-получении action: query `execute` запускает проверенный shell-text action, а `run --`
-сохраняет exact argv boundaries и не склеивает/не переинтерпретирует аргументы.
-Retry, failure analysis, correction, artifacts и exit policy принадлежат отдельному
-run contract. Ошибка child после запуска — реальный executed outcome, а не policy
-denial; proxy сохраняет stdout/stderr, cancellation, process-group cleanup и
-exit-code semantics.
+`execute` и самостоятельный `zev run -- <command> [args...]` используют общий primitive
+запуска процесса `terminal.Runner.RunArgv`, но не общий execute authorization flow.
+`run --` — wrapper для команды, которую пользователь явно выбрал к запуску: он сохраняет
+literal argv и не запрашивает `execute`-специфичные policy approval или grants. Query
+`execute` остаётся отдельно авторизуемым shell-text action. Retry, анализ ошибки и варианты
+исправления принадлежат run contract; предложения остаются inert, пока пользователь не
+воспользуется ими отдельно. Ошибка child после запуска — реальный executed outcome, а не
+policy denial; proxy сохраняет stdout/stderr, cancellation, cleanup процесса и exit status.
 
 UI MUST различать «проверено для injection» и «исполнено Zev» и показывать разные
 остаточные риски. Автоматического перехода от `inject` к `execute` нет; команда,
@@ -528,12 +513,12 @@ interpreter, cwd, effects и findings; Enter не добавляется, contro
 delivery, не success и не гарантию отсутствия записанных байтов. Printed fallback
 ничего не выполняет.
 
-Простая вставленная команда позже исполняется пользовательским shell вне runner
-policy/sandbox Zev. Нельзя передавать in-process grant как доверенный command text
-или environment marker. Если реализован отдельно специфицированный wrapper, runner
-повторяет проверку перед настоящим launch по свежей policy; прежнее injection warning
-не разрешает изменённые inputs. Без wrapper outcome — warning-only reviewed delivery,
-не enforced/sandboxed execution.
+Простая вставленная команда позже исполняется пользовательским shell вне управления
+процессами Zev. Нельзя передавать in-process grant как доверенный command text или
+environment marker. При включённом `command_wrapper_enabled` сгенерированная команда
+передаёт в `zev run` точные conversation/command IDs; обработка ошибки продолжает этот
+диалог с контекстом ошибки. Wrapper не превращает inject в execute approval и не создаёт
+OS-изоляцию. Без wrapper inject остаётся доставкой с предупреждением.
 
 ### Print и JSON
 
@@ -565,6 +550,12 @@ Oversized command отклоняется до dispatch; oversized script analysi
 
 Инвентаризация охватывает исследованные action/trust paths и все проблемы предыдущего исследования. Это не исчерпывающее утверждение о постороннем коде. Ссылки относятся к working checkout; перед реализацией перепроверить строки и concurrent edits.
 
+Таблица фиксирует baseline до начала реализации. Для P01, P08, P09, P11, P12, P13 и P19 в
+текущем checkout уже есть начальные corrective slices; остальные строки остаются
+открытыми, если для них отдельно не доказано исправление. Исходные формулировки
+сохранены для traceability и не означают, что каждый дефект всё ещё присутствует
+в неизменном виде.
+
 | ID | Подтверждённое текущее поведение / evidence | Исправление |
 | --- | --- | --- |
 | P01 | [query delivery](../../internal/cli/query.go):582,673 выбирает первую execute-команду и предупреждает после исполнения | Pre-dispatch assessment/approval; warnings до effects; правильный порядок outcomes |
@@ -574,7 +565,7 @@ Oversized command отклоняется до dispatch; oversized script analysi
 | P05 | Та же эвристика:34–42 отмечает любую substitution/output redirect; 273 — любой removal invocation | Effect/target/implementation-aware правила и harmless near-neighbor regressions |
 | P06 | [warning merge](../../internal/entities/query/service/safety.go):48 только повышает provider danger flags | Advisory provider findings отдельно от local decision; совместимость без model metadata как authority |
 | P07 | [tool review](../../internal/entities/tool/service/service.go):222 видит root и ExecRequest с agent-authored reason, но не настоящий user intent | Независимый allowlisted classifier input: trusted intent, без rationale |
-| P08 | [tool mode switch](../../internal/entities/tool/service/service.go):195 пропускает policy/reviewer в bypass, manual имеет отдельную ветку | Сделать normal-mode dispatch semantics общими; сохранить bypass как явно настроенный allow-all mode с заметным unsafe disclosure |
+| P08 | [tool mode switch](../../internal/entities/tool/service/service.go):195 пропускает policy/reviewer в bypass и имеет отдельную ветку manual | Сохранить `manual`, `auto` и `bypass` как равноправные tool modes; bypass может пропускать prompt/reviewer, но обязан сохранять общую read-only capability и технические проверки |
 | P09 | [tool results](../../internal/entities/tool/service/service.go):168–179 передаются основной модели без probe | Bounded input probe и fixed warning приложения |
 | P10 | [sensitive matching](../../internal/entities/tool/repository/executor.go):222 блокирует secret-like substrings, включая обычные имена исходников | Central exact/component policies и bounded content signals; сохранить nofollow/identity |
 | P11 | [terminal execution](../../pkg/terminal/inject.go):30 использует shell и inherited environment без sandbox | Authorized dispatch, явная environment policy/capability disclosure; не обещать sandbox |
@@ -585,6 +576,7 @@ Oversized command отклоняется до dispatch; oversized script analysi
 | P16 | [config](../../internal/core/config/config.go), [YAML decoder](../../internal/core/config/yaml.go):73 поддерживают scalar/map settings, но не nested security rules/sequences | Строгая typed security schema, sequence validation, defaults/round-trip/migration tests; не возвращать env overrides |
 | P17 | [PROJECT](../../PROJECT.md) ещё содержит legacy dotenv, а [configuration guide](CONFIGURATION.md) уже описывает текущий YAML и поддерживаемый импорт v1.0.0; [storage](../../internal/core/config/storage.go):14,102 читает config.yaml без env overrides | Сохранить совместимость миграции ограниченной выпущенными форматами; текущие readers остаются строгими, оркестрация выполняется до использования |
 | P18 | Existing isolated review модельный, path filtering не обнаруживает секреты в содержимом; [tool adapter](../../internal/entities/tool/repository/executor.go) сохраняет известные I/O/race limits | В первой версии использовать local deterministic gate без обязательной второй модели; сохранить явные unknown/failure semantics, scope disclosure, regression corpus и residual-risk docs |
+| P19 | Bounded public web-fetch capability отсутствовала | Добавить explicit opt-in GET-only capability с public-destination validation, redirect/byte/time limits, без ambient credentials, с redaction и untrusted-output probe |
 
 Ради уменьшения warning не удаляются низкоуровневые protections. Более точная sensitive-name policy не позволяет ослаблять pinned-root, non-regular-file, reparse/symlink, hardlink или aggregate-byte checks.
 
@@ -594,8 +586,8 @@ Oversized command отклоняется до dispatch; oversized script analysi
 
 | ID | Наблюдаемый обязательный результат |
 | --- | --- |
-| SEC-01 | В normal mode query execute, refinement, continuation, alias, script и context-tool dispatch не обходят единую policy semantics; настроенный bypass — явно описанное исключение |
-| SEC-02 | В normal mode denied/ask-unapproved execute или context-tool action не имеет effects; inject остаётся warning-only; warning-write failure возникает до dispatch |
+| SEC-01 | В auto mode query execute, refinement, continuation, alias, script и context-tool dispatch не обходят единую policy semantics; настроенный bypass — явно описанное исключение |
+| SEC-02 | В auto mode denied/ask-unapproved execute или context-tool action не имеет effects; inject остаётся warning-only; warning-write failure возникает до dispatch |
 | SEC-03 | Probe аннотирует injected tool result fixed codes, сохраняет untrusted origin и не выдаёт capability |
 | SEC-04 | Цитаты injection и source tests автоматически не прекращают полезную задачу |
 | SEC-05 | Failed/truncated probe coverage — unknown, не clean; automatic follow-on effects подчиняются uncertainty floor |
@@ -614,11 +606,11 @@ Oversized command отклоняется до dispatch; oversized script analysi
 | SEC-18 | Script review/execution используют одни private reviewed bytes; проверены in-place mutation и dependency uncertainty |
 | SEC-19 | Restricted tools сохраняют root pinning, nofollow/reparse, hardlink, identity, actual-byte и output bounds |
 | SEC-20 | Прямые local alias/script/help/list/show не создают provider/сетевые запросы без явного relevant remote-review option |
-| SEC-21 | В normal mode local classifier первой версии нельзя обойти; при будущем включении model classifier его failure/malformed JSON/tool calls/unknown enums/budget не разрешают effects; настроенный bypass — явный allow-all |
+| SEC-21 | В auto mode local classifier первой версии нельзя обойти; при будущем включении model classifier его failure/malformed JSON/tool calls/unknown enums/budget не разрешают effects; настроенный command-delivery bypass scoped и не меняет tool approval |
 | SEC-22 | В первой версии host mode явно обозначен и sandbox не заявляется; builtin capability не применяется к произвольной команде; будущий required sandbox не откатывается на host |
 | SEC-23 | Warning раньше первого injected byte; control chars запрещены; partial write — uncertain delivery; fallback не исполняется |
 | SEC-24 | Существующие print/JSON schema, чистый stdout, alias argv tails, history opt-out и provider error/cancellation сохраняются кроме описанных approval changes |
-| SEC-25 | Legacy configured bypass сохраняется как явный allow-all mode, не включается model output или migration и явно обозначается как unsafe |
+| SEC-25 | `bypass` сохраняется как настроенный peer mode в пределах заявленного scope, не включается model output или migration и сохраняет технические проверки/capability boundaries |
 | SEC-26 | Nested YAML/sequences, booleans/nulls, duplicate/unknown fields, rules/defaults/profile references, round-trip и cooperative updates сохраняют строгую схему/посторонние настройки |
 | SEC-27 | Логи и ошибки probe/classifier не раскрывают payload/credentials; codes локализуются только в представлении, не machine identifiers |
 | SEC-28 | При реализации run-wrapper каждый attempt/correction проверяется заново; log/retry setting не дают consent на correction execution |
@@ -631,9 +623,9 @@ Oversized command отклоняется до dispatch; oversized script analysi
 | SEC-35 | MCP/plugin/tool subprocess получают только явные environment и credential grants; output и errors внешних tools остаются недоверенными |
 | SEC-36 | Будущая delegation выполняет outbound и return checks, сохраняет provenance исходной authorization и не расширяет capabilities parent |
 | SEC-37 | `inject` — основной режим по умолчанию, до bytes показывает точную выбранную команду и заметное предупреждение об исполнении shell, не спрашивает и не блокирует по action risk, не нажимает Enter и не заявляет sandbox |
-| SEC-38 | `execute` — явный proxy mode, запускается только после полной local gate через тот же one-attempt runner, что и `zev run --`, проксирует stdout/stderr, сохраняет child exit semantics и явно отличается от reviewed injection и sandbox execution |
+| SEC-38 | `execute` — явный proxy mode после полной local gate; `zev run --` использует общий literal argv process-launch primitive, но не execute-specific authorization, проксирует stdout/stderr, сохраняет child exit semantics и отличается от reviewed injection |
 | SEC-39 | Web fetch первой версии — bounded GET/read-only через public network, отклоняет private/reserved targets и unsafe redirects, не отправляет ambient credentials или uploads |
-| SEC-40 | В normal mode configuration credentials не попадают в tools, probes, classifiers, history, logs, web fetch, generated commands или созданные агентом artifacts; unsafe config paths fail closed, а host disclosure bypass явно описан |
+| SEC-40 | В auto mode configuration credentials не попадают в tools, probes, classifiers, history, logs, web fetch, generated commands или созданные агентом artifacts; unsafe config paths fail closed, а host disclosure bypass явно описан |
 | SEC-41 | Будущее создание alias/script — отдельная подтверждаемая write capability, показывает точный artifact, по умолчанию запрещает unsafe overwrite, не меняет policy/credentials и не разрешает последующее execution |
 | SEC-42 | Supported analysis покрывает проверенные subsets POSIX sh, Bash и Zsh; Fish, PowerShell, cmd и unsupported constructs остаются partial/unknown |
 | SEC-43 | Query `execute` и one-attempt `zev run --` используют общую runner boundary без склеивания/повторного разбора аргументов; proxy сохраняет stdout/stderr, stdin, cancellation, child cleanup и exit status |
@@ -655,11 +647,11 @@ make clean
 git diff --check
 ```
 
-`internal/core/security` пока не существует; focused commands станут выполнимыми при реализации. `make lint` может менять код и не запускается для этого documentation-only draft. Native sandbox/platform suites и разрешённые manual tests — отдельные evidence, не вывод из этих команд.
+Начальный policy-срез `internal/core/security` уже существует; focused commands покрывают только реализованные пути. `make lint` может менять код. Native sandbox/platform suites и разрешённые manual tests — отдельные evidence, не вывод из host-проверок.
 
 ## 14. Совместимость, критерии готовности и оставшиеся решения
 
-Меняется внешнее поведение: execute может требовать подтверждение, unsafe/unknown actions могут отклоняться, inject остаётся warning-only, а bypass сохраняется как явно выбранный allow-all escape для пользователя, который его включил; inherited environment/sensitive-file behavior становятся явными. Это нельзя выпускать как невидимый внутренний refactor. При реализации обновить CHANGELOG, setup/help/doctor и двуязычные configuration/architecture/privacy docs; сохранить читаемость legacy history/entity data без переписывания только ради policy.
+Меняется внешнее поведение: execute может требовать подтверждение, unsafe/unknown actions могут отклоняться, inject остаётся warning-only, `auto` и `bypass` остаются равноправными режимами доставки с разным confirmation behavior, а tool approval modes остаются отдельным набором peer modes; inherited environment/sensitive-file behavior становятся явными. Это нельзя выпускать как невидимый внутренний refactor. При реализации обновить CHANGELOG, setup/help/doctor и двуязычные configuration/architecture/privacy документы; сохранить читаемые history/entity records без перезаписи только ради policy.
 
 Критерии готовности, не task plan:
 

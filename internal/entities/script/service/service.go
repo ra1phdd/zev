@@ -19,6 +19,8 @@ import (
 // ErrScriptNotFound indicates that a script is not registered in the metadata file.
 var ErrScriptNotFound = errors.New("script not found")
 
+const maxExecutionBodyBytes = 4 << 20
+
 // Service manages script metadata, files, and execution.
 type Service struct{ repo *repository.Repository }
 
@@ -167,8 +169,15 @@ func (r contextReader) Read(p []byte) (int, error) {
 	return read, nil
 }
 
-// Execute runs the pinned script with literal arguments and the caller's stdin.
-func (s *Service) Execute(ctx context.Context, name string, args []string) (err error) {
+// Execute runs an immutable snapshot of the registered script with literal arguments.
+func (s *Service) Execute(ctx context.Context, name string, args []string) error {
+	return s.ExecuteAuthorized(ctx, name, args, nil)
+}
+
+// ExecuteAuthorized snapshots the exact script bytes before authorization and
+// executes that snapshot only after authorize approves the same bytes. The source
+// path may change after snapshotting without changing the executed program.
+func (s *Service) ExecuteAuthorized(ctx context.Context, name string, args []string, authorize func(domain.Script, []byte) error) (err error) {
 	script, err := s.Find(ctx, name)
 	if err != nil {
 		return err
@@ -186,8 +195,47 @@ func (s *Service) Execute(ctx context.Context, name string, args []string) (err 
 		return fmt.Errorf("open script: %w", err)
 	}
 	defer closeResource(&err, file)
-	if err := runScript(ctx, file, args); err != nil {
+	body, err := io.ReadAll(io.LimitReader(contextReader{ctx: ctx, reader: file}, maxExecutionBodyBytes+1))
+	if err != nil {
+		return fmt.Errorf("read script snapshot: %w", err)
+	}
+	if len(body) > maxExecutionBodyBytes {
+		return errors.New("script body exceeds execution limit")
+	}
+	if err := authorizeScript(authorize, script, body); err != nil {
+		return err
+	}
+	executionFile, err := os.CreateTemp("", "zev-script-exec-*")
+	if err != nil {
+		return fmt.Errorf("create execution snapshot: %w", err)
+	}
+	defer func() {
+		if removeErr := os.Remove(executionFile.Name()); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			err = errors.Join(err, fmt.Errorf("remove execution snapshot: %w", removeErr))
+		}
+	}()
+	defer closeResource(&err, executionFile)
+	if err := executionFile.Chmod(0o700); err != nil {
+		return fmt.Errorf("set execution snapshot permissions: %w", err)
+	}
+	if _, err := executionFile.Write(body); err != nil {
+		return fmt.Errorf("write execution snapshot: %w", err)
+	}
+	if _, err := executionFile.Seek(0, 0); err != nil {
+		return fmt.Errorf("rewind execution snapshot: %w", err)
+	}
+	if err := runScript(ctx, executionFile, args); err != nil {
 		return fmt.Errorf("execute script %q: %w", name, err)
+	}
+	return nil
+}
+
+func authorizeScript(authorize func(domain.Script, []byte) error, script domain.Script, body []byte) error {
+	if authorize == nil {
+		return nil
+	}
+	if err := authorize(script, append([]byte(nil), body...)); err != nil {
+		return fmt.Errorf("authorize script snapshot: %w", err)
 	}
 	return nil
 }

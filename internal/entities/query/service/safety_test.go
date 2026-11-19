@@ -65,7 +65,10 @@ func TestValidateCommand(t *testing.T) {
 		{name: "chained commands", command: "echo ready && rm -r ./tmp", dangerous: true},
 		{name: "newline commands", command: "echo ready\nrm -r ./tmp", dangerous: true},
 		{name: "command substitution", command: "echo $(rm -rf ./tmp)", dangerous: true},
+		{name: "known read-only substitution", command: "echo $(pwd)"},
 		{name: "backtick substitution", command: "echo `rm -rf ./tmp`", dangerous: true},
+		{name: "null redirect", command: "printf ok > /dev/null"},
+		{name: "file descriptor redirect", command: "printf ok >&2"},
 		{name: "sensitive system file", command: "cat /etc/shadow", dangerous: true},
 	}
 
@@ -115,8 +118,50 @@ func TestApplyDangerousValidation(t *testing.T) {
 	}
 }
 
+func TestValidateCommandKeepsUnsupportedHelpAndUnknownSubstitutionConservative(t *testing.T) {
+	t.Parallel()
+
+	for _, command := range []string{"rm --help", "echo $(project-reader)"} {
+		t.Run(command, func(t *testing.T) {
+			assessment := ValidateCommand(command)
+			if assessment.Dangerous || assessment.Explanation != "" || assessment.Known {
+				t.Fatalf("ValidateCommand(%q) = %+v, want non-dangerous unknown", command, assessment)
+			}
+		})
+	}
+}
+
 func TestApplyDangerousValidationNilResponse(t *testing.T) {
 	t.Parallel()
 
 	ApplyDangerousValidation(nil)
+}
+
+func TestValidateCommandDoesNotMarkSensitiveOrExpandedReadsAsKnown(t *testing.T) {
+	t.Parallel()
+	for _, command := range []string{"cat ~/.zev/config.yaml", "cat ~/.ssh/id_rsa", "echo $OPENAI_API_KEY"} {
+		t.Run(command, func(t *testing.T) {
+			assessment := ValidateCommand(command)
+			if assessment.Known {
+				t.Fatalf("ValidateCommand(%q) was marked known", command)
+			}
+		})
+	}
+}
+
+func TestValidateCommandKeepsDialectAndPathExpansionsUnknown(t *testing.T) {
+	t.Parallel()
+	for _, command := range []string{
+		"echo (rm -rf ./tmp)",
+		"cat *.txt",
+		"cat {credentials,README}.txt",
+		"ls [a-z]*",
+	} {
+		t.Run(command, func(t *testing.T) {
+			assessment := ValidateCommand(command)
+			if assessment.Dangerous || assessment.Known {
+				t.Fatalf("ValidateCommand(%q) = %+v, want non-dangerous unknown", command, assessment)
+			}
+		})
+	}
 }

@@ -22,6 +22,12 @@ func LoadUILanguage() (string, error) {
 	if err := filestore.ValidateDirectory(dir); err != nil {
 		return "", fmt.Errorf("validate config directory: %w", err)
 	}
+	if err := ValidateFileSecurity(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return uiLanguageAuto, nil
+		}
+		return "", fmt.Errorf("validate configuration security: %w", err)
+	}
 	data, err := filestore.ReadSingleLink(path, maxConfigBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		return uiLanguageAuto, nil

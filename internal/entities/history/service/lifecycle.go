@@ -109,6 +109,15 @@ func (l *Lifecycle) Response(ctx context.Context, response *domain.OptionsRespon
 	return nil
 }
 
+// SelectedCommandReference returns the exact conversation and command IDs for
+// an already-recorded response alternative.
+func (l *Lifecycle) SelectedCommandReference(index int) (string, string, bool) {
+	if l == nil || l.conversationID == "" || index < 0 || index >= len(l.commandIDs) {
+		return "", "", false
+	}
+	return l.conversationID, l.commandIDs[index], true
+}
+
 // SelectionOutcome distinguishes observed execution from terminal delivery.
 type SelectionOutcome struct {
 	Index             int

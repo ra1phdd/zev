@@ -7,7 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- In automatic `execute` mode, send locally unrecognized commands, the user's request, and the generated short explanation to the configured provider for an isolated safety review; stop on errors, unclear responses, unsafe verdicts, local dangerous findings, or policy denial.
+- Add single-use immutable invocation grants that bind policy, cwd identity, interpreter/argv, filtered environment, and reviewed input digests; changed snapshots are rejected before dispatch and retries require fresh grants.
+- Add a version-one typed security action/policy engine shared by query, run, alias, script, tool, and web-fetch dispatch. Strict nested security YAML rules now fail closed with
+  deny-over-ask-over-allow priority, explicit effect coverage, and no sandbox claim; default
+  child-process execution filters ambient environment variables, project context travels as
+  an untrusted user-data envelope, and fetched URL diagnostics disclose only the public origin.
+- Add a literal `zev run -- <command> [args...]` wrapper for inject, with direct argv
+  forwarding, stream proxying, bounded failure logs, retry, and provider-backed analysis
+  or correction suggestions that never execute automatically.
+- Reject configuration files that are not private, regular files owned by the current
+  user, and block automatic model-tool follow-ups after suspicious or incomplete output.
+- Add opt-in bounded `web_fetch` model capability with public-destination validation,
+  redirect and response limits, credential-free requests, redaction, and output probing.
+- Execute managed scripts from an immutable bounded snapshot; normal-mode approval now
+  binds to the snapshot hash and arguments before the snapshot is launched.
+- Extend `zev run` with strict pre-separator parsing, bounded per-attempt timeout,
+  cancellable retry delay, bounded original-command retries, and original/last exit policy.
+- Redact common credential-shaped values from model-tool output before probing and
+  provider disclosure; the redactor remains explicitly non-comprehensive.
+- Harden the local command gate against provider-flag bypasses and shell-neighbor
+  regressions: nested read-only substitutions, `/dev/null` redirects, and unknown
+  help/substitution forms remain conservative; public fetch redirects and reserved
+  IPv4/IPv6 destinations are revalidated even with an injected HTTP client.
+- Fail closed when configuration ownership/ACL security cannot be verified on Windows
+  instead of accepting a file based only on ineffective POSIX permission bits.
+- Keep machine-mode history selection aligned with the default printed option instead
+  of recording an invalid negative command index.
+- Reauthorize every execute retry so a failed attempt cannot carry a stale
+  policy decision into a later attempt; injection warnings disclose the exact
+  command before terminal delivery.
+- Avoid rejecting ordinary Go source files solely because their names contain
+  sensitive-word markers, while retaining protected path and credential-file checks.
+- Keep shell dialect and pathname/brace expansions conservative by requiring
+  confirmation for unsupported or unresolved expansion syntax; literal `zev run`
+  executables supplied by path are no longer classified as known-safe basenames.
+- Treat provider dangerous flags as advisory for execution decisions, reject
+  cross-origin public web redirects, and reject storage paths below dangling
+  symlink ancestors.
+- Use the resolved shell interpreter for bounded structural analysis, keep
+  unsupported or ambiguous syntax fail-closed, and analyze literal argv without
+  joining it back into shell text. Register explicit application-level capability
+  descriptors for host dispatches; these descriptors document enforcement scope
+  and do not claim OS isolation.
+- Add an interactive post-failure menu for terminal runs: do nothing by default, retry,
+  analyze, or request corrected command suggestions. Injected commands continue their exact
+  saved conversation; direct runs send a standalone failure query. Recovery output stays inert.
+- Add `command_wrapper_enabled` (default `true`) to control whether query inject wraps
+  generated commands with `zev run`; rename `security.mode: normal` to `auto` while reading
+  legacy `normal`, and remove runtime sandbox configuration (legacy `security.sandbox.mode: off`
+  is discarded during load).
+
 ### Added
+
+- Add the first centralized action-security slice: peer command-delivery modes via `security.mode`,
+  warning-only command injection, pre-dispatch execute warnings/confirmation, shared
+  stdout/stderr proxy execution, command-delivery bypass disclosure in `zev doctor`, and a shared
+  shell/argv runner boundary.
 
 - Version `config.yaml` explicitly. Supported migration inputs are the released v1.0.0
   dotenv/metadata/JSONL formats and the current formats; development snapshots are not
@@ -54,7 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add bilingual user documentation for history storage, search, migration, privacy
   and embedding configuration.
 - Add native model `exec` tools with per-call manual approval, root-confined read-only
-  auto execution plus isolated model safety review, and explicit unrestricted bypass.
+  execution plus isolated model safety review, and a peer bypass mode that skips only
+  the prompt/reviewer while retaining capability checks.
   Configure with `TOOLS_ENABLED`/`TOOL_APPROVAL_MODE` or CLI flags; machine output
   requires explicit `--tools` and retains its stdout and final-command delivery contracts.
 - Add a demo animation to the English and Russian READMEs.

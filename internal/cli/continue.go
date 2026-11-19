@@ -12,11 +12,13 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/core/httpclient"
 	"github.com/ra1phdd/zev/internal/core/locale"
+	"github.com/ra1phdd/zev/internal/core/security"
 	historyrepo "github.com/ra1phdd/zev/internal/entities/history/repository"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/ra1phdd/zev/internal/entities/query/repository"
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
 	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
+	"github.com/ra1phdd/zev/pkg/terminal"
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
 	"github.com/spf13/cobra"
 )
@@ -202,7 +204,13 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	}
 	outcome := historyservice.SelectionOutcome{Index: index, DeliveryOutcome: queryDeliverySelected}
 	s.warnHistory(s.persistence.Select(cmd.Context(), outcome))
-	err = deliverQueryCommand(cmd.Context(), queryDelivery{command: selected, mode: mode, out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger, outcome: &outcome})
+	err = deliverQueryCommand(cmd.Context(), queryDelivery{
+		command: selected, mode: mode, securityMode: security.Mode(cfg.Security.Mode), securityDefaultDecision: security.Decision(cfg.Security.DefaultDecision), securityPolicy: cfg.Security.Policy(),
+		out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger,
+		runner:  &terminal.Runner{Stdin: cmd.InOrStdin(), Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()},
+		confirm: confirmQueryExecution(cmd), outcome: &outcome,
+		reviewCommand: s.svc.ReviewCommandSafety, userRequest: promptText,
+	})
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(cmd.Context()), 5*time.Second)
 	s.warnHistory(s.persistence.Select(ctx, outcome))
 	cancel()

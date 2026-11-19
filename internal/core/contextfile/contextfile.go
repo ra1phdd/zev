@@ -215,6 +215,9 @@ func isSensitive(name string) bool {
 	if lower == ".env" || strings.HasPrefix(lower, ".env.") {
 		return true
 	}
+	if strings.HasSuffix(lower, ".go") {
+		return false
+	}
 	for _, marker := range []string{"credential", "secret", "password", "token"} {
 		if strings.Contains(lower, marker) {
 			return true

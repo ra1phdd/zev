@@ -239,6 +239,7 @@ const (
 	KeyQueryAiDidNotProvideResponseMightHappen                   Key = "query.ai_did_not_provide_response_might_happen"
 	KeyQueryUnableProcessRequestMessage                          Key = "query.unable_process_request_message"
 	KeyQueryWarningMessage                                       Key = "query.warning_message"
+	KeyQueryInjectionWarning                                     Key = "query.injection_warning"
 	KeyQuerySelectedCommandMessage                               Key = "query.selected_command_message"
 	KeyQueryContinueRequiresHistoryRemoveNoHistory               Key = "query.continue_requires_history_remove_no_history"
 	KeyQueryAttachContextFilesCommaSeparatedPathsPress           Key = "query.attach_context_files_comma_separated_paths_press"

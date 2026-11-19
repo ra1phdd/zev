@@ -13,8 +13,9 @@ import (
 const fixtureProjectRoot = "/project"
 
 const (
-	finalOptions  = `{"is_valid":true,"commands":[{"command":"echo done","short_explanation":"done","is_dangerous":false}]}`
-	readArguments = `{"command":"cat","args":["README.md"],"reason":"Understand the project"}`
+	finalOptions   = `{"is_valid":true,"commands":[{"command":"echo done","short_explanation":"done","is_dangerous":false}]}`
+	readArguments  = `{"command":"cat","args":["README.md"],"reason":"Understand the project"}`
+	readToolCallID = "read"
 )
 
 type fixtureProvider struct {
@@ -52,13 +53,18 @@ type fixtureExecutor struct {
 	executed   int
 	restricted bool
 	checkErr   error
+	output     string
 }
 
 func (e *fixtureExecutor) CheckReadOnly(domain.ExecRequest) error { e.checked++; return e.checkErr }
 func (e *fixtureExecutor) Execute(_ context.Context, _ domain.ExecRequest, restricted bool) domain.ToolResult {
 	e.executed++
 	e.restricted = restricted
-	return domain.ToolResult{Output: "project details", ExitCode: 0}
+	output := e.output
+	if output == "" {
+		output = "project details"
+	}
+	return domain.ToolResult{Output: output, ExitCode: 0}
 }
 
 func TestManualDenialReturnsToPrimaryWithoutExecuting(t *testing.T) {
@@ -101,7 +107,7 @@ func TestAutoReviewIsIsolatedAndRequiredBeforeEveryExecution(t *testing.T) {
 		allow        bool
 	}{{"allow", `{"allowed":true,"reason":"read only"}`, true}, {"deny", `{"allowed":false,"reason":"unsafe"}`, false}, {"missing verdict", `{"reason":"unknown"}`, false}, {"invalid", `not JSON`, false}, {"duplicate", `{"allowed":false,"allowed":true,"reason":"oops"}`, false}, {"unknown", `{"allowed":true,"reason":"ok","extra":true}`, false}} {
 		t.Run(tc.name, func(t *testing.T) {
-			p := &fixtureProvider{turns: []*domain.ToolTurn{{Calls: []domain.ToolCall{{ID: "read", Name: execToolName, Arguments: readArguments}}}, {Content: tc.review}, {Content: finalOptions}}}
+			p := &fixtureProvider{turns: []*domain.ToolTurn{{Calls: []domain.ToolCall{{ID: readToolCallID, Name: execToolName, Arguments: readArguments}}}, {Content: tc.review}, {Content: finalOptions}}}
 			e := &fixtureExecutor{}
 			s, err := New(p, Settings{Mode: modeAuto, Root: fixtureProjectRoot, Executor: e})
 			if err != nil {
@@ -119,14 +125,18 @@ func TestAutoReviewIsIsolatedAndRequiredBeforeEveryExecution(t *testing.T) {
 				t.Fatalf("review not isolated %+v", review)
 			}
 			var envelope struct {
-				Root    string             `json:"root"`
-				Request domain.ExecRequest `json:"request"`
+				Root    string   `json:"root"`
+				Command string   `json:"command"`
+				Args    []string `json:"args"`
 			}
 			if err := json.Unmarshal([]byte(review.History.Messages[0].Content), &envelope); err != nil {
 				t.Fatalf("review payload is not valid JSON: %v", err)
 			}
-			if envelope.Root != fixtureProjectRoot || envelope.Request.Command != "cat" || len(envelope.Request.Args) != 1 || envelope.Request.Args[0] != "README.md" || envelope.Request.Reason != "Understand the project" {
+			if envelope.Root != fixtureProjectRoot || envelope.Command != "cat" || len(envelope.Args) != 1 || envelope.Args[0] != "README.md" {
 				t.Fatalf("review payload = %+v", envelope)
+			}
+			if strings.Contains(review.History.Messages[0].Content, "Understand the project") {
+				t.Fatal("review payload included agent-authored reason")
 			}
 			if strings.Contains(review.History.Messages[0].Content, "private conversation") || strings.Contains(review.History.Messages[0].Content, "private primary instructions") {
 				t.Fatal("review payload leaked primary conversation")

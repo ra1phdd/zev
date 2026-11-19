@@ -62,3 +62,12 @@ func TestInjectValidatesBeforeTerminalAccess(t *testing.T) { //nolint:parallelte
 		}
 	}
 }
+
+func TestPartialInjectionErrorPreservesCauseAndWrittenCount(t *testing.T) {
+	t.Parallel()
+	cause := errors.New("ioctl failed")
+	err := &PartialInjectionError{Written: 2, Err: cause}
+	if !errors.Is(err, cause) || err.Written != 2 {
+		t.Fatalf("partial error = %v, written=%d", err, err.Written)
+	}
+}

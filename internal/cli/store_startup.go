@@ -78,6 +78,9 @@ func doctorConfig() (*config.Config, error) {
 	if !present {
 		return config.DefaultConfig(), nil
 	}
+	if err := config.ValidateFileSecurity(filepath.Join(dir, "config.yaml")); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("validate configuration security: %w", err)
+	}
 	cfg, err := readStoreSnapshot(dir, "config.yaml", config.Parse)
 	if errors.Is(err, os.ErrNotExist) {
 		if _, err := os.Lstat(filepath.Join(dir, "config")); errors.Is(err, os.ErrNotExist) {

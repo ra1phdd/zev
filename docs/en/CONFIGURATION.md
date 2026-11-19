@@ -95,6 +95,7 @@ file, specify `active_provider` and `providers`; omitted global settings use def
 | `language` | `auto` |
 | `http_headers` | `User-Agent: zev/1.0` |
 | `command_execution_mode` | `inject` |
+| `command_wrapper_enabled` | `true` |
 | `script_editor` | `nano` |
 | `history_enabled` | `true` |
 | `history_semantic_enabled` | `false` |
@@ -102,6 +103,21 @@ file, specify `active_provider` and `providers`; omitted global settings use def
 | `context_enabled` | `true` |
 | `tools_enabled` | `true` |
 | `tool_approval_mode` | `manual` |
+| `security.mode` | `auto` |
+| `security.web_fetch_enabled` | `false` |
+
+Security policy schema is versioned independently under `security.version` (currently
+`1`). `security.default_decision` accepts only `ask` or `deny`; `allow` is never a
+valid global fallback. `probe` and `classifier` accept only `mode: local`,
+`on_failure: ask|deny`. Legacy `security.mode: normal` is read as `auto` and saved as
+`auto`. Legacy `security.sandbox.mode: off` is discarded and is not written back;
+other legacy sandbox values are rejected. No sandbox setting is supported.
+Optional `limits` fields are bounded review durations/call counts. `rules.deny`,
+`rules.ask`, and `rules.allow` use unique IDs and non-empty conjunctive matches for
+`sources`, `deliveries`, `effects`, `paths`, `executables`, `argv_prefix`, `certainty`,
+and `risk`. Matching priority is always deny, then ask, then allow, regardless of
+YAML order; an allow must cover every requested effect. Invalid, duplicate, null, or
+unknown policy values fail closed before dispatch.
 
 The user home (`HOME` on Unix, `USERPROFILE` on Windows) must be an absolute path. A missing or relative home is an
 error; Zev never falls back to `.zev` inside the current project.
@@ -128,6 +144,35 @@ matching SHA-256 entry and the computed digest matches it.
 
 ## Model tools
 
+`security.mode` controls command-delivery policy. `auto` and `bypass` are peer modes:
+`auto` applies the configured local policy, while `bypass` permits otherwise technically
+valid host `execute` actions without that confirmation. This setting does not select or
+rewrite the separate model-tool approval mode, is never enabled by model output or a
+repository file, and does not provide a sandbox. `zev doctor` reports the selected mode.
+
+`security.web_fetch_enabled: true` separately enables the model's bounded `web_fetch`
+read capability. It permits only public HTTP(S) GET requests with destination checks,
+redirect limits, response limits, no cookies or credentials, and local untrusted-output
+probing. It does not enable arbitrary network access or change command delivery.
+
+The persisted `~/.zev/config.yaml` must be a regular file owned by the current user
+with no group or other permission bits. Zev rejects symlinks, hard-linked files,
+special files, and group/world-readable or writable configuration before parsing it.
+
+`command_wrapper_enabled: true` wraps generated `inject` commands with `zev run --` so
+the user can inspect a bounded failure log and request analysis or correction suggestions.
+Set it to `false` to inject the original command without the wrapper. This setting affects
+only generated injection, not explicit `zev run` calls. `zev run -- <command> [args...]`
+passes literal argv without joining it into shell text and does not use `execute`-specific
+authorization. On failure, `--on-failure=analyze|fix` sends the bounded diagnostic context
+to the configured provider only after that action is selected and Zev warns that it may
+contain secrets; injected commands continue
+their linked conversation, while direct runs start a standalone recovery query. Suggestions
+are displayed as inert text and are never executed automatically. `retry`, `--max-retries`,
+`--retry-delay`, `--timeout`, `--log-limit`, and `--exit-code=original|last` control execution.
+Zev does not provide an OS sandbox; commands run with host privileges and environment policy.
+
+
 Model tools are enabled by default through `tools_enabled: true`. `tool_approval_mode`
 accepts `manual`, `auto`, or `bypass`; the value is validated even when tools are disabled.
 The `--tools`, `--no-tools`, and `--tool-approval` flags override these settings for one run.
@@ -153,13 +198,11 @@ OpenAI-compatible/Ollama, OpenCode, Anthropic and Gemini adapters support this e
   root. Only an unambiguous JSON approval permits execution. Unsafe verdicts, network
   errors and malformed responses deny the call and return an explanation to the main
   model so it can adapt. A model verdict alone is not a security boundary.
-- `bypass` permits arbitrary executables with the current user's permissions, without
-  approval or a reviewer, and prints a warning to stderr. Explicit shell invocations
-  such as `sh -c` are possible in manual/bypass. This is **not a sandbox**: these modes
-  can modify files, use the network, or disclose secrets. The subprocess receives a
-  minimal environment instead of Zev's provider keys/headers; this does not stop it from
-  reading accessible files. Executables are resolved from system directories; specify an
-  absolute path for other tools. stdin is closed; interactive commands are not supported.
+- `bypass` is a peer tool-approval mode: it skips the per-call prompt and reviewer but
+  keeps the same read-only builtin capability and technical checks as the other tool
+  modes. It cannot run arbitrary executables, shell commands, writes or network calls
+  through the model context-tool path. Host query `execute` is a separate delivery mode
+  controlled by `security.mode` and is **not a sandbox**.
 
 ### Local tool adapter contract
 
@@ -227,7 +270,7 @@ cancel an in-flight kernel call: the adapter checks cancellation around bounded 
 a stalled filesystem, FUSE or kernel call has no hard wall-clock bound and must not be
 advertised as one.
 
-With `restricted=false`, the caller has already approved the complete request. `os/exec`
+With `restricted=false`, a separate caller has already approved the complete request. `os/exec`
 receives literal argv and `cwd=root`; a shell runs only when explicitly requested. Stdin
 is the null device. The environment contains only `PATH`, `LANG=C`, `LC_ALL=C`, and on
 Windows `SystemRoot`; provider secrets, `HOME`, loader hooks and shell-startup variables
@@ -235,8 +278,9 @@ are not inherited. Bare executables are searched only in `/usr/bin:/bin`, or
 `SystemRoot/System32` on Windows and only as `.exe`; explicit absolute paths or relative
 paths containing separators may select other tools.
 
-Manual and bypass execution are not a sandbox: approved commands may modify files, access
-the network, read credentials from disk or intentionally detach descendants. `os.Root`
+The model context-tool path never uses `restricted=false`. Host query execution is not a
+sandbox: approved commands may modify files, access the network, read credentials from
+disk or intentionally detach descendants. `os.Root`
 does not prevent mount crossings, and the adapter does not protect against hostile
 same-UID writers, mount changes or concurrent mutation of regular-file data. Filename
 filtering is not a secret-content detector; do not enable tools in an untrusted or
@@ -248,7 +292,7 @@ zev query --tool-approval auto "find the right build command"
 zev query --print --tools --tool-approval auto "find the right test command"
 zev continue --tool-approval auto "look into the error"
 zev query --no-tools "show disk usage"
-# Explicitly opt out of approval and safety review:
+# Skip the per-call approval prompt and isolated reviewer while retaining read-only checks:
 zev query --tools --tool-approval bypass "inspect this project"
 ```
 
@@ -379,7 +423,11 @@ Invalid configured language values are rejected when loading the full configurat
 Safety checks inspect operations inside pipelines/chains; separators such as `|`, `&&`
 or `;` alone do not mark a command dangerous. Warnings for destructive operations,
 shell execution from pipeline input, substitutions and output redirection remain;
-provider-supplied warnings are preserved. Absence of a warning is not a safety guarantee.
+provider-supplied warnings are preserved. Shell text is analyzed by a bounded structural
+analyzer selected from the resolved `sh`/Bash/Zsh interpreter; unsupported dialects and
+over-budget or ambiguous syntax remain unknown and require confirmation. This is not a
+complete shell AST or sandbox. Literal `run` argv is analyzed as separate argument bytes
+and is never joined and reparsed as shell text. Absence of a warning is not a safety guarantee.
 
 Translations live in root `locale/query.*.toml` and `locale/{cli,tools,ui}.*.toml` and are embedded into the binary. No locale
 files are needed beside the installed executable. Add translations to the matching
@@ -537,7 +585,7 @@ with cooperative locks covering read-modify-write operations. SQLite history use
 transactions instead of rewriting JSONL. Files are written with mode `0600`, new
 application directories with `0700`, and new script bodies with `0700` on Unix. These
 permissions do not encrypt API keys or
-history; Windows ACL behavior is not proven by Unix mode bits.
+history; Windows validates configuration ownership and write-capable ACL entries through native security descriptors, while this checkout's Windows behavior is compile-checked but not runtime-tested here.
 
 Persistent `*.lock` sidecars identify cross-process locks: **do not delete or replace
 them**, even when idle. Data-file symlinks and a symlink at `~/.zev` are rejected;

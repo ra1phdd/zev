@@ -189,7 +189,7 @@ func ReadFileLimit(path string, limit int64) (data []byte, err error) {
 func ValidateDirectory(dir string) error {
 	info, err := os.Lstat(filepath.Clean(dir)) //nolint:gosec // Caller selects the application directory; ancestors are trusted.
 	if errors.Is(err, os.ErrNotExist) {
-		return nil
+		return validateAbsentDirectoryPath(filepath.Clean(dir))
 	}
 	if err != nil {
 		return fmt.Errorf("stat storage directory: %w", err)
@@ -198,6 +198,31 @@ func ValidateDirectory(dir string) error {
 		return errors.New("storage directory must be a directory, not a symlink or special file")
 	}
 	return nil
+}
+
+func validateAbsentDirectoryPath(path string) error {
+	for current := path; ; current = filepath.Dir(current) {
+		info, err := os.Lstat(current) //nolint:gosec // The path was supplied by the storage caller.
+		if err == nil {
+			if info.Mode()&os.ModeSymlink != 0 {
+				if _, statErr := os.Stat(current); statErr != nil { //nolint:gosec // The path is the validated storage directory path.
+					return fmt.Errorf("storage directory has a dangling symlink ancestor: %w", statErr)
+				}
+				return nil
+			}
+			if !info.IsDir() {
+				return errors.New("storage directory ancestor must be a directory")
+			}
+			return nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("inspect storage directory ancestor: %w", err)
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return nil
+		}
+	}
 }
 
 func validateDestination(path string) error {

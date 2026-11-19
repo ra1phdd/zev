@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -10,12 +12,15 @@ import (
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/ra1phdd/zev/internal/core/metadata"
+	"github.com/ra1phdd/zev/internal/core/security"
 	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
 	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
+	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
 	scriptrepo "github.com/ra1phdd/zev/internal/entities/script/repository"
 	scriptservice "github.com/ra1phdd/zev/internal/entities/script/service"
 	aliasmigration "github.com/ra1phdd/zev/internal/migrations/aliases"
 	scriptmigration "github.com/ra1phdd/zev/internal/migrations/scripts"
+	"github.com/ra1phdd/zev/pkg/terminal"
 	"github.com/spf13/cobra"
 )
 
@@ -31,7 +36,7 @@ func dispatchOriginalArgs(cmd *cobra.Command, argv []string) (bool, error) {
 			break
 		}
 		switch token {
-		case "--option", "--context-file", "-cf", "--tool-approval":
+		case "--option", "--context-file", "-cf", runToolApprovalFlagName:
 			if i < len(argv) {
 				i++
 			}
@@ -95,7 +100,10 @@ func dispatchOriginalArgs(cmd *cobra.Command, argv []string) (bool, error) {
 		if err := validateEntityArguments(managedKindScript, name, script.Arguments, tail); err != nil {
 			return true, fmt.Errorf("dispatch entity: %w", err)
 		}
-		return true, managedStorageError(scriptservice.New(scriptrepo.New(dir)).Execute(cmd.Context(), name, tail))
+		service := scriptservice.New(scriptrepo.New(dir))
+		return true, managedStorageError(service.ExecuteAuthorized(cmd.Context(), name, tail, func(current domain.Script, body []byte) error {
+			return authorizeManagedScript(cmd, current, body, tail)
+		}))
 	}
 	arguments, err := metadata.EffectiveArguments(*alias)
 	if err != nil {
@@ -111,7 +119,139 @@ func dispatchOriginalArgs(cmd *cobra.Command, argv []string) (bool, error) {
 	if flags.Print || flags.JSON {
 		return true, writeMachineResult(cmd, flags, &domain.OptionsResponse{IsValid: true, Commands: []domain.Command{{Command: rendered}}})
 	}
+	if err := authorizeManagedCommand(cmd, rendered); err != nil {
+		return true, fmt.Errorf("authorize alias execution: %w", err)
+	}
 	return true, managedStorageError(aliasservice.ExecuteRendered(cmd.Context(), rendered))
+}
+
+func authorizeManagedScript(cmd *cobra.Command, script domain.Script, body []byte, args []string) error {
+	cfg, err := loadConfig(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("load security configuration: %w", err)
+	}
+	hash := sha256.Sum256(body)
+	command := "script " + script.Name
+	if len(args) > 0 {
+		command += " " + strings.Join(args, " ")
+	}
+	selected := &domain.Command{
+		Command:              command,
+		IsDangerous:          true,
+		DangerousExplanation: "Saved script snapshot sha256=" + hex.EncodeToString(hash[:]) + " is not fully analyzed and requires confirmation.",
+	}
+	if err := writeQueryWarning(cmd.ErrOrStderr(), selected); err != nil {
+		return err
+	}
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("resolve script working directory: %w", err)
+	}
+	policy := cfg.Security.Policy().WithContext(workingDir, homeDirectory())
+	action := security.Action{
+		Source:        security.SourceScript,
+		Provenance:    security.Provenance{Kind: "saved_script", Identifier: script.Name, Digest: hex.EncodeToString(hash[:]), Trusted: true},
+		Delivery:      security.DeliveryExecute,
+		Dangerous:     true,
+		AnalysisKnown: false,
+		Certainty:     security.CertaintyUnknown,
+		Effects:       []security.Effect{security.EffectProcess, security.EffectFilesystem},
+		Interpreter:   "bash",
+		WorkingDir:    workingDir,
+		Executable:    script.Name,
+		Argv:          append([]string{"script", script.Name}, args...),
+	}
+	if err := (security.CapabilitySet{security.HostActionCapability(action)}).Require(action); err != nil {
+		return fmt.Errorf("script capability is not enforced: %w", err)
+	}
+	decision := policy.Evaluate(action)
+	grant, err := security.NewGrant(action, policy, security.SanitizedEnvironment(os.Environ()), body)
+	if err != nil {
+		return fmt.Errorf("create script security grant: %w", err)
+	}
+	switch decision {
+	case security.DecisionAsk:
+		approved, err := confirmQueryExecution(cmd)(cmd.Context(), selected)
+		if err != nil {
+			return fmt.Errorf("confirm script execution: %w", err)
+		}
+		if !approved {
+			return errors.New("script execution was not approved")
+		}
+	case security.DecisionAllow:
+		// The grant still binds the exact snapshot before dispatch.
+	case security.DecisionDeny:
+		return errors.New("script execution was denied by security policy")
+	}
+	if err := grant.Consume(action, policy, security.SanitizedEnvironment(os.Environ()), body); err != nil {
+		return fmt.Errorf("validate script security grant: %w", err)
+	}
+	return nil
+}
+
+func authorizeManagedCommand(cmd *cobra.Command, command string) error {
+	cfg, err := loadConfig(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("load security configuration: %w", err)
+	}
+	assessment := queryservice.ValidateCommandForShell(command, terminal.DefaultShell())
+	needsReview := assessment.Dangerous || !assessment.Known
+	selected := &domain.Command{
+		Command:              command,
+		IsDangerous:          needsReview,
+		DangerousExplanation: "Saved alias or script execution is not fully analyzed and requires confirmation.",
+	}
+	if assessment.Dangerous {
+		selected.DangerousExplanation = assessment.Explanation
+	}
+	if needsReview {
+		if err := writeQueryWarning(cmd.ErrOrStderr(), selected); err != nil {
+			return err
+		}
+	}
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("resolve alias working directory: %w", err)
+	}
+	policy := cfg.Security.Policy().WithContext(workingDir, homeDirectory())
+	action := security.Action{
+		Source:        security.SourceAlias,
+		Provenance:    security.Provenance{Kind: "saved_alias", Identifier: command, Trusted: true},
+		Delivery:      security.DeliveryExecute,
+		Dangerous:     assessment.Dangerous,
+		AnalysisKnown: assessment.Known,
+		Certainty:     runAssessmentCertainty(assessment.Known),
+		Effects:       []security.Effect{security.EffectProcess, security.EffectTerminal},
+		Interpreter:   "shell",
+		WorkingDir:    workingDir,
+		Executable:    command,
+	}
+	if err := (security.CapabilitySet{security.HostActionCapability(action)}).Require(action); err != nil {
+		return fmt.Errorf("alias capability is not enforced: %w", err)
+	}
+	decision := policy.Evaluate(action)
+	grant, err := security.NewGrant(action, policy, security.SanitizedEnvironment(os.Environ()), []byte(command))
+	if err != nil {
+		return fmt.Errorf("create alias security grant: %w", err)
+	}
+	switch decision {
+	case security.DecisionAllow:
+		// The grant still binds the exact snapshot before dispatch.
+	case security.DecisionAsk:
+		approved, err := confirmQueryExecution(cmd)(cmd.Context(), selected)
+		if err != nil {
+			return fmt.Errorf("confirm managed command: %w", err)
+		}
+		if !approved {
+			return errors.New("managed command execution was not approved")
+		}
+	case security.DecisionDeny:
+		return errors.New("managed command execution was denied by security policy")
+	}
+	if err := grant.Consume(action, policy, security.SanitizedEnvironment(os.Environ()), []byte(command)); err != nil {
+		return fmt.Errorf("validate alias security grant: %w", err)
+	}
+	return nil
 }
 
 // lookupNamedEntity preserves alias priority. Script storage (including bodies

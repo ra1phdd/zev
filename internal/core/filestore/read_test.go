@@ -70,3 +70,15 @@ func TestOpenReadFileRejectsSymlinkWithoutPrecheck(t *testing.T) {
 		t.Fatal("nofollow open accepted a leaf symlink")
 	}
 }
+
+func TestValidateDirectoryRejectsDanglingSymlinkAncestor(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	alias := filepath.Join(root, "dangling")
+	if err := os.Symlink(filepath.Join(root, "missing"), alias); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := ValidateDirectory(filepath.Join(alias, "nested")); err == nil {
+		t.Fatal("accepted a path below a dangling symlink")
+	}
+}

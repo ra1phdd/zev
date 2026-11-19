@@ -21,6 +21,11 @@ func New(provider domain.InferenceProvider) *Service {
 	return &Service{provider: provider}
 }
 
+// ReviewCommandSafety asks the same configured provider for an isolated safety review.
+func (s *Service) ReviewCommandSafety(ctx context.Context, command, userRequest, explanation string) (CommandSafetyReview, error) {
+	return ReviewCommandSafety(ctx, s.provider, command, userRequest, explanation)
+}
+
 // GetOptions requests command options for prompt and returns provider errors wrapped with context.
 func (s *Service) GetOptions(ctx context.Context, prompt string) (*domain.OptionsResponse, error) {
 	if prompt == "" {

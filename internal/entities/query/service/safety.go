@@ -1,27 +1,61 @@
 package service
 
 import (
+	"path/filepath"
 	"strings"
 	"unicode"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/security"
 )
 
 const (
-	safetyRedirectOperator = "redirect"
-	safetyInputOperator    = "input"
-	safetyDeleteCommand    = "del"
+	safetyRedirectOperator           = "redirect"
+	safetyDescriptorRedirectOperator = "descriptor-redirect"
+	safetyInputOperator              = "input"
+	safetyDeleteCommand              = "del"
 )
 
 // CommandAssessment is the local safety assessment of a command string.
 type CommandAssessment struct {
 	Dangerous   bool
 	Explanation string
+	Known       bool
 }
 
-// ValidateCommand performs a bounded lexical check without executing the command.
-// It is a conservative heuristic, not a shell parser or a sandbox guarantee.
+// ValidateCommand analyzes command text using the POSIX sh grammar.
 func ValidateCommand(command string) CommandAssessment {
+	return ValidateCommandForShell(command, "sh")
+}
+
+// ValidateCommandForShell selects the parser from the resolved interpreter.
+// Unsupported interpreters remain unknown instead of being treated as POSIX.
+func ValidateCommandForShell(command, interpreter string) CommandAssessment {
+	const (
+		dash = "dash"
+		bash = "bash"
+		zsh  = "zsh"
+		ksh  = "ksh"
+	)
+	if resolved, err := filepath.EvalSymlinks(interpreter); err == nil {
+		interpreter = resolved
+	}
+	dialect := security.ShellDialect("unsupported")
+	switch strings.ToLower(filepath.Base(interpreter)) {
+	case "sh", dash, ksh:
+		dialect = security.ShellPOSIX
+	case bash:
+		dialect = security.ShellBash
+	case zsh:
+		dialect = security.ShellZsh
+	}
+	structural := security.AnalyzeShell(command, dialect)
+	if structural.Dangerous {
+		return CommandAssessment{Dangerous: true, Known: structural.Known, Explanation: structural.Explanation}
+	}
+	if !structural.Known {
+		return CommandAssessment{}
+	}
 	tokens, syntax := tokenizeCommand(command)
 	segments := splitCommandSegments(tokens)
 
@@ -32,18 +66,30 @@ func ValidateCommand(command string) CommandAssessment {
 	}
 
 	if syntax.commandSubstitution {
-		return dangerousAssessment("Command substitution can execute a nested command.")
+		nested := assessCommandSubstitutions(command)
+		if nested.Dangerous {
+			return nested
+		}
+		if !nested.Known || !allSegmentsKnownWithSubstitutions(segments) {
+			return CommandAssessment{}
+		}
 	}
 	if syntax.shellPipeline {
 		return dangerousAssessment("Piping content to a shell can execute arbitrary commands.")
 	}
+	if syntax.ambiguousExpansion {
+		return CommandAssessment{}
+	}
 	if syntax.outputRedirect {
+		if redirectTargetsAreNull(tokens) && allSegmentsKnown(segments) {
+			return CommandAssessment{Known: true}
+		}
 		return dangerousAssessment("Output redirection can overwrite files or devices.")
 	}
-	return CommandAssessment{}
+	return CommandAssessment{Known: allSegmentsKnown(segments)}
 }
 
-// ApplyDangerousValidation upgrades provider responses using the local heuristic.
+// ApplyDangerousValidation upgrades provider responses using the local structural analyzer.
 // Existing provider warnings and explanations are never changed.
 func ApplyDangerousValidation(response *domain.OptionsResponse) {
 	if response == nil {
@@ -70,6 +116,7 @@ type safetyToken struct {
 
 type syntaxAssessment struct {
 	commandSubstitution bool
+	ambiguousExpansion  bool
 	outputRedirect      bool
 	shellPipeline       bool
 }
@@ -164,6 +211,16 @@ func (t *commandTokenizer) consumeUnquoted(runes []rune, index *int) {
 		t.consumeRedirect(runes, index)
 	case '<':
 		t.consumeInput(runes, index)
+	case '(':
+		if *index > 0 && runes[*index-1] == '$' {
+			t.appendWord(r)
+			return
+		}
+		t.syntax.ambiguousExpansion = true
+		t.appendWord(r)
+	case '{', '}', '*', '?', '[', ']':
+		t.syntax.ambiguousExpansion = true
+		t.appendWord(r)
 	default:
 		t.appendWord(r)
 	}
@@ -200,7 +257,12 @@ func (t *commandTokenizer) consumePipe(runes []rune, index *int) {
 
 func (t *commandTokenizer) consumeRedirect(runes []rune, index *int) {
 	t.flushWord()
-	if *index+1 < len(runes) && (runes[*index+1] == '>' || runes[*index+1] == '|' || runes[*index+1] == '&') {
+	if *index+1 < len(runes) && runes[*index+1] == '&' {
+		(*index)++
+		t.addDescriptorRedirectOperator()
+		return
+	}
+	if *index+1 < len(runes) && (runes[*index+1] == '>' || runes[*index+1] == '|') {
 		(*index)++
 	}
 	t.addRedirectOperator()
@@ -208,6 +270,11 @@ func (t *commandTokenizer) consumeRedirect(runes []rune, index *int) {
 
 func (t *commandTokenizer) addRedirectOperator() {
 	t.tokens = append(t.tokens, safetyToken{operator: true, text: safetyRedirectOperator})
+	t.syntax.outputRedirect = true
+}
+
+func (t *commandTokenizer) addDescriptorRedirectOperator() {
+	t.tokens = append(t.tokens, safetyToken{operator: true, text: safetyDescriptorRedirectOperator})
 	t.syntax.outputRedirect = true
 }
 
@@ -242,11 +309,15 @@ func tokenizeCommand(command string) ([]safetyToken, syntaxAssessment) {
 func splitCommandSegments(tokens []safetyToken) [][]string {
 	var segments [][]string
 	var words []string
-	for _, token := range tokens {
+	for index := 0; index < len(tokens); index++ {
+		token := tokens[index]
 		if token.operator {
 			if len(words) > 0 {
 				segments = append(segments, words)
 				words = nil
+			}
+			if (token.text == safetyRedirectOperator || token.text == safetyDescriptorRedirectOperator) && index+1 < len(tokens) && !tokens[index+1].operator {
+				index++
 			}
 			continue
 		}
@@ -256,6 +327,31 @@ func splitCommandSegments(tokens []safetyToken) [][]string {
 		segments = append(segments, words)
 	}
 	return segments
+}
+
+func redirectTargetsAreNull(tokens []safetyToken) bool {
+	found := false
+	for index, token := range tokens {
+		if !token.operator || token.text != safetyRedirectOperator {
+			if token.text != safetyDescriptorRedirectOperator {
+				continue
+			}
+			if index+1 >= len(tokens) || tokens[index+1].operator || !fileDescriptor(tokens[index+1].text) {
+				return false
+			}
+			found = true
+			continue
+		}
+		found = true
+		if index+1 >= len(tokens) || tokens[index+1].operator || tokens[index+1].text != "/dev/null" {
+			return false
+		}
+	}
+	return found
+}
+
+func fileDescriptor(value string) bool {
+	return value == "-" || value != "" && strings.Trim(value, "0123456789") == ""
 }
 
 func assessCommandSegment(words []string) (CommandAssessment, bool) {
@@ -271,6 +367,9 @@ func assessCommandSegment(words []string) (CommandAssessment, bool) {
 	}
 	switch executable {
 	case "rm", "rmdir", safetyDeleteCommand, "erase", "rd", "remove-item":
+		if isHelpOnly(args) {
+			return CommandAssessment{}, true
+		}
 		return dangerousAssessment("File or directory removal can cause data loss."), true
 	case "sudo", "doas":
 		return dangerousAssessment("Elevated privileges can affect protected system resources."), true
@@ -541,5 +640,165 @@ func isShellName(name string) bool {
 }
 
 func dangerousAssessment(explanation string) CommandAssessment {
-	return CommandAssessment{Dangerous: true, Explanation: explanation}
+	return CommandAssessment{Dangerous: true, Explanation: explanation, Known: true}
+}
+
+func isHelpOnly(args []string) bool {
+	return len(args) == 1 && (args[0] == "--help" || args[0] == "--version" || args[0] == "-h")
+}
+
+func allSegmentsKnownWithSubstitutions(segments [][]string) bool {
+	if len(segments) == 0 {
+		return false
+	}
+	for _, segment := range segments {
+		index := commandStart(segment)
+		if index >= len(segment) || !knownReadOnlyCommand(executableName(segment[index])) {
+			return false
+		}
+		for _, argument := range segment[index+1:] {
+			if strings.ContainsAny(argument, "$`") {
+				continue
+			}
+			if strings.HasPrefix(argument, "~") || sensitivePath(argument) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func assessCommandSubstitutions(command string) CommandAssessment {
+	if strings.Count(command, "$(") > 8 || strings.Count(command, "`") > 16 {
+		return CommandAssessment{}
+	}
+	runes := []rune(command)
+	for index := 0; index < len(runes); index++ {
+		if runes[index] == '\'' {
+			index = skipSingleQuoted(runes, index)
+			continue
+		}
+		if assessment, end, found := assessBacktickSubstitution(runes, index); found {
+			if assessment.Dangerous || !assessment.Known {
+				return assessment
+			}
+			index = end
+			continue
+		}
+		if assessment, end, found := assessDollarSubstitution(runes, index); found {
+			if assessment.Dangerous || !assessment.Known {
+				return assessment
+			}
+			index = end
+		}
+	}
+	return CommandAssessment{Known: true}
+}
+
+func assessBacktickSubstitution(runes []rune, index int) (CommandAssessment, int, bool) {
+	if runes[index] != '`' {
+		return CommandAssessment{}, index, false
+	}
+	end := findBacktick(runes, index+1)
+	if end < 0 {
+		return CommandAssessment{}, index, true
+	}
+	return ValidateCommand(string(runes[index+1 : end])), end, true
+}
+
+func assessDollarSubstitution(runes []rune, index int) (CommandAssessment, int, bool) {
+	if runes[index] != '$' || index+1 >= len(runes) || runes[index+1] != '(' {
+		return CommandAssessment{}, index, false
+	}
+	end := findSubstitutionEnd(runes, index+1)
+	if end < 0 {
+		return CommandAssessment{}, index, true
+	}
+	return ValidateCommand(string(runes[index+2 : end])), end, true
+}
+
+func skipSingleQuoted(runes []rune, start int) int {
+	for index := start + 1; index < len(runes); index++ {
+		if runes[index] == '\'' {
+			return index
+		}
+	}
+	return len(runes)
+}
+
+func findBacktick(runes []rune, start int) int {
+	for index := start; index < len(runes); index++ {
+		if runes[index] == '\\' {
+			index++
+			continue
+		}
+		if runes[index] == '`' {
+			return index
+		}
+	}
+	return -1
+}
+
+func findSubstitutionEnd(runes []rune, start int) int {
+	depth := 0
+	for index := start; index < len(runes); index++ {
+		switch runes[index] {
+		case '\'':
+			index = skipSingleQuoted(runes, index)
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				return index
+			}
+		case '\\':
+			index++
+		}
+	}
+	return -1
+}
+
+func allSegmentsKnown(segments [][]string) bool {
+	if len(segments) == 0 {
+		return false
+	}
+	for _, segment := range segments {
+		if !knownReadOnlySegment(segment) {
+			return false
+		}
+	}
+	return true
+}
+
+func knownReadOnlySegment(words []string) bool {
+	index := commandStart(words)
+	if index >= len(words) || !knownReadOnlyCommand(executableName(words[index])) {
+		return false
+	}
+	for _, argument := range words[index+1:] {
+		if strings.ContainsAny(argument, "$`") || strings.HasPrefix(argument, "~") || sensitivePath(argument) {
+			return false
+		}
+	}
+	return true
+}
+
+func knownReadOnlyCommand(command string) bool {
+	switch command {
+	case "cat", "cut", "date", "du", "echo", "head", "less", "ls", "more", "printf", "pwd", "sort", "stat", "tail", "type", "uname", "wc", "which":
+		return true
+	default:
+		return false
+	}
+}
+
+func sensitivePath(value string) bool {
+	path := strings.ToLower(strings.ReplaceAll(value, "\\", "/"))
+	for _, marker := range []string{".env", "/.ssh/", "/.aws/", "/.zev/", "credential", "secret", "password", "token", "private_key", "private-key", "id_rsa", "id_ed25519"} {
+		if strings.Contains(path, marker) {
+			return true
+		}
+	}
+	return strings.HasSuffix(path, ".pem") || strings.HasSuffix(path, ".key") || strings.HasSuffix(path, ".p12") || strings.HasSuffix(path, ".pfx")
 }

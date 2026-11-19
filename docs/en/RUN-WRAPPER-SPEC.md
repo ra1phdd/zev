@@ -6,7 +6,12 @@
 
 # Specification: standalone zev run — execution, failure analysis, and correction
 
-**Status:** standalone run and analysis without correction added at the user's request. The baseline passed two review rounds; this addition is author-checked, not independently reviewed yet. Not implemented.
+**Status:** literal argv execution, bounded output capture, retry, and interactive failure
+recovery are implemented. Analyze and fix request provider suggestions only after selection;
+injected commands restore the exact linked conversation, while direct runs send a standalone
+failure query. Query injection wrapping is controlled by `command_wrapper_enabled` (default
+`true`). Suggestions are never executed automatically. Run events, retained artifacts, several
+advanced flags, and independent review remain outstanding.
 
 ## 1. Objective and approved decisions
 

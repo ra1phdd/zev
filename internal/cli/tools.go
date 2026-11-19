@@ -84,7 +84,7 @@ func configureQueryTools(cmd *cobra.Command, params toolProviderParams) (domain.
 	if err != nil {
 		return nil, fmt.Errorf("initialize tools: %w", err)
 	}
-	settings := toolservice.Settings{Mode: mode, Root: root, Executor: executor}
+	settings := toolservice.Settings{Mode: mode, Root: root, Executor: executor, Policy: cfg.Security.Policy().WithContext(root, homeDirectory()), WebFetch: cfg.Security.WebFetchEnabled}
 	// Machine output never opens a TUI, even with --tools. A manual tool call is
 	// returned to the model as denied instead of silently approving or blocking.
 	if !flags.Print && !flags.JSON && interactiveToolInput(cmd) {

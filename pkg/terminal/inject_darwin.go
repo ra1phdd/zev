@@ -48,7 +48,7 @@ func Inject(text string) error {
 			uintptr(unsafe.Pointer(&b)),
 		)
 		if errno != 0 {
-			return fmt.Errorf("%w: %w", ErrInjectionFailed, errno)
+			return &PartialInjectionError{Written: i, Err: fmt.Errorf("%w: %w", ErrInjectionFailed, errno)}
 		}
 	}
 

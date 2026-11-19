@@ -71,6 +71,7 @@ type machineOutput struct {
 }
 
 func writeMachineResult(cmd *cobra.Command, flags parsedFlags, response *domain.OptionsResponse) error {
+	queryservice.ApplyDangerousValidation(response)
 	if err := response.Validate(); err != nil {
 		return machineError(exitInvalidResponse, err)
 	}
@@ -184,13 +185,13 @@ func runMachineProvider(cmd *cobra.Command, flags parsedFlags, params machinePro
 		return machineProviderError(err)
 	}
 	defer func() { resultErr = errors.Join(resultErr, closeQueryTools(params.Provider)) }()
-	projectPrompt := env
+	messages := []domain.Message{{Role: queryUserRole, Content: params.Prompt}}
 	if params.ProjectContext != "" {
-		projectPrompt += "\n\n" + projectContextSection(params.ProjectContext)
+		messages = []domain.Message{projectContextMessage(params.ProjectContext), {Role: queryUserRole, Content: params.Prompt}}
 	}
 	s := &querySession{
 		svc: queryservice.New(params.Provider), cmd: cmd, userPrompt: params.Prompt,
-		history: &domain.ConversationHistory{SystemPrompt: fmt.Sprintf(repository.SystemPrompt, projectPrompt), Messages: []domain.Message{{Role: queryUserRole, Content: params.Prompt}}}, machine: true,
+		history: &domain.ConversationHistory{SystemPrompt: fmt.Sprintf(repository.SystemPrompt, env), Messages: messages}, machine: true,
 	}
 	s.provider, s.model = params.Provider.Name(), params.Provider.Model()
 	s.prepareHistory(params.History)
@@ -208,7 +209,11 @@ func runMachineProvider(cmd *cobra.Command, flags parsedFlags, params machinePro
 		return err
 	}
 	if s.persistence != nil {
-		s.warnHistory(s.persistence.Select(cmd.Context(), historyservice.SelectionOutcome{Index: flags.Option - 1, DeliveryOutcome: queryDeliveryPrinted}))
+		option := flags.Option
+		if option == 0 {
+			option = 1
+		}
+		s.warnHistory(s.persistence.Select(cmd.Context(), historyservice.SelectionOutcome{Index: option - 1, DeliveryOutcome: queryDeliveryPrinted}))
 	}
 	return nil
 }

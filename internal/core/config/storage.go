@@ -71,6 +71,12 @@ func transaction(ctx context.Context, op func(string) error) error {
 }
 
 func load(path string) (*Config, error) {
+	if err := ValidateFileSecurity(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return DefaultConfig(), nil
+		}
+		return nil, fmt.Errorf("validate configuration security: %w", err)
+	}
 	data, err := filestore.ReadSingleLink(path, maxConfigBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		return DefaultConfig(), nil

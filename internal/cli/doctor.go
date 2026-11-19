@@ -207,14 +207,7 @@ func collectDoctorReport(ctx context.Context, deps doctorDeps) (doctorReport, *c
 		addDoctorCheck(&report, doctorCheck{Name: "configuration", Status: doctorStatusOK, Message: "configuration loaded", ActionableMessage: doctorActionNone})
 	}
 	if cfg != nil {
-		appendProviderChecks(&report, cfg)
-		if cfg.CommandExecutionMode == "inject" || cfg.CommandExecutionMode == "execute" {
-			addDoctorCheck(&report, doctorCheck{Name: "execution_mode", Status: doctorStatusOK, Message: "execution mode is supported", ActionableMessage: doctorActionNone})
-		} else {
-			addDoctorCheck(&report, doctorCheck{Name: "execution_mode", Status: doctorStatusError, Message: "execution mode is invalid", ActionableMessage: "set COMMAND_EXECUTION_MODE to inject or execute"})
-		}
-		appendExecutableCheck(&report, deps.findExecutable, "shell", doctorShell(), "set SHELL or COMSPEC to an installed shell")
-		appendExecutableCheck(&report, deps.findExecutable, "editor", doctorEditor(cfg), "set SCRIPT_EDITOR or EDITOR to an installed editor")
+		appendDoctorConfigChecks(&report, cfg, deps.findExecutable)
 	} else {
 		addDoctorCheck(&report, doctorCheck{Name: doctorCheckProvider, Status: doctorStatusSkipped, Message: "provider checks skipped because configuration is unavailable", ActionableMessage: "fix configuration first"})
 	}
@@ -258,6 +251,25 @@ func appendDoctorStorageChecks(ctx context.Context, report *doctorReport, deps d
 	} else {
 		addDoctorCheck(report, doctorCheck{Name: doctorCheckHistory, Status: doctorStatusOK, Message: "history database is readable", ActionableMessage: doctorActionNone})
 	}
+}
+
+func appendDoctorConfigChecks(report *doctorReport, cfg *config.Config, findExecutable func(string) (string, error)) {
+	appendProviderChecks(report, cfg)
+	if cfg.CommandExecutionMode == "inject" || cfg.CommandExecutionMode == "execute" {
+		addDoctorCheck(report, doctorCheck{Name: "execution_mode", Status: doctorStatusOK, Message: "execution mode is supported", ActionableMessage: doctorActionNone})
+	} else {
+		addDoctorCheck(report, doctorCheck{Name: "execution_mode", Status: doctorStatusError, Message: "execution mode is invalid", ActionableMessage: "set COMMAND_EXECUTION_MODE to inject or execute"})
+	}
+	if cfg.Security.Mode == config.SecurityModeBypass {
+		addDoctorCheck(report, doctorCheck{Name: "security_mode", Status: doctorStatusWarning, Message: "command-delivery bypass is enabled; execute confirmations are disabled", ActionableMessage: "set security.mode to auto for the default security policy"})
+	} else {
+		addDoctorCheck(report, doctorCheck{Name: "security_mode", Status: doctorStatusOK, Message: "auto security mode is enabled", ActionableMessage: doctorActionNone})
+	}
+	if cfg.Security.WebFetchEnabled {
+		addDoctorCheck(report, doctorCheck{Name: "web_fetch", Status: doctorStatusWarning, Message: "bounded public web fetch is enabled for model tools", ActionableMessage: "set security.web_fetch_enabled to false when network context is unnecessary"})
+	}
+	appendExecutableCheck(report, findExecutable, "shell", doctorShell(), "set SHELL or COMSPEC to an installed shell")
+	appendExecutableCheck(report, findExecutable, "editor", doctorEditor(cfg), "set SCRIPT_EDITOR or EDITOR to an installed editor")
 }
 
 func appendProviderChecks(report *doctorReport, cfg *config.Config) {

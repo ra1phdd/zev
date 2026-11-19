@@ -105,6 +105,20 @@ func TestLoadRejectsSensitivePathComponents(t *testing.T) {
 	}
 }
 
+func TestLoadAllowsSourceFilesWithSensitiveWordsInTheirNames(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	for _, name := range []string{"tokenizer.go", "secret_manager_test.go"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("package fixture\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		got, err := LoadWithOptions(root, []string{name}, false)
+		if err != nil || !strings.Contains(got, "package fixture") {
+			t.Errorf("Load(%q) = %q, %v; want source content", name, got, err)
+		}
+	}
+}
+
 func TestLoadRejectsSymlinkRoot(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

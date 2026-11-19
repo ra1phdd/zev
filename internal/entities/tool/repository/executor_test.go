@@ -80,6 +80,20 @@ func TestReadOnlySensitiveComponents(t *testing.T) {
 	}
 }
 
+func TestReadOnlyAllowsSourceFilesWithSensitiveWordsInTheirNames(t *testing.T) {
+	t.Parallel()
+	e, root := newExecutor(t)
+	for _, name := range []string{"tokenizer.go", "secret_manager_test.go"} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte("package fixture\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		request := ExecRequest{Command: builtinCat, Args: []string{name}}
+		if err := e.CheckReadOnly(request); err != nil {
+			t.Errorf("rejected source file %q: %v", name, err)
+		}
+	}
+}
+
 func TestReadOnlySymlinksAndRevalidation(t *testing.T) {
 	t.Parallel()
 	e, root := newExecutor(t)

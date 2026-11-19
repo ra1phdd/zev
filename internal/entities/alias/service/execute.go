@@ -10,6 +10,7 @@ import (
 	"runtime"
 
 	"github.com/ra1phdd/zev/internal/core/childprocess"
+	"github.com/ra1phdd/zev/internal/core/security"
 )
 
 // ExecuteRendered launches a validated argv-safe alias through an allowlisted
@@ -33,6 +34,7 @@ func ExecuteRendered(ctx context.Context, command string) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Env = security.SanitizedEnvironment(os.Environ())
 	if err := childprocess.Run(ctx, cmd); err != nil {
 		return fmt.Errorf("execute alias: %w", err)
 	}

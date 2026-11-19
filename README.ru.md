@@ -98,11 +98,29 @@ zev query "показать все docker-контейнеры по размер
 
 ```bash
 zev --inject "сжать логи"      # подставить в терминал для проверки (по умолчанию)
-zev --execute "перезапустить nginx"   # выполнить сразу
+zev --execute "перезапустить nginx"   # проксировать stdout/stderr во время запуска
 ```
 
-Поведение по умолчанию берётся из `COMMAND_EXECUTION_MODE` и меняется через
-`zev setup mode`.
+`inject` только показывает предупреждения: выбор подсказки не является разрешением,
+и Zev не нажимает Enter. `execute` — дополнительный proxy mode: опасные команды
+предупреждаются и подтверждаются до запуска, затем stdout/stderr и exit status child
+проходят через Zev. Режим можно изменить через `zev setup mode`.
+`security.mode: auto` и `security.mode: bypass` —
+равноправные режимы доставки команд; `bypass` пропускает confirmation для execute,
+но не меняет отдельный tool-approval mode.
+
+Для явного literal argv proxy используйте `run`; аргументы передаются без склеивания
+в shell text и без повторного parsing:
+
+```bash
+zev run -- go test ./...
+zev run -- printf '%s' '$HOME'
+```
+
+`zev run` передаёт literal argv и по умолчанию также используется при query-инъекции.
+После ошибки можно запросить анализ или варианты исправления; команды не запускаются
+автоматически. Укажите `command_wrapper_enabled: false` в `~/.zev/config.yaml`, чтобы
+вставлять сгенерированные команды без wrapper `zev run`. OS sandbox в Zev нет.
 
 ### История
 
