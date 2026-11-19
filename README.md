@@ -98,8 +98,10 @@ zev deploy
 
 - [Full CLI reference](docs/en/CLI.md) — command tree, arguments, every local and inherited flag, defaults, aliases, hidden flags, and shell completion.
 - [Configuration](docs/en/CONFIGURATION.md)
+- [Security](docs/en/SECURITY.md) — implemented policy, tool boundaries, web fetch and privacy limits.
 - [History](docs/en/HISTORY.md)
-- [Aliases and scripts](docs/en/ALIASES-SCRIPTS-SPEC.md)
+- [Aliases and scripts](docs/en/ALIASES-SCRIPTS.md)
+- [`zev run` wrapper](docs/en/RUN-WRAPPER.md)
 - [Updating](docs/en/UPDATE.md)
 - [Architecture](docs/en/ARCHITECTURE.md)
 - [Development](docs/en/DEVELOPMENT.md)

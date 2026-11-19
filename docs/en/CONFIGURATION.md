@@ -144,16 +144,21 @@ matching SHA-256 entry and the computed digest matches it.
 
 ## Model tools
 
-`security.mode` controls command-delivery policy. `auto` and `bypass` are peer modes:
-`auto` applies the configured local policy, while `bypass` permits otherwise technically
-valid host `execute` actions without that confirmation. This setting does not select or
-rewrite the separate model-tool approval mode, is never enabled by model output or a
-repository file, and does not provide a sandbox. `zev doctor` reports the selected mode.
+`security.mode` controls permission checks for Zev's host command-delivery paths. `auto`
+applies local policy; `bypass` skips confirmation for otherwise valid `execute` delivery,
+while matching deny rules and technical checks still apply. `inject` is warning-only and
+is not denied by command permission rules because execution is handed to the user's shell.
+This setting does not select or rewrite the separate model-tool approval mode, is never
+enabled by model output or a repository file, and does not provide a sandbox. `zev run` is
+an independently invoked literal-argv wrapper and does not use query `execute` confirmation.
+`zev doctor` reports the selected mode.
 
 `security.web_fetch_enabled: true` separately enables the model's bounded `web_fetch`
 read capability. It permits only public HTTP(S) GET requests with destination checks,
-redirect limits, response limits, no cookies or credentials, and local untrusted-output
-probing. It does not enable arbitrary network access or change command delivery. To route
+redirect limits, response/time/URL limits, no cookies or credentials, and local untrusted-output
+probing. Direct connections and `socks5://` validate locally resolved addresses; with
+`socks5h://` and HTTP(S) proxies, the selected proxy resolves the destination and is part
+of the trusted computing base. It does not enable arbitrary network access or change command delivery. To route
 model requests, web fetch, provider setup/diagnostics, history embeddings, updates,
 and recovery requests through a proxy, pass `--proxy URL`. The explicit flag
 overrides environment defaults. Without it, Zev uses the first non-empty variable in
@@ -177,14 +182,13 @@ special files, and group/world-readable or writable configuration before parsing
 the user can inspect a bounded failure log and request analysis or correction suggestions.
 Set it to `false` to inject the original command without the wrapper. This setting affects
 only generated injection, not explicit `zev run` calls. `zev run -- <command> [args...]`
-passes literal argv without joining it into shell text and does not use `execute`-specific
-authorization. On failure, `--on-failure=analyze|fix` sends the bounded diagnostic context
+passes literal argv without joining it into shell text and does not use the query `execute`
+authorization path. On failure, `--on-failure=analyze|fix` sends a bounded diagnostic bundle
 to the configured provider only after that action is selected and Zev warns that it may
-contain secrets; injected commands continue
-their linked conversation, while direct runs start a standalone recovery query. Suggestions
-are displayed as inert text and are never executed automatically. Each `zev run` invocation
-makes one attempt. `--timeout` and `--log-limit` bound the child run and captured output.
-Zev does not provide an OS sandbox; commands run with host privileges and environment policy.
+contain secrets; injected commands continue their linked conversation, while direct runs
+start a standalone recovery query. Suggestions are displayed as inert text and are never
+executed automatically. Each invocation makes one attempt. `--timeout` and `--log-limit`
+bound the child run and captured output. This is host execution, not an OS sandbox.
 
 
 Model tools are enabled by default through `tools_enabled: true`. `tool_approval_mode`
@@ -208,10 +212,10 @@ OpenAI-compatible/Ollama, OpenCode, Anthropic and Gemini adapters support this e
   authorizes execution. Approval applies to this invocation only.
 - `auto` first enforces the local read-only policy, then makes a **separate request to the
   configured provider/model** for every admitted invocation. The reviewer has no tools,
-  primary conversation, or file output; it sees only the command arguments, reason and
-  root. Only an unambiguous JSON approval permits execution. Unsafe verdicts, network
-  errors and malformed responses deny the call and return an explanation to the main
-  model so it can adapt. A model verdict alone is not a security boundary.
+  primary conversation, or file output; it sees only command arguments and root (the
+  request's `reason` is excluded). Only an unambiguous JSON approval permits execution.
+  Unsafe verdicts, network errors and malformed responses deny the call and return an
+  explanation to the main model so it can adapt. A model verdict alone is not a security boundary.
 - `bypass` is a peer tool-approval mode: it skips the per-call prompt and reviewer but
   keeps the same read-only builtin capability and technical checks as the other tool
   modes. It cannot run arbitrary executables, shell commands, writes or network calls
@@ -545,8 +549,10 @@ Doctor never prints API keys, custom header values, provider URLs or response bo
 
 - `inject` (default) — select a suggestion, then review the inserted command and press
   Enter. If terminal injection is unsupported or denied, Zev prints the command instead.
-- `execute` — the **first suggestion** runs immediately, without a selector or
-  confirmation. The danger warning is printed after execution; it is not a safety gate.
+- `execute` — selects the **first suggestion** and applies the security policy before
+  launching it. Unknown commands require the configured provider review; dangerous or
+  otherwise unresolved actions require confirmation unless `security.mode: bypass` is
+  explicitly selected. A matching deny rule still refuses the action.
 
 Aliases and saved scripts execute directly, independently of this setting.
 

@@ -14,6 +14,7 @@ internal/cli/                    Cobra commands, composition and query orchestra
 internal/core/
   domain/                       domain types, InferenceProvider interface, errors
   config/                       ~/.zev/config.yaml loading (current YAML only)
+  security/                     action policy, shell/argv analysis, grants and web-fetch boundaries
   httpclient/                   shared HTTP client and transport
 internal/entities/
   query/
@@ -29,6 +30,7 @@ internal/entities/
   history/repository/           current SQLite transactions and derived indexes
   history/client/               opt-in OpenAI-compatible embedding HTTP adapter
   history/lexical/              local normalization, Snowball stemming and typo primitives
+  tool/{service,repository}/    bounded model tools, isolated review and confined local reads
   alias/{service,repository}/   argument substitution and YAML persistence
   script/{service,repository}/  bash scripts, metadata, editor and execution
   setup/service/                interactive TUI setup wizard
@@ -72,9 +74,10 @@ format. The baseline does not replay a development schema history.
 5. `inject` displays choices and supports refinement using the active in-memory
    conversation. The selected command is inserted into terminal input, or printed if
    injection is unsupported or denied.
-6. `execute` runs the first suggestion without selection or confirmation. The selected
-   command is validated again before delivery; its danger warning is printed after
-   execution, not used as a safety gate.
+6. `execute` selects the first suggestion and applies bounded local shell analysis,
+   provider review for unknown commands, configured permission rules, and confirmation
+   when required before launching it. `inject` is a separate warning-only delivery path:
+   it inserts text without pressing Enter, so the user's shell controls any later run.
 7. When history is enabled, the CLI opens `~/.zev/history.db` and gives the store to
    the history lifecycle service. Initial input is recorded before the provider call;
    responses, command selection, execution results and final status are recorded as

@@ -276,6 +276,6 @@ Print the installed version; no positional arguments. Visible local flag: help. 
 
 ## Help and completion
 
-Use `zev --help` for root help and `zev COMMAND --help` for any command path. Help on arbitrary aliases/scripts is handled by Zev's dispatcher; it shows the entity's usage instead of issuing an LLM query. `zev help` is removed; `--help`/`-h` are the supported help interface.
+Use `zev --help` for root help and `zev COMMAND --help` for any command path. Help on arbitrary aliases/scripts is handled by Zev's dispatcher; it shows the entity's usage instead of issuing an LLM query. `zev help` is removed; `--help`/`-h` are the supported help interface. See [Security](SECURITY.md), [Aliases and scripts](ALIASES-SCRIPTS.md), and [the `zev run` guide](RUN-WRAPPER.md) for the corresponding operational boundaries.
 
 For shell completion, run `zev completion bash|fish|powershell|zsh`; use the generated command's help to find platform-specific installation instructions. Completion generation does not install shell configuration automatically.

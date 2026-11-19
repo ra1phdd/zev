@@ -152,7 +152,8 @@ Before deleting a deadcode candidate, check production and test references plus
 platform/tagged callers. Compare `deadcode ./cmd/zev`, `deadcode -test ./cmd/zev`
 and `deadcode -test ./...` for the supported platforms.
 
-Hardening tests cover provider response limits, history/terminal validation,
+Hardening tests cover centralized action policy and grants, shell/argv analysis,
+provider response limits, history/terminal validation,
 cooperative file updates and post-commit errors, confined script paths and stale
 editor saves, plus cancellation through the real CLI-to-HTTP path. Unix child tests
 also exercise cleanup after normal leader exit, not only cancellation. Windows

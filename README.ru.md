@@ -98,8 +98,10 @@ zev deploy
 
 - [Полный справочник CLI](docs/ru/CLI.md) — дерево команд, аргументы, все локальные и наследуемые флаги, значения по умолчанию, алиасы, скрытые флаги и shell completion.
 - [Конфигурация](docs/ru/CONFIGURATION.md)
+- [Безопасность](docs/ru/SECURITY.md) — реализованная policy, границы tools, web fetch и приватности.
 - [История](docs/ru/HISTORY.md)
-- [Алиасы и скрипты](docs/ru/ALIASES-SCRIPTS-SPEC.md)
+- [Алиасы и скрипты](docs/ru/ALIASES-SCRIPTS.md)
+- [Обёртка `zev run`](docs/ru/RUN-WRAPPER.md)
 - [Обновление](docs/ru/UPDATE.md)
 - [Архитектура](docs/ru/ARCHITECTURE.md)
 - [Разработка](docs/ru/DEVELOPMENT.md)
