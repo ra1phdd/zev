@@ -21,7 +21,7 @@ var verbosityLevel int
 func NewRootCommand(buildVersion string) *cobra.Command {
 	version = buildVersion
 	if configured, err := config.LoadUILanguage(); err == nil {
-		defer locale.SetLanguage(configured, "")()
+		locale.SetLanguage(configured, "")
 	}
 	rootCmd := &cobra.Command{
 		Use:                "zev [query]",
@@ -39,6 +39,7 @@ func NewRootCommand(buildVersion string) *cobra.Command {
 	registerToolFlags(rootCmd)
 
 	rootCmd.PersistentFlags().CountVarP(&verbosityLevel, "verbose", "v", locale.Text(locale.KeyQueryIncreaseVerbosityLevelVInfoVvDebug))
+	rootCmd.PersistentFlags().String("proxy", "", locale.Text(locale.KeyQueryProxyModelAndWebRequests))
 
 	rootCmd.AddCommand(newQueryCmd())
 	rootCmd.AddCommand(newContinueCmd())
@@ -53,6 +54,34 @@ func NewRootCommand(buildVersion string) *cobra.Command {
 	rootCmd.AddCommand(newUpdateCmd(buildVersion))
 	localizeCommandHelp(rootCmd)
 	return rootCmd
+}
+
+func commandProxy(cmd *cobra.Command) string {
+	if cmd == nil {
+		return ""
+	}
+	if flag := cmd.Flag("proxy"); flag != nil {
+		value := flag.Value.String()
+		if flag.Changed && value == "" {
+			return "http://"
+		}
+		return value
+	}
+	return ""
+}
+
+type commandProxyContextKey struct{}
+
+func contextWithCommandProxy(ctx context.Context, proxyURL string) context.Context {
+	return context.WithValue(ctx, commandProxyContextKey{}, proxyURL)
+}
+
+func proxyFromContext(ctx context.Context) string {
+	proxyURL, ok := ctx.Value(commandProxyContextKey{}).(string)
+	if !ok {
+		return ""
+	}
+	return proxyURL
 }
 
 // Execute runs a configured command tree and returns its process exit code.

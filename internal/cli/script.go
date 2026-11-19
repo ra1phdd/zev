@@ -120,7 +120,9 @@ func runScriptCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("manage entity: %w", err)
 	}
 	svc := service.New(repository.New(dir))
-	if err := svc.Create(cmd.Context(), script, body); err != nil {
+	if err := createManagedEntity(cmd.Context(), cmd, dir, managedKindScript, script.Name, func() error {
+		return svc.Create(cmd.Context(), script, body)
+	}); err != nil {
 		return managedStorageError(err)
 	}
 	if editor && os.Getenv("SKIP_EDITOR") != "1" {

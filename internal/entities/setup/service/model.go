@@ -18,12 +18,17 @@ type modelListRequest struct {
 	APIKey   string
 	BaseURL  string
 	Headers  map[string]string
+	Proxy    string
 }
 
 type modelFetcher func(context.Context, modelListRequest) ([]string, error)
 
 func defaultModelFetcher(ctx context.Context, request modelListRequest) ([]string, error) {
-	client := modelclient.New(httpclient.New(request.Headers))
+	httpClient, err := httpclient.NewWithProxy(request.Headers, request.Proxy)
+	if err != nil {
+		return nil, fmt.Errorf("configure model-list proxy: %w", err)
+	}
+	client := modelclient.New(httpClient)
 	models, err := client.ListModels(ctx, modelclient.Request{
 		Provider: request.Provider,
 		APIKey:   request.APIKey,
@@ -45,6 +50,7 @@ func (s *Service) promptModel(ctx context.Context, provider, apiKey, baseURL str
 		APIKey:   apiKey,
 		BaseURL:  baseURL,
 		Headers:  maps.Clone(headers),
+		Proxy:    s.proxyURL,
 	})
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {

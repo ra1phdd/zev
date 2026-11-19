@@ -15,7 +15,6 @@ import (
 	"github.com/ra1phdd/zev/internal/core/security"
 	aliasrepo "github.com/ra1phdd/zev/internal/entities/alias/repository"
 	aliasservice "github.com/ra1phdd/zev/internal/entities/alias/service"
-	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
 	scriptrepo "github.com/ra1phdd/zev/internal/entities/script/repository"
 	scriptservice "github.com/ra1phdd/zev/internal/entities/script/service"
 	aliasmigration "github.com/ra1phdd/zev/internal/migrations/aliases"
@@ -36,7 +35,7 @@ func dispatchOriginalArgs(cmd *cobra.Command, argv []string) (bool, error) {
 			break
 		}
 		switch token {
-		case "--option", "--context-file", "-cf", runToolApprovalFlagName:
+		case "--option", "--context-file", "-cf", cliProxyFlag, runToolApprovalFlagName:
 			if i < len(argv) {
 				i++
 			}
@@ -194,7 +193,7 @@ func authorizeManagedCommand(cmd *cobra.Command, command string) error {
 	if err != nil {
 		return fmt.Errorf("load security configuration: %w", err)
 	}
-	assessment := queryservice.ValidateCommandForShell(command, terminal.DefaultShell())
+	assessment := security.ValidateCommandForShell(command, terminal.DefaultShell())
 	needsReview := assessment.Dangerous || !assessment.Known
 	selected := &domain.Command{
 		Command:              command,

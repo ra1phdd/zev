@@ -23,11 +23,6 @@ other = "\n⚠️  ВНИМАНИЕ: %s\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
-["query.injection_warning"]
-other = "⚠️  Эта команда будет вставлена в ваш терминал. Zev не нажмёт Enter; её выполнит ваш shell только после вашей отправки.\n"
-leftDelim = "[[["
-rightDelim = "]]]"
-
 ["query.selected_command_message"]
 other = "\n✓ Выбранная команда:\n\n  %s\n\n"
 leftDelim = "[[["
@@ -320,5 +315,10 @@ rightDelim = "]]]"
 
 ["query.show_help_command"]
 other = "Показать справку по этой команде"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["query.proxy_model_and_web_requests"]
+other = "Направлять сетевые запросы Zev через SOCKS5- или HTTP(S)-прокси"
 leftDelim = "[[["
 rightDelim = "]]]"

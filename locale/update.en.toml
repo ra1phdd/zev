@@ -1,8 +1,11 @@
 ["update.short"]
-other = "Update Zev from the latest stable GitHub Release and run migrations"
+other = "Update Zev from a stable release or the latest main commit and run migrations"
 
 ["update.checking"]
 other = "Checking the latest stable Zev release...\n"
+
+["update.checking_main"]
+other = "Checking the latest main commit...\n"
 
 ["update.installed"]
 other = "Zev %s installed; all migrations completed.\n"
@@ -21,3 +24,15 @@ other = "All Zev data migrations completed.\n"
 
 ["update.protocol"]
 other = "Print the self-update compatibility protocol"
+
+["update.available"]
+other = "Update available: Zev %s. Run `zev update` to update.\n"
+
+["update.available_main"]
+other = "A newer main commit is available: %s. Run `zev update main` to update.\n"
+
+["update.main_warning"]
+other = "⚠️ The main branch is under active development and may not work reliably or without errors.\n"
+
+["update.main_stable_compatibility_warning"]
+other = "⚠️ Zev does not guarantee compatibility between main and the stable release. You may need to edit files manually or reinstall Zev.\n"

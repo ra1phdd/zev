@@ -38,9 +38,6 @@ func decodeYAML(data []byte) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := discardLegacySandbox(root); err != nil {
-		return nil, err
-	}
 	if !validNode(root, reflect.TypeFor[Config]()) {
 		return nil, errYAML
 	}
@@ -51,31 +48,6 @@ func decodeYAML(data []byte) (*Config, error) {
 		cfg.HTTPHeaders = DefaultConfig().HTTPHeaders
 	}
 	return cfg, nil
-}
-
-func discardLegacySandbox(root *yaml.Node) error {
-	for i := 0; i < len(root.Content); i += 2 {
-		if root.Content[i].Value != "security" {
-			continue
-		}
-		security := root.Content[i+1]
-		if security.Kind != yaml.MappingNode {
-			return nil
-		}
-		for j := 0; j < len(security.Content); j += 2 {
-			if security.Content[j].Value != "sandbox" {
-				continue
-			}
-			legacy := security.Content[j+1]
-			if legacy.Kind != yaml.MappingNode || len(legacy.Content) != 2 || legacy.Content[0].Value != "mode" || legacy.Content[0].ShortTag() != yamlString || legacy.Content[1].Kind != yaml.ScalarNode || legacy.Content[1].ShortTag() != yamlString || legacy.Content[1].Value != "off" {
-				return errors.New("legacy security.sandbox supports only mode: off")
-			}
-			security.Content = append(security.Content[:j], security.Content[j+2:]...)
-			break
-		}
-		break
-	}
-	return nil
 }
 
 // currentDocument checks the envelope without decoding unrelated settings for help.

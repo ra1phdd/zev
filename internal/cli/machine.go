@@ -12,6 +12,7 @@ import (
 	"github.com/ra1phdd/zev/internal/core/httpclient"
 	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/ra1phdd/zev/internal/core/metadata"
+	"github.com/ra1phdd/zev/internal/core/security"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
 	"github.com/ra1phdd/zev/internal/entities/query/repository"
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
@@ -71,7 +72,7 @@ type machineOutput struct {
 }
 
 func writeMachineResult(cmd *cobra.Command, flags parsedFlags, response *domain.OptionsResponse) error {
-	queryservice.ApplyDangerousValidation(response)
+	security.ApplyDangerousValidation(response)
 	if err := response.Validate(); err != nil {
 		return machineError(exitInvalidResponse, err)
 	}
@@ -125,7 +126,7 @@ func machineNamedQuery(cmd *cobra.Command, flags parsedFlags) (bool, error) {
 			return true, machineError(exitArguments, err)
 		}
 		response := &domain.OptionsResponse{IsValid: true, Commands: []domain.Command{{Command: resolved}}}
-		queryservice.ApplyDangerousValidation(response)
+		security.ApplyDangerousValidation(response)
 		return true, writeMachineResult(cmd, flags, response)
 	}
 	if script != nil {
@@ -150,7 +151,11 @@ func runMachineConfigured(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	if err != nil {
 		return machineError(exitProvider, fmt.Errorf(locale.Text(locale.KeyCliLoadProviderConfigurationError), err))
 	}
-	provider, err := factory.NewProvider(cfg, httpclient.New(cfg.EffectiveHTTPHeaders(), logger))
+	client, err := httpclient.NewWithProxy(cfg.EffectiveHTTPHeaders(), flags.Proxy, logger)
+	if err != nil {
+		return machineError(exitArguments, fmt.Errorf("configure HTTP proxy: %w", err))
+	}
+	provider, err := factory.NewProvider(cfg, client)
 	if err != nil {
 		return machineError(exitProvider, err)
 	}

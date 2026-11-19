@@ -61,6 +61,23 @@ func TestMigrateCurrentDatabaseIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestValidateCurrentSchema(t *testing.T) {
+	t.Parallel()
+	db := openMigrationTestDB(t)
+	if err := migrateSQLite(t.Context(), db); err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(t.Context(), db); err != nil {
+		t.Fatalf("Validate() rejected current schema: %v", err)
+	}
+	if _, err := db.ExecContext(t.Context(), `DROP TABLE history_writes`); err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(t.Context(), db); !errors.Is(err, service.ErrUnsupportedSchema) {
+		t.Fatalf("Validate() error = %v, want unsupported schema", err)
+	}
+}
+
 func TestMigrateRejectsDevelopmentDatabaseUnchanged(t *testing.T) {
 	t.Parallel()
 	db := openMigrationTestDB(t)

@@ -130,7 +130,7 @@ func openHistory(ctx context.Context) (historyOperations, io.Closer, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf(locale.Text(locale.KeyCliOpenHistoryError), err)
 	}
-	embedder, err := newHistoryEmbedder(cfg)
+	embedder, err := newHistoryEmbedder(cfg, proxyFromContext(ctx))
 	if errors.Is(err, errHistorySemanticDisabled) {
 		embedder = nil
 		err = nil
@@ -151,7 +151,7 @@ func openHistory(ctx context.Context) (historyOperations, io.Closer, error) {
 }
 
 func withHistory(cmd *cobra.Command, open historyOpener, fn func(historyOperations) error) (err error) {
-	store, closer, err := open(cmd.Context())
+	store, closer, err := open(contextWithCommandProxy(cmd.Context(), commandProxy(cmd)))
 	if err != nil {
 		return err
 	}
@@ -402,7 +402,7 @@ func validateHistorySearchFilters(req *service.SearchRequest) error {
 	if req.Mode != historySearchModeLexical && req.Mode != "semantic" && req.Mode != "hybrid" {
 		return errors.New(locale.Text(locale.KeyCliModeMustLexicalSemanticHybrid))
 	}
-	if req.Fuzzy != "auto" && req.Fuzzy != "always" && req.Fuzzy != "off" {
+	if req.Fuzzy != toolModeAuto && req.Fuzzy != "always" && req.Fuzzy != "off" {
 		return errors.New(locale.Text(locale.KeyCliFuzzyMustAutoAlwaysOff))
 	}
 	if req.Limit <= 0 {

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add `zev update main` for building the latest development commit, stable/main
+  startup update checks with a 24-hour cache, and localized branch warnings.
+- Run storage migrations only on the command paths that need them, preserve existing configuration bytes when a migration conflicts, localize root help from the persisted language, and cancel the best-effort startup update check on command exit with at most 250 ms of shutdown wait. Show branch-specific update status/notifications and retain capped Go build diagnostics.
+- Avoid classifying Bulgarian text containing `ъ` as Russian.
+- Route model, web-fetch, setup, doctor, history-embedding, recovery, update, and startup-update network requests through `--proxy` or environment defaults; explicit `--proxy` wins and `NO_PROXY` cannot bypass it. Support `socks5://` local DNS, `socks5h://` remote DNS, and HTTP(S) proxies, with the selected proxy documented as trusted infrastructure for remote destination resolution.
+- Localize natural-language query UI from the current request even when a persisted language is configured; inject now writes the selected command only when terminal injection fails.
+- Replace injected `--conversation`/`--command-id` pairs with one opaque 10-character `--session` key backed by a private atomic local registry.
+- Reject alias/script name collisions across both stores and built-in CLI commands with an actionable error; serialize cross-store create checks.
+- Centralize local command-safety assessment in `internal/core/security`; move default dangerous-command and sensitive-path policy data into `security/defaults.go`.
 - In automatic `execute` mode, send locally unrecognized commands, the user's request, and the generated short explanation to the configured provider for an isolated safety review; stop on errors, unclear responses, unsafe verdicts, local dangerous findings, or policy denial.
 - Add single-use immutable invocation grants that bind policy, cwd identity, interpreter/argv, filtered environment, and reviewed input digests; changed snapshots are rejected before dispatch and retries require fresh grants.
 - Add a version-one typed security action/policy engine shared by query, run, alias, script, tool, and web-fetch dispatch. Strict nested security YAML rules now fail closed with

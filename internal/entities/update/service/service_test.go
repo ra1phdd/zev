@@ -10,6 +10,7 @@ import (
 const (
 	latestFixtureVersion = "1.2.3"
 	developmentVersion   = "dev"
+	stableInstallCalls   = "lock,latest,download,install,migrate,unlock"
 )
 
 type releaseFake struct {
@@ -63,7 +64,7 @@ func TestUpdateOrdersInstallationAndMigrations(t *testing.T) {
 	if err != nil || !result.Updated || result.Version != latestFixtureVersion {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
-	if got := strings.Join(calls, ","); got != "lock,latest,download,install,migrate,unlock" {
+	if got := strings.Join(calls, ","); got != stableInstallCalls {
 		t.Fatal(got)
 	}
 }
@@ -94,7 +95,7 @@ func TestUpdateCommittedInstallationStillMigrates(t *testing.T) {
 	if !errors.Is(err, failure) || !result.Updated || result.Version != latestFixtureVersion || !strings.Contains(err.Error(), "durability") {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
-	if got := strings.Join(calls, ","); got != "lock,latest,download,install,migrate,unlock" {
+	if got := strings.Join(calls, ","); got != stableInstallCalls {
 		t.Fatal(got)
 	}
 }

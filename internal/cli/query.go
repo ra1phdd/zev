@@ -61,6 +61,7 @@ type parsedFlags struct {
 	NoHistory             bool
 	NoContext             bool
 	Continue              bool
+	Proxy                 string
 	AllowSensitiveContext bool
 	ContextFiles          []string
 	Print                 bool
@@ -192,6 +193,18 @@ func parseArgsFlags(args []string) parsedFlags {
 			result.ToolApproval = strings.TrimPrefix(arg, "--tool-approval=")
 		case arg == "--continue":
 			result.Continue = true
+		case arg == cliProxyFlag:
+			if i+1 >= len(args) || args[i+1] == "" || strings.HasPrefix(args[i+1], "--") {
+				result.ParseError = "--proxy requires a URL"
+				continue
+			}
+			i++
+			result.Proxy = args[i]
+		case strings.HasPrefix(arg, "--proxy="):
+			result.Proxy = strings.TrimPrefix(arg, "--proxy=")
+			if result.Proxy == "" {
+				result.ParseError = "--proxy requires a URL"
+			}
 		case arg == "--allow-sensitive-context":
 			result.AllowSensitiveContext = true
 		case arg == "--context-file", arg == "-cf":
@@ -253,9 +266,13 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	parsed := parseArgsFlags(args)
 	configured, err := config.LoadUILanguage()
 	if err != nil {
-		configured = "auto"
+		configured = toolModeAuto
 	}
-	defer locale.SetLanguage(configured, strings.Join(parsed.Args, " "))()
+	// Natural-language queries must be localized from the request itself. A
+	// persisted language remains useful for help, but must not pin query UI to
+	// English when the request is Russian (or vice versa).
+	language := queryUILanguage(configured, parsed.Help)
+	defer locale.SetLanguage(language, strings.Join(parsed.Args, " "))()
 	parsed.NoHistory = parsed.NoHistory || noHistoryFlag
 	parsed.NoContext = parsed.NoContext || noContextFlag
 	if parsed.Help {
@@ -290,6 +307,13 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	return err
 }
 
+func queryUILanguage(configured string, help bool) string {
+	if help {
+		return configured
+	}
+	return "auto"
+}
+
 func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logger) (resultErr error) {
 	if flags.Continue {
 		return runContinuationQuery(cmd, flags, logger)
@@ -320,7 +344,14 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 		return errors.New(locale.Text(locale.KeyQueryPromptCannotEmpty))
 	}
 	locale.UpdateRequestLanguage(userPrompt)
-	httpClient := httpclient.New(cfg.EffectiveHTTPHeaders(), logger)
+	return runConfiguredProvider(cmd, flags, logger, cfg, userPrompt, projectContext)
+}
+
+func runConfiguredProvider(cmd *cobra.Command, flags parsedFlags, logger *slog.Logger, cfg *config.Config, userPrompt, projectContext string) (resultErr error) {
+	httpClient, err := httpclient.NewWithProxy(cfg.EffectiveHTTPHeaders(), flags.Proxy, logger)
+	if err != nil {
+		return fmt.Errorf("configure HTTP proxy: %w", err)
+	}
 	provider, err := factory.NewProvider(cfg, httpClient)
 	if err != nil {
 		return fmt.Errorf(locale.Text(locale.KeyQueryFailedCreateProviderError), err)
@@ -355,14 +386,20 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	if s.persistence != nil {
 		s.warnHistory(s.persistence.Select(cmd.Context(), outcome))
 	}
-	conversationID, commandID := "", ""
+	sessionID := ""
 	if s.persistence != nil {
-		conversationID, commandID, _ = s.persistence.SelectedCommandReference(index)
+		conversationID, commandID, _ := s.persistence.SelectedCommandReference(index)
+		if cfg.CommandWrapperEnabled && conversationID != "" && commandID != "" {
+			sessionID, err = registerRunSession(cmd.Context(), conversationID, commandID)
+			if err != nil {
+				s.warnHistory(err)
+				sessionID = ""
+			}
+		}
 	}
 	err = deliverQueryCommand(cmd.Context(), queryDelivery{
 		command: selected, mode: mode, out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger,
-		wrapInject:     cfg.CommandWrapperEnabled,
-		conversationID: conversationID, commandID: commandID,
+		wrapInject: cfg.CommandWrapperEnabled, sessionID: sessionID,
 		securityMode: security.Mode(cfg.Security.Mode), securityDefaultDecision: security.Decision(cfg.Security.DefaultDecision), securityPolicy: cfg.Security.Policy(),
 		runner:  &terminal.Runner{Stdin: cmd.InOrStdin(), Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()},
 		confirm: confirmQueryExecution(cmd), outcome: &outcome,
@@ -554,7 +591,7 @@ func (s *querySession) addRefinement(value string) {
 }
 
 func (s *querySession) acceptResponse() (bool, error) {
-	queryservice.ApplyDangerousValidation(s.response)
+	security.ApplyDangerousValidation(s.response)
 	if err := s.response.Validate(); err != nil {
 		if s.machine {
 			return false, machineError(4, err)
@@ -654,8 +691,7 @@ func (s *querySession) refine(ctx context.Context) (bool, error) {
 type queryDelivery struct {
 	command                 *domain.Command
 	wrapInject              bool
-	conversationID          string
-	commandID               string
+	sessionID               string
 	userRequest             string
 	reviewCommand           func(context.Context, string, string, string) (queryservice.CommandSafetyReview, error)
 	mode                    string
@@ -697,7 +733,7 @@ func deliverQueryCommand(ctx context.Context, delivery queryDelivery) error {
 }
 
 func deliverExecuteCommand(ctx context.Context, delivery queryDelivery, selected *domain.Command, outcome *historyservice.SelectionOutcome) error {
-	localAssessment := queryservice.ValidateCommandForShell(selected.Command, terminal.DefaultShell())
+	localAssessment := security.ValidateCommandForShell(selected.Command, terminal.DefaultShell())
 	localDangerous := localAssessment.Dangerous
 	reviewReason := ""
 	if !localAssessment.Known {
@@ -851,7 +887,7 @@ func authorizeQueryExecution(ctx context.Context, delivery queryDelivery, select
 }
 
 func deliverInjectCommand(delivery queryDelivery, selected *domain.Command, outcome *historyservice.SelectionOutcome) error {
-	localAssessment := queryservice.ValidateCommandForShell(selected.Command, terminal.DefaultShell())
+	localAssessment := security.ValidateCommandForShell(selected.Command, terminal.DefaultShell())
 	if localAssessment.Dangerous {
 		selected.IsDangerous = true
 		if selected.DangerousExplanation == "" {
@@ -864,15 +900,10 @@ func deliverInjectCommand(delivery queryDelivery, selected *domain.Command, outc
 	commandToInject := selected.Command
 	if delivery.wrapInject {
 		var err error
-		commandToInject, err = injectedRunInvocation(selected.Command, delivery.conversationID, delivery.commandID)
+		commandToInject, err = injectedRunInvocation(selected.Command, delivery.sessionID)
 		if err != nil {
 			return recordDeliveryFailure(outcome, err)
 		}
-	}
-	injectedCommand := *selected
-	injectedCommand.Command = commandToInject
-	if err := writeInjectionWarning(delivery.errOut, &injectedCommand); err != nil {
-		return recordDeliveryFailure(outcome, err)
 	}
 	inject := delivery.inject
 	if inject == nil {
@@ -910,10 +941,6 @@ func writeQueryWarning(out io.Writer, selected *domain.Command) error {
 		return nil
 	}
 	return writeQueryOutput(out, locale.Text(locale.KeyQueryWarningMessage), selected.DangerousExplanation)
-}
-
-func writeInjectionWarning(out io.Writer, selected *domain.Command) error {
-	return writeQueryOutput(out, "%s\ncommand=%s", locale.Text(locale.KeyQueryInjectionWarning), strconv.QuoteToASCII(selected.Command))
 }
 
 func confirmQueryExecution(cmd *cobra.Command) func(context.Context, *domain.Command) (bool, error) {

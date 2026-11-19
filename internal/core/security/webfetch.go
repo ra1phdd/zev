@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/ra1phdd/zev/internal/core/httpclient"
 )
 
 const (
@@ -38,6 +40,7 @@ type ipResolver interface {
 type Fetcher struct {
 	resolver ipResolver
 	client   *http.Client
+	Proxy    string
 }
 
 // Capability describes the boundary enforced by Fetch.
@@ -51,8 +54,9 @@ func (Fetcher) Capability() Capability {
 	}
 }
 
-// Fetch retrieves one public HTTP(S) URL without cookies, credentials, uploads,
-// or ambient proxy settings. Redirect destinations are validated independently.
+// Fetch retrieves one public HTTP(S) URL without cookies, ambient credentials,
+// or uploads. It uses the configured proxy when present and validates redirects
+// independently.
 func (f Fetcher) Fetch(ctx context.Context, rawURL string) (FetchResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
@@ -60,18 +64,29 @@ func (f Fetcher) Fetch(ctx context.Context, rawURL string) (FetchResult, error) 
 	if resolver == nil {
 		resolver = net.DefaultResolver
 	}
-	u, err := parsePublicURL(ctx, rawURL, resolver)
+	proxyURL, err := httpclient.ResolveProxy(f.Proxy)
+	if err != nil {
+		return FetchResult{}, fmt.Errorf("configure web fetch proxy: %w", err)
+	}
+	localResolution := proxyURL == "" || strings.HasPrefix(proxyURL, "socks5://")
+	u, err := parsePublicURL(ctx, rawURL, resolver, localResolution)
 	if err != nil {
 		return FetchResult{}, err
 	}
 	client := f.client
 	if client == nil {
-		client = newPublicFetchClient(resolver, publicURLOrigin(u))
+		client, err = newPublicFetchClient(resolver, publicURLOrigin(u), proxyURL)
+		if err != nil {
+			return FetchResult{}, fmt.Errorf("configure web fetch proxy: %w", err)
+		}
 	} else {
+		if proxyURL != "" {
+			return FetchResult{}, errors.New("custom web fetch client cannot guarantee proxy routing")
+		}
 		// Keep test/in-process transports usable, but never inherit a caller's
 		// redirect policy. Every redirect must pass the same destination checks.
 		clientCopy := *client
-		clientCopy.CheckRedirect = publicFetchRedirectPolicy(resolver, publicURLOrigin(u))
+		clientCopy.CheckRedirect = publicFetchRedirectPolicy(resolver, publicURLOrigin(u), localResolution)
 		client = &clientCopy
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
@@ -92,19 +107,28 @@ func (f Fetcher) Fetch(ctx context.Context, rawURL string) (FetchResult, error) 
 	return readFetchResponse(resp)
 }
 
-func newPublicFetchClient(resolver ipResolver, initialOrigin string) *http.Client {
-	return &http.Client{
-		Transport:     publicFetchTransport(resolver),
-		CheckRedirect: publicFetchRedirectPolicy(resolver, initialOrigin),
+func newPublicFetchClient(resolver ipResolver, initialOrigin, proxyURL string) (*http.Client, error) {
+	transport := publicFetchTransport(resolver)
+	if proxyURL != "" {
+		// A selected proxy owns destination resolution, except socks5, whose
+		// local-resolution dialer validates and pins public destination IPs.
+		transport.DialContext = nil
+		if err := httpclient.ConfigureProxyWithResolver(transport, proxyURL, resolver, isPublicIP); err != nil {
+			return nil, fmt.Errorf("configure public fetch proxy: %w", err)
+		}
 	}
+	return &http.Client{
+		Transport:     transport,
+		CheckRedirect: publicFetchRedirectPolicy(resolver, initialOrigin, proxyURL == "" || strings.HasPrefix(proxyURL, "socks5://")),
+	}, nil
 }
 
-func publicFetchRedirectPolicy(resolver ipResolver, initialOrigin string) func(*http.Request, []*http.Request) error {
+func publicFetchRedirectPolicy(resolver ipResolver, initialOrigin string, localResolution bool) func(*http.Request, []*http.Request) error {
 	return func(req *http.Request, via []*http.Request) error {
 		if len(via) >= maxFetchRedirects {
 			return errors.New("web fetch redirect limit exceeded")
 		}
-		if _, err := parsePublicURL(req.Context(), req.URL.String(), resolver); err != nil {
+		if _, err := parsePublicURL(req.Context(), req.URL.String(), resolver, localResolution); err != nil {
 			return fmt.Errorf("validate web fetch redirect: %w", err)
 		}
 		if publicURLOrigin(req.URL) != initialOrigin {
@@ -165,7 +189,18 @@ func readFetchResponse(resp *http.Response) (FetchResult, error) {
 	}, nil
 }
 
-func parsePublicURL(ctx context.Context, rawURL string, resolver ipResolver) (*url.URL, error) {
+func parsePublicURL(ctx context.Context, rawURL string, resolver ipResolver, localResolution bool) (*url.URL, error) {
+	u, err := parsePublicURLSyntax(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	if err := validatePublicURLDestination(ctx, u, resolver, localResolution); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func parsePublicURLSyntax(rawURL string) (*url.URL, error) {
 	if len(rawURL) == 0 || len(rawURL) > maxFetchURLBytes {
 		return nil, errors.New("web fetch URL is empty or too long")
 	}
@@ -182,19 +217,35 @@ func parsePublicURL(ctx context.Context, rawURL string, resolver ipResolver) (*u
 	if strings.ContainsAny(u.Host, "\r\n") {
 		return nil, errors.New("web fetch URL contains control characters")
 	}
+	if strings.Contains(u.Hostname(), "%") {
+		return nil, errors.New("web fetch URL contains a scoped IP address")
+	}
+	return u, nil
+}
+
+func validatePublicURLDestination(ctx context.Context, u *url.URL, resolver ipResolver, localResolution bool) error {
+	if ip := net.ParseIP(u.Hostname()); ip != nil {
+		if !isPublicIP(ip) {
+			return errors.New("web fetch destination is private or reserved")
+		}
+		return nil
+	}
+	if !localResolution {
+		return nil
+	}
 	addresses, err := resolver.LookupIPAddr(ctx, u.Hostname())
 	if err != nil {
-		return nil, fmt.Errorf("resolve web fetch destination: %w", err)
+		return fmt.Errorf("resolve web fetch destination: %w", err)
 	}
 	if len(addresses) == 0 {
-		return nil, errors.New("web fetch destination has no addresses")
+		return errors.New("web fetch destination has no addresses")
 	}
 	for _, address := range addresses {
 		if !isPublicIP(address.IP) {
-			return nil, errors.New("web fetch destination is private or reserved")
+			return errors.New("web fetch destination is private or reserved")
 		}
 	}
-	return u, nil
+	return nil
 }
 
 func publicFetchTransport(resolver ipResolver) *http.Transport {

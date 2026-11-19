@@ -9,6 +9,15 @@ import (
 )
 
 //nolint:paralleltest // locale.SetLanguage mutates process-global locale state.
+func TestNaturalLanguageQueryOverridesPersistedUILanguage(t *testing.T) {
+	restore := locale.SetLanguage(queryUILanguage("en", false), "посмотреть стату докера одноразово снапшот")
+	t.Cleanup(restore)
+	if got := locale.Language(); got != "ru" {
+		t.Fatalf("language=%q, want ru", got)
+	}
+}
+
+//nolint:paralleltest // locale.SetLanguage mutates process-global locale state.
 func TestRefinementUpdatesInterfaceWithoutChangingMessages(t *testing.T) {
 	for _, configured := range []string{"auto", "ru", "en"} {
 		t.Run(configured, func(t *testing.T) {

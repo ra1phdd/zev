@@ -82,10 +82,10 @@ arguments:
 - metadata does not contain the script body and is not a second source of body content.
 
 New names match `[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}` and are case-sensitive. Built-in Cobra
-command names (`alias`, `script`, `query`, `history`, `setup`, `doctor`, `version`,
-`continue`, `help`, and future reserved names) are forbidden. Aliases and scripts use
-separate namespaces; when names collide, root invocation chooses the alias, preserving
-current precedence. Explicit `zev script ...` and `zev alias ...` remain unambiguous.
+command names and aliases are forbidden. Alias and script names share one namespace: a name
+already registered by either kind cannot be created by the other. The cross-store check and
+creation run under one persistent cooperative lock, so concurrent Zev writers cannot create
+the same name in both stores. Conflicts report the name and the existing kind.
 
 Legacy records are not silently renamed. An invalid legacy name blocks activation and
 remains unchanged in the legacy source. The diagnostic names it and instructs the user to

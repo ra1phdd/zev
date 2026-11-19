@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const queryFlowFixturePrompt = "show files"
+
 //nolint:paralleltest // The fixture changes HOME and restores package-level query flags.
 func TestQueryStopsOnProgressOutputFailure(t *testing.T) {
 	verbosity, execute, inject := verbosityLevel, executeFlag, injectFlag
@@ -31,7 +33,7 @@ func TestQueryStopsOnProgressOutputFailure(t *testing.T) {
 	cmd.SetOut(failingOutput{err: outputErr})
 	cmd.SetErr(io.Discard)
 	cmd.SetContext(t.Context())
-	if err := runQuery(cmd, []string{"show files"}); !errors.Is(err, outputErr) {
+	if err := runQuery(cmd, []string{queryFlowFixturePrompt}); !errors.Is(err, outputErr) {
 		t.Errorf("runQuery() error = %v, want output failure", err)
 	}
 	if calls != 0 {

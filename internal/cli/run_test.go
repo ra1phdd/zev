@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	runTestPrintf    = "printf"
-	runTestRetryFlag = "--on-failure=retry"
+	runTestPrintf       = "printf"
+	runTestRetryFlag    = "--on-failure=retry"
+	runSessionFixtureID = "A1b2C3d4E5"
 )
 
 func TestRunArgvPreservesLiteralArgumentsAndStreams(t *testing.T) {
@@ -49,7 +50,7 @@ func TestRunArgvDoesNotRequireExecuteSecurityApproval(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetContext(t.Context())
 	runner := terminal.Runner{Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	if err := runArgv(cmd, []string{"--", "printf", "ok"}, runner); err != nil {
+	if err := runArgv(cmd, []string{"--", runTestPrintf, "ok"}, runner); err != nil {
 		t.Fatalf("runArgv() error = %v", err)
 	}
 	if stdout.String() != "ok" {
@@ -59,7 +60,7 @@ func TestRunArgvDoesNotRequireExecuteSecurityApproval(t *testing.T) {
 
 func TestBuildInjectedRunCommandPreservesShellProgramAsOneArgument(t *testing.T) {
 	t.Parallel()
-	got, err := buildInjectedRunInvocation("/opt/zev", "/bin/sh", `printf '%s' "$HOME"`, "", "")
+	got, err := buildInjectedRunInvocation("/opt/zev", "/bin/sh", `printf '%s' "$HOME"`, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,19 +70,69 @@ func TestBuildInjectedRunCommandPreservesShellProgramAsOneArgument(t *testing.T)
 	}
 }
 
-func TestBuildInjectedRunInvocationCarriesExactHistoryReferences(t *testing.T) {
+func TestBuildInjectedRunInvocationCarriesShortSessionReference(t *testing.T) {
 	t.Parallel()
-	conversationID := "a5aeb2b8-42c3-4f14-9a7b-fba914ef32c1"
-	commandID := "b6d3fd36-02de-4d63-a057-1845876218e2"
-	got, err := buildInjectedRunInvocation("/opt/zev", "/bin/sh", "printf fail", conversationID, commandID)
+	session := runSessionFixtureID
+	got, err := buildInjectedRunInvocation("/opt/zev", "/bin/sh", "printf fail", session)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(got, "--conversation='"+conversationID+"'") || !strings.Contains(got, "--command-id='"+commandID+"'") || !strings.Contains(got, " -- '/bin/sh' -c ") {
-		t.Fatalf("injected invocation lost its history references or shell argv: %q", got)
+	if !strings.Contains(got, "--session='") || strings.Contains(got, "--conversation=") || strings.Contains(got, "--command-id=") || !strings.Contains(got, " -- '/bin/sh' -c ") {
+		t.Fatalf("injected invocation lost its short session reference or shell argv: %q", got)
 	}
-	if _, err := buildInjectedRunInvocation("/opt/zev", "/bin/sh", "printf fail", "not-a-uuid", ""); err == nil {
-		t.Fatal("non-canonical conversation reference was accepted")
+	if !strings.Contains(got, "--session='"+session+"'") {
+		t.Fatalf("injected invocation session = %q, want %q", got, session)
+	}
+	if _, err := buildInjectedRunInvocation("/opt/zev", "/bin/sh", "printf fail", "too-long-session"); err == nil {
+		t.Fatal("invalid session ID was accepted")
+	}
+}
+
+func TestParseRunArgsAcceptsOnlyShortSessionReference(t *testing.T) {
+	t.Parallel()
+	session := runSessionFixtureID
+	opts, err := parseRunArgs([]string{"--session=" + session, "--", runTestPrintf, "ok"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opts.sessionID != session {
+		t.Fatalf("parsed session = %q, want %q", opts.sessionID, session)
+	}
+	for _, value := range []string{"123456789", "12345678901", "!!!!!!!!!!"} {
+		if _, err := parseRunArgs([]string{"--session=" + value, "--", "printf", "ok"}); err == nil {
+			t.Fatalf("invalid session %q was accepted", value)
+		}
+	}
+	if _, err := parseRunArgs([]string{"--conversation=legacy", "--command-id=legacy", "--", "printf", "ok"}); err == nil {
+		t.Fatal("legacy split session parameters were accepted")
+	}
+}
+
+func TestParseRunArgsAcceptsProxy(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name string
+		args []string
+		want string
+		bad  bool
+	}{
+		{name: "separate", args: []string{cliProxyFlag, "socks5h://proxy.example:1080", "--", managedEchoFixture}, want: "socks5h://proxy.example:1080"},
+		{name: "equals", args: []string{"--proxy=http://proxy.example:8080", "--", managedEchoFixture}, want: "http://proxy.example:8080"},
+		{name: "missing", args: []string{cliProxyFlag, "--", managedEchoFixture}, bad: true},
+		{name: "empty", args: []string{"--proxy=", "--", managedEchoFixture}, bad: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := parseRunArgs(test.args)
+			if test.bad {
+				if err == nil {
+					t.Fatal("invalid proxy argument was accepted")
+				}
+				return
+			}
+			if err != nil || got.proxy != test.want {
+				t.Fatalf("parseRunArgs() proxy=%q, err=%v; want %q", got.proxy, err, test.want)
+			}
+		})
 	}
 }
 
@@ -101,7 +152,7 @@ func TestRunHelpDocumentsRecoveryActionsAndLogLimit(t *testing.T) {
 	if err := writeRunHelp(cmd); err != nil {
 		t.Fatal(err)
 	}
-	for _, option := range []string{"--on-failure=ask|none|retry|analyze|fix", "--log-limit=BYTES"} {
+	for _, option := range []string{"--on-failure=ask|none|retry|analyze|fix", "--log-limit=BYTES", "--session=ID", "--proxy=URL"} {
 		if !strings.Contains(output.String(), option) {
 			t.Errorf("run help missing %q: %s", option, output.String())
 		}

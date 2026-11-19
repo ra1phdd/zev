@@ -109,18 +109,19 @@ zev run -- sh -c 'go test ./... && go vet ./...'
 | `--log-limit=BYTES` | `1048576` | Суммарный encoded sanitized tail на попытку, 1024–16777216 байт |
 | `--timeout=D` | `0s` | Deadline одной попытки; 0 не добавляет deadline |
 | `--events-file=PATH` | не задан | Отдельный приватный JSONL metadata sink |
-| `--conversation=ID` | не задан | Точный исходный диалог, никогда не latest |
-| `--command-id=ID` | не задан | Команда указанного диалога, требует conversation |
+| `--session=ID` | не задан | Ровно 10-символьный ключ локального реестра для точного диалога и выбранной команды; не latest |
 | `--no-history` | `false` | Не открывать SQLite, не создавать run artifacts/диалог |
 | `--no-context` | `false` | Не добавлять автоматический environment/Git context в LLM |
 | `--tools` / `--no-tools` | tools disabled | Явное разрешение / запрет recovery tools |
 | `--tool-approval=manual\|auto` | `manual` | Политика только явно включённых recovery tools; bypass запрещён |
 
+ID сессии — непрозрачный ключ длиной 10 символов, а не обратимое кодирование двух UUID. При inject точная пара UUID диалога и команды записывается в приватный `run-sessions.json` атомарно под блокировкой; recovery разрешает ключ и отклоняет отсутствующие или повреждённые записи. Это сохраняет точную адресацию без двух UUID в shell-строке и без принятия коллизии hash за другую сессию.
+
 Валидация аргументов завершается до child launch и provider setup. Usage error даёт `2`:
 пустая команда, отсутствие `--`, неизвестные pre-separator options, невалидные значения,
-отрицательные duration, `retry` с budget 0, command-id без conversation, конфликт tools/no-tools,
+отрицательные duration, невалидный session token, конфликт tools/no-tools,
 либо явный approval без tools. Верхний предел timeout — 24 часа. Синтаксис IDs проверяется
-до запуска. Если effective history disabled, supplied IDs игнорируются с предупреждением,
+до запуска. Если effective history disabled, supplied session key игнорируется с предупреждением,
 без SQLite и загрузки диалога; команда всё равно исполняется. Это единое правило для
 явного и generated invocation. In-process связь с активной памятью допустима без SQLite.
 
@@ -167,7 +168,8 @@ zev --wrap --execute 'запусти тесты'
 - `inject`: wrapper invocation использует **абсолютный путь текущего executable Zev**,
   а не bare `zev` из PATH. Путь, argv и исходный shell-текст quoting-уются по receiving
   dialect; весь исходный shell-текст остаётся одним аргументом `-c`.
-- Printed fallback при отказе injection выдаёт тот же invocation и не выполняет его.
+- Успешный inject не печатает выбранную команду; fallback при отказе injection выдаёт тот же
+  invocation и не выполняет его.
 - Точная identity текущего бинарника означает выбранный executable path на момент доставки,
   не гарантию неизменности файла при более позднем ручном запуске. Подмена same-UID вне модели.
 - Исполняющий interpreter выбирается по существующему правилу `$SHELL`, затем `sh`,

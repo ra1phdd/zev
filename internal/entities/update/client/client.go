@@ -18,36 +18,87 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"runtime/debug"
 	"strings"
 	"time"
 
+	"github.com/ra1phdd/zev/internal/core/httpclient"
 	"github.com/ra1phdd/zev/internal/entities/update/service"
 )
 
 const (
-	defaultBaseURL = "https://api.github.com"
-	releasePath    = "/repos/ra1phdd/zev/releases/latest"
-	maxHTTPBody    = 32 << 20
-	maxBinary      = 64 << 20
-	maxExpanded    = 128 << 20
-	requestTimeout = 45 * time.Second
+	defaultBaseURL      = "https://api.github.com"
+	releasePath         = "/repos/ra1phdd/zev/releases/latest"
+	maxHTTPBody         = 32 << 20
+	maxSource           = 64 << 20
+	maxBinary           = 64 << 20
+	maxExpanded         = 128 << 20
+	maxBuildDiagnostics = 16 << 10
+	requestTimeout      = 45 * time.Second
 )
+
+type buildDiagnosticBuffer struct {
+	bytes.Buffer
+	truncated bool
+}
+
+func (b *buildDiagnosticBuffer) Write(data []byte) (int, error) {
+	length := len(data)
+	remaining := maxBuildDiagnostics - b.Len()
+	if remaining > 0 {
+		if len(data) > remaining {
+			data = data[:remaining]
+		}
+		_, _ = b.Buffer.Write(data)
+	}
+	if len(data) < length {
+		b.truncated = true
+	}
+	return length, nil
+}
+
+func (b *buildDiagnosticBuffer) Truncated() bool { return b.truncated }
 
 // Client is the fixed-endpoint GitHub release adapter. Its private seams are for
 // local tests only; no provider configuration, tokens, or custom headers are read.
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+	proxyURL   string
 }
 
 // New creates a bounded HTTPS client for public GitHub releases.
 func New() *Client {
-	transport := &http.Transport{Proxy: http.ProxyFromEnvironment, DialContext: (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext, TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: 15 * time.Second, IdleConnTimeout: 30 * time.Second, MaxIdleConns: 4}
-	return &Client{baseURL: defaultBaseURL, httpClient: &http.Client{Transport: transport, Timeout: requestTimeout, CheckRedirect: checkRedirect}}
+	client, err := NewWithProxy("")
+	if err == nil {
+		return client
+	}
+	return &Client{baseURL: defaultBaseURL, httpClient: &http.Client{Transport: updateErrorTransport{err: fmt.Errorf("configure update proxy: %w", err)}, Timeout: requestTimeout, CheckRedirect: checkRedirect}}
 }
+
+// NewWithProxy creates a bounded release client that uses proxyURL, or the
+// environment default when it is empty. NO_PROXY is ignored for fail-closed
+// routing once a proxy is selected.
+func NewWithProxy(proxyURL string) (*Client, error) {
+	resolvedProxy, err := httpclient.ResolveProxy(proxyURL)
+	if err != nil {
+		return nil, fmt.Errorf("resolve update proxy: %w", err)
+	}
+	transport := &http.Transport{DialContext: (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext, TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: 15 * time.Second, IdleConnTimeout: 30 * time.Second, MaxIdleConns: 4}
+	if err := httpclient.ConfigureProxy(transport, resolvedProxy); err != nil {
+		return nil, fmt.Errorf("configure update proxy: %w", err)
+	}
+	return &Client{baseURL: defaultBaseURL, proxyURL: resolvedProxy, httpClient: &http.Client{Transport: transport, Timeout: requestTimeout, CheckRedirect: checkRedirect}}, nil
+}
+
+type updateErrorTransport struct{ err error }
+
+func (t updateErrorTransport) RoundTrip(*http.Request) (*http.Response, error) { return nil, t.err }
 
 type githubRelease struct {
 	TagName    string        `json:"tag_name"` //nolint:tagliatelle // GitHub's wire format uses snake_case.
@@ -60,6 +111,12 @@ type githubAsset struct {
 	URL  string `json:"browser_download_url"` //nolint:tagliatelle // GitHub's wire format uses snake_case.
 	Size int64  `json:"size"`
 }
+
+type githubCommit struct {
+	SHA string `json:"sha"`
+}
+
+var commitSHA = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
 var versionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 
@@ -85,6 +142,258 @@ func (c *Client) Latest(ctx context.Context) (service.Release, error) {
 		assets[i] = service.Asset{Name: a.Name, URL: a.URL, Size: a.Size}
 	}
 	return service.Release{Version: version, TagName: gr.TagName, Assets: assets}, nil
+}
+
+// LatestMain returns the current commit at the fixed development branch.
+func (c *Client) LatestMain(ctx context.Context) (service.MainCommit, error) {
+	if ctx == nil {
+		return service.MainCommit{}, errors.New("latest main commit: nil context")
+	}
+	body, err := c.get(ctx, c.baseURL+"/repos/ra1phdd/zev/commits/main")
+	if err != nil {
+		return service.MainCommit{}, fmt.Errorf("request latest main commit: %w", err)
+	}
+	var commit githubCommit
+	if err := json.Unmarshal(body, &commit); err != nil {
+		return service.MainCommit{}, fmt.Errorf("decode latest main commit: %w", err)
+	}
+	if !commitSHA.MatchString(commit.SHA) {
+		return service.MainCommit{}, service.ErrInvalidRelease
+	}
+	return service.MainCommit{SHA: commit.SHA}, nil
+}
+
+// BuildMain downloads and compiles the exact main-branch commit locally.
+func (c *Client) BuildMain(ctx context.Context, commit service.MainCommit, version string) (binary []byte, err error) {
+	if ctx == nil {
+		return nil, errors.New("build main: nil context")
+	}
+	if !commitSHA.MatchString(commit.SHA) || version != "main-"+commit.SHA {
+		return nil, service.ErrInvalidRelease
+	}
+	source, err := c.get(ctx, "https://github.com/ra1phdd/zev/archive/"+commit.SHA+".tar.gz")
+	if err != nil {
+		return nil, fmt.Errorf("download main source: %w", err)
+	}
+	root, cleanup, err := extractSource(ctx, source)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if cleanupErr := cleanup(); cleanupErr != nil {
+			err = errors.Join(err, fmt.Errorf("remove main source directory: %w", cleanupErr))
+		}
+	}()
+	output, err := os.CreateTemp("", ".zev-main-build-*")
+	if err != nil {
+		return nil, fmt.Errorf("create main build output: %w", err)
+	}
+	outputPath := output.Name()
+	if err := output.Close(); err != nil {
+		return nil, errors.Join(
+			fmt.Errorf("close main build output: %w", err),
+			removeFile(outputPath),
+		)
+	}
+	defer func() {
+		if removeErr := removeFile(outputPath); removeErr != nil {
+			err = errors.Join(err, fmt.Errorf("remove main build output: %w", removeErr))
+		}
+	}()
+	binary, err = c.compileMain(ctx, root, outputPath, version, commit.SHA)
+	return binary, err
+}
+
+func (c *Client) compileMain(ctx context.Context, root, outputPath, version, commitSHA string) ([]byte, error) {
+	//nolint:gosec // The executable, arguments, version format, and output path are validated/generated above.
+	cmd := exec.CommandContext(ctx, "go", "build", "-trimpath", "-ldflags", "-s -w -X main.version="+version+" -buildid=", "-o", outputPath, "./cmd/zev")
+	cmd.Dir = root
+	cmd.Env = os.Environ()
+	if c.proxyURL != "" {
+		cmd.Env = updateBuildEnvironment(cmd.Env, c.proxyURL)
+	}
+	cmd.Stdout = io.Discard
+	var diagnostics buildDiagnosticBuffer
+	cmd.Stderr = &diagnostics
+	if runtime.GOARCH == "arm" {
+		cmd.Env = append(cmd.Env, "GOARM=7")
+	}
+	if err := cmd.Run(); err != nil {
+		detail := strings.TrimSpace(diagnostics.String())
+		if diagnostics.Truncated() {
+			detail += " [diagnostics truncated]"
+		}
+		if detail != "" {
+			return nil, fmt.Errorf("compile main commit %s: %w: %s", commitSHA, err, detail)
+		}
+		return nil, fmt.Errorf("compile main commit %s: %w", commitSHA, err)
+	}
+	binary, err := os.ReadFile(outputPath) //nolint:gosec // Output path is created by this process.
+	if err != nil {
+		return nil, fmt.Errorf("read main build output: %w", err)
+	}
+	if len(binary) == 0 || len(binary) > maxBinary {
+		return nil, errors.New("main build output exceeds size limit")
+	}
+	return binary, nil
+}
+
+func updateBuildEnvironment(environment []string, proxyURL string) []string {
+	proxyNames := map[string]struct{}{
+		"http_proxy": {}, "https_proxy": {}, "all_proxy": {}, "no_proxy": {},
+	}
+	result := make([]string, 0, len(environment)+8)
+	for _, entry := range environment {
+		key, _, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		if _, isProxy := proxyNames[strings.ToLower(key)]; isProxy {
+			continue
+		}
+		result = append(result, entry)
+	}
+	result = append(result, "HTTP_PROXY="+proxyURL, "HTTPS_PROXY="+proxyURL, "ALL_PROXY="+proxyURL, "NO_PROXY=")
+	if runtime.GOOS != "windows" {
+		result = append(result, "http_proxy="+proxyURL, "https_proxy="+proxyURL, "all_proxy="+proxyURL, "no_proxy=")
+	}
+	return result
+}
+
+func extractSource(ctx context.Context, data []byte) (string, func() error, error) {
+	if len(data) > maxSource {
+		return "", noopCleanup, errors.New("main source archive exceeds size limit")
+	}
+	gz, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return "", noopCleanup, fmt.Errorf("open main source archive: %w", err)
+	}
+	dir, err := os.MkdirTemp("", ".zev-main-source-*")
+	if err != nil {
+		return "", noopCleanup, errors.Join(fmt.Errorf("create main source directory: %w", err), gz.Close())
+	}
+	if err := extractSourceEntries(ctx, gz, dir); err != nil {
+		return sourceFailure(dir, errors.Join(err, gz.Close()))
+	}
+	if err := gz.Close(); err != nil {
+		return sourceFailure(dir, fmt.Errorf("close main source archive: %w", err))
+	}
+	root, err := findSourceModule(dir)
+	if err != nil {
+		return sourceFailure(dir, fmt.Errorf("locate main source module: %w", err))
+	}
+	return root, func() error { return os.RemoveAll(dir) }, nil
+}
+
+func removeFile(path string) error {
+	err := os.Remove(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("remove %q: %w", path, err)
+	}
+	return nil
+}
+
+func noopCleanup() error { return nil }
+
+func sourceFailure(dir string, err error) (string, func() error, error) {
+	return "", noopCleanup, errors.Join(err, os.RemoveAll(dir))
+}
+
+func extractSourceEntries(ctx context.Context, source io.Reader, dir string) error {
+	tr := tar.NewReader(io.LimitReader(source, maxExpanded+1))
+	expanded := int64(0)
+	for entries := 0; ; entries++ {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("extract main source: %w", err)
+		}
+		header, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("read main source archive: %w", err)
+		}
+		if entries >= 8192 {
+			return errors.New("main source archive contains an unsafe entry")
+		}
+		target, err := sourceTarget(dir, header.Name)
+		if err != nil {
+			return err
+		}
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0o700); err != nil {
+				return fmt.Errorf("create main source directory: %w", err)
+			}
+		case tar.TypeReg:
+			written, err := extractSourceFile(tr, target, header.Size, expanded)
+			if err != nil {
+				return err
+			}
+			expanded = written
+		default:
+			return errors.New("main source archive contains an unsafe entry")
+		}
+	}
+}
+
+func sourceTarget(dir, archiveName string) (string, error) {
+	name := filepath.Clean(filepath.FromSlash(archiveName))
+	if filepath.IsAbs(name) || name == "." || name == ".." || strings.HasPrefix(name, ".."+string(filepath.Separator)) {
+		return "", errors.New("main source archive contains an unsafe entry")
+	}
+	target := filepath.Join(dir, name)
+	if !strings.HasPrefix(target, dir+string(filepath.Separator)) {
+		return "", errors.New("main source archive escapes its directory")
+	}
+	return target, nil
+}
+
+func extractSourceFile(source io.Reader, target string, size, expanded int64) (int64, error) {
+	if size < 0 || size > maxExpanded-expanded {
+		return expanded, errors.New("main source archive exceeds expanded size limit")
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		return expanded, fmt.Errorf("create main source parent: %w", err)
+	}
+	//nolint:gosec // sourceTarget confines archive paths to the private extraction directory.
+	file, err := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return expanded, fmt.Errorf("create main source file: %w", err)
+	}
+	_, copyErr := io.CopyN(file, source, size)
+	closeErr := file.Close()
+	if copyErr != nil || closeErr != nil {
+		return expanded, errors.Join(copyErr, closeErr)
+	}
+	return expanded + size, nil
+}
+
+func findSourceModule(dir string) (string, error) {
+	var root string
+	if err := filepath.WalkDir(dir, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() && path != dir {
+			if _, err := os.Stat(filepath.Join(path, "go.mod")); err == nil {
+				if root != "" {
+					return errors.New("main source archive has multiple Go modules")
+				}
+				root = path
+			}
+		}
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("walk main source directory: %w", err)
+	}
+	if root == "" {
+		return "", errors.New("main source archive has no Go module")
+	}
+	return root, nil
 }
 
 // Download verifies the archive SHA256 before extracting a single root binary.

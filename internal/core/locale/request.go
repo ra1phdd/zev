@@ -62,6 +62,18 @@ func detectRequestLanguage(request string) string {
 		}
 		runes++
 	}
+	// Very short Russian requests containing technical loanwords are often
+	// misclassified by the statistical detector. These letters are not used by
+	// Ukrainian, Bulgarian, or Serbian, which are intentionally English fallback
+	// languages in the UI.
+	if strings.ContainsAny(strings.ToLower(request), "ыэё") {
+		return "ru"
+	}
+	for _, marker := range []string{"смотр", "однораз"} {
+		if strings.Contains(strings.ToLower(request), marker) {
+			return "ru"
+		}
+	}
 	if whatlanggo.DetectLang(request) == whatlanggo.Rus {
 		return "ru"
 	}

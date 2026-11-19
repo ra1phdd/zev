@@ -87,3 +87,28 @@ func TestUpdateOutputErrorsAreReturned(t *testing.T) {
 		}
 	}
 }
+
+//nolint:paralleltest // The fixture changes process-wide HOME and language state.
+func TestMainUpdateReportsMainCheckingStatus(t *testing.T) {
+	setFixtureLanguage(t, newCLIConfigHome(t), "en")
+	var output, diagnostics bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
+	cmd.SetOut(&output)
+	cmd.SetErr(&diagnostics)
+	updater := &branchUpdateRunnerFake{result: updateservice.Result{Branch: updateservice.Main, Version: "main-commit"}}
+	if err := runUpdateWithBranch(cmd, updater.UpdateBranch, updateservice.Main, updateservice.Main); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(diagnostics.String(), "latest main") {
+		t.Fatalf("main checking status = %q", diagnostics.String())
+	}
+}
+
+type branchUpdateRunnerFake struct {
+	result updateservice.Result
+}
+
+func (f *branchUpdateRunnerFake) UpdateBranch(context.Context, updateservice.Branch) (updateservice.Result, error) {
+	return f.result, nil
+}

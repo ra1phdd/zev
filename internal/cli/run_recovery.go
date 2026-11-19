@@ -13,6 +13,7 @@ import (
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/core/httpclient"
+	"github.com/ra1phdd/zev/internal/core/security"
 	historyservice "github.com/ra1phdd/zev/internal/entities/history/service"
 	queryrepository "github.com/ra1phdd/zev/internal/entities/query/repository"
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
@@ -68,8 +69,12 @@ func runRecovery(ctx context.Context, cmd *cobra.Command, opts runOptions, actio
 	if err != nil {
 		return fmt.Errorf("load configuration for recovery: %w", err)
 	}
-	if opts.conversationID != "" {
-		messages, err := restoreRunConversation(ctx, opts.conversationID, opts.commandID)
+	if opts.sessionID != "" {
+		conversationID, commandID, err := resolveRunSession(ctx, opts.sessionID)
+		if err != nil {
+			return fmt.Errorf("resolve linked query session: %w", err)
+		}
+		messages, err := restoreRunConversation(ctx, conversationID, commandID)
 		if err != nil {
 			return err
 		}
@@ -101,7 +106,15 @@ func restoreRunConversation(ctx context.Context, conversationID, commandID strin
 }
 
 func queryRunRecovery(ctx context.Context, cmd *cobra.Command, cfg *config.Config, messages []domain.Message, action string) (resultErr error) {
-	provider, err := factory.NewProvider(cfg, httpclient.New(cfg.EffectiveHTTPHeaders(), setupLogger(0)))
+	proxyURL := commandProxy(cmd)
+	if proxyURL == "" {
+		proxyURL = proxyFromContext(ctx)
+	}
+	httpClient, err := httpclient.NewWithProxy(cfg.EffectiveHTTPHeaders(), proxyURL, setupLogger(0))
+	if err != nil {
+		return fmt.Errorf("configure recovery proxy: %w", err)
+	}
+	provider, err := factory.NewProvider(cfg, httpClient)
 	if err != nil {
 		return fmt.Errorf("create recovery provider: %w", err)
 	}
@@ -121,7 +134,7 @@ func queryRunRecovery(ctx context.Context, cmd *cobra.Command, cfg *config.Confi
 	if err != nil {
 		return fmt.Errorf("request command failure %s: %w", action, err)
 	}
-	queryservice.ApplyDangerousValidation(response)
+	security.ApplyDangerousValidation(response)
 	if err := response.Validate(); err != nil {
 		return fmt.Errorf("validate recovery suggestions: %w", err)
 	}

@@ -157,6 +157,37 @@ func TestParseArgsFlagsLeavesVerbosityUnchanged(t *testing.T) {
 	}
 }
 
+func TestParseArgsFlagsProxy(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		args  []string
+		proxy string
+		err   string
+	}{
+		{name: "separate value", args: []string{cliProxyFlag, "socks5://localhost:1080", queryFlowFixturePrompt}, proxy: "socks5://localhost:1080"},
+		{name: "equals value", args: []string{"--proxy=http://proxy.example:8080", queryFlowFixturePrompt}, proxy: "http://proxy.example:8080"},
+		{name: "missing value", args: []string{cliProxyFlag}, err: errProxyRequiresURL},
+		{name: "empty separate value", args: []string{cliProxyFlag, "", queryFlowFixturePrompt}, err: errProxyRequiresURL},
+		{name: "next option is not a value", args: []string{cliProxyFlag, "--continue", queryFlowFixturePrompt}, err: errProxyRequiresURL},
+		{name: "empty equals value", args: []string{"--proxy="}, err: errProxyRequiresURL},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseArgsFlags(tc.args)
+			if got.Proxy != tc.proxy || got.ParseError != tc.err {
+				t.Fatalf("parseArgsFlags() proxy=%q error=%q, want proxy=%q error=%q", got.Proxy, got.ParseError, tc.proxy, tc.err)
+			}
+			if len(got.Args) != 1 || got.Args[0] != "show files" {
+				if tc.err != "" {
+					return
+				}
+				t.Fatalf("query arguments = %v, want [show files]", got.Args)
+			}
+		})
+	}
+}
+
 func TestResolveExecutionMode(t *testing.T) {
 	t.Parallel()
 

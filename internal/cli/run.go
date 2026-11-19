@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/ra1phdd/zev/internal/core/security"
 	"github.com/ra1phdd/zev/pkg/terminal"
 	"github.com/ra1phdd/zev/pkg/tui/list"
@@ -32,17 +31,17 @@ const (
 )
 
 type runOptions struct {
-	command        []string
-	conversationID string
-	commandID      string
-	logLimit       int
-	recover        func(context.Context, string, error, runOutput) error
-	onFailure      string
-	noInteract     bool
-	maxRetries     int
-	retryDelay     time.Duration
-	exitCode       string
-	timeout        time.Duration
+	command    []string
+	sessionID  string
+	proxy      string
+	logLimit   int
+	recover    func(context.Context, string, error, runOutput) error
+	onFailure  string
+	noInteract bool
+	maxRetries int
+	retryDelay time.Duration
+	exitCode   string
+	timeout    time.Duration
 }
 
 func newRunCmd() *cobra.Command {
@@ -71,10 +70,11 @@ func runArgv(cmd *cobra.Command, args []string, runner terminal.Runner) error {
 	opts.recover = func(ctx context.Context, action string, commandErr error, output runOutput) error {
 		return runRecovery(ctx, cmd, opts, action, commandErr, output)
 	}
-	return executeRunAttempts(cmd.Context(), opts, runner, cmd.ErrOrStderr(), !opts.noInteract && interactiveRunInput(cmd))
+	ctx := contextWithCommandProxy(cmd.Context(), opts.proxy)
+	return executeRunAttempts(ctx, opts, runner, cmd.ErrOrStderr(), !opts.noInteract && interactiveRunInput(cmd))
 }
 
-func injectedRunInvocation(command, conversationID, commandID string) (string, error) {
+func injectedRunInvocation(command, sessionID string) (string, error) {
 	if runtime.GOOS == "windows" {
 		return "", errors.New("zev run wrapper injection is not supported on Windows; disable command_wrapper_enabled")
 	}
@@ -99,28 +99,24 @@ func injectedRunInvocation(command, conversationID, commandID string) (string, e
 	default:
 		return "", fmt.Errorf("shell %q is not supported for POSIX run wrapper quoting", filepath.Base(shell))
 	}
-	return buildInjectedRunInvocation(zevPath, shell, command, conversationID, commandID)
+	return buildInjectedRunInvocation(zevPath, shell, command, sessionID)
 }
 
-func buildInjectedRunInvocation(zevPath, shell, command, conversationID, commandID string) (string, error) {
+func buildInjectedRunInvocation(zevPath, shell, command, sessionID string) (string, error) {
 	if !filepath.IsAbs(zevPath) || !filepath.IsAbs(shell) {
 		return "", errors.New("run wrapper requires absolute executable and shell paths")
-	}
-	if commandID != "" && conversationID == "" {
-		return "", errors.New("run wrapper command ID requires a conversation ID")
-	}
-	if (conversationID != "" && !validRunReference(conversationID)) || (commandID != "" && !validRunReference(commandID)) {
-		return "", errors.New("run wrapper references must be canonical UUIDs")
 	}
 	if strings.ContainsRune(zevPath, 0) || strings.ContainsRune(shell, 0) || strings.ContainsRune(command, 0) {
 		return "", errors.New("run wrapper arguments must not contain NUL")
 	}
-	invocation := shellQuote(zevPath) + " run"
-	if conversationID != "" {
-		invocation += " --conversation=" + shellQuote(conversationID)
+	if sessionID != "" {
+		if err := validateRunSessionID(sessionID); err != nil {
+			return "", err
+		}
 	}
-	if commandID != "" {
-		invocation += " --command-id=" + shellQuote(commandID)
+	invocation := shellQuote(zevPath) + " run"
+	if sessionID != "" {
+		invocation += " --session=" + shellQuote(sessionID)
 	}
 	return invocation + " -- " + shellQuote(shell) + " -c " + shellQuote(command), nil
 }
@@ -129,7 +125,8 @@ func buildInjectedRunInvocation(zevPath, shell, command, conversationID, command
 func parseRunArgs(args []string) (runOptions, error) {
 	opts := runOptions{onFailure: runFailureAsk, exitCode: "original", maxRetries: 1, logLimit: 1 << 20}
 	separator := -1
-	for i, arg := range args {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		if arg == "--" {
 			separator = i
 			break
@@ -143,6 +140,18 @@ func parseRunArgs(args []string) (runOptions, error) {
 		}
 		name, value, hasValue := strings.Cut(arg, "=")
 		switch name {
+		case cliProxyFlag:
+			if !hasValue {
+				if i+1 >= len(args) || args[i+1] == "" || strings.HasPrefix(args[i+1], "--") {
+					return runOptions{}, errors.New("--proxy requires a URL")
+				}
+				i++
+				value = args[i]
+			}
+			if value == "" {
+				return runOptions{}, errors.New("--proxy requires a URL")
+			}
+			opts.proxy = value
 		case "--on-failure":
 			if !hasValue {
 				return runOptions{}, errors.New("--on-failure requires a value")
@@ -174,15 +183,14 @@ func parseRunArgs(args []string) (runOptions, error) {
 			if !hasValue || !parseNonNegativeInt(value, &opts.logLimit) || opts.logLimit < 1024 || opts.logLimit > 16<<20 {
 				return runOptions{}, errors.New("--log-limit must be between 1024 and 16777216 bytes")
 			}
-		case "--conversation", "--command-id":
-			if !hasValue || !validRunReference(value) {
-				return runOptions{}, fmt.Errorf("%s requires a canonical UUID", name)
+		case "--session":
+			if !hasValue {
+				return runOptions{}, errors.New("--session requires a compact session ID")
 			}
-			if name == "--conversation" {
-				opts.conversationID = value
-			} else {
-				opts.commandID = value
+			if err := validateRunSessionID(value); err != nil {
+				return runOptions{}, fmt.Errorf("invalid --session: %w", err)
 			}
+			opts.sessionID = value
 		case "--events-file", "--tools", "--no-tools", runToolApprovalFlagName, "--no-history", "--no-context":
 			return runOptions{}, fmt.Errorf("run option %s is not implemented", name)
 		default:
@@ -198,20 +206,11 @@ func parseRunArgs(args []string) (runOptions, error) {
 	if opts.onFailure == runFailureRetry && opts.maxRetries == 0 {
 		return runOptions{}, errors.New("--on-failure=retry requires --max-retries greater than zero")
 	}
-	if opts.commandID != "" && opts.conversationID == "" {
-		return runOptions{}, errors.New("--command-id requires --conversation")
-	}
-
 	opts.command = append([]string(nil), args[separator+1:]...)
 	if opts.command[0] == "" {
 		return runOptions{}, errors.New("run requires a non-empty executable")
 	}
 	return opts, nil
-}
-
-func validRunReference(value string) bool {
-	parsed, err := uuid.Parse(value)
-	return err == nil && parsed.String() == value
 }
 
 func parseNonNegativeInt(value string, target *int) bool {
@@ -442,6 +441,8 @@ Options:
   --exit-code=original|last    Return the first or last failed attempt
   --timeout=D                  Per-attempt timeout (0-24h)
   --log-limit=BYTES            Maximum captured stdout/stderr combined per attempt (1 KiB-16 MiB)
+  --session=ID                  10-character key for the linked conversation/command
+  --proxy=URL                   Route recovery requests through an HTTP(S) or SOCKS5 proxy
   --no-interactive             Disable recovery prompts
 
 Recovery sends captured output, which may contain secrets, to the configured provider. Suggestions are never executed automatically. Arguments after -- are passed literally; no shell parsing is performed.`)

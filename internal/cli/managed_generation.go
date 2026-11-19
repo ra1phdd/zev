@@ -82,7 +82,11 @@ func generateManagedMetadata(cmd *cobra.Command, request managedGeneration) erro
 		return warnManagedGeneration(cmd, request, err)
 	}
 	logger := slog.New(slog.NewTextHandler(cmd.ErrOrStderr(), &slog.HandlerOptions{Level: slog.LevelWarn}))
-	generator, err := metadataclient.NewConfigured(cfg, httpclient.New(cfg.EffectiveHTTPHeaders(), logger))
+	httpClient, err := httpclient.NewWithProxy(cfg.EffectiveHTTPHeaders(), commandProxy(cmd), logger)
+	if err != nil {
+		return warnManagedGeneration(cmd, request, fmt.Errorf("configure metadata proxy: %w", err))
+	}
+	generator, err := metadataclient.NewConfigured(cfg, httpClient)
 	if err != nil {
 		return warnManagedGeneration(cmd, request, err)
 	}

@@ -104,8 +104,8 @@ func TestManagedConflictsAndNonInteractive(t *testing.T) {
 	for _, argv := range [][]string{
 		{managedKindAlias, managedOpAdd, "--non-interactive"},
 		{managedKindAlias, managedOpAdd, historyBadValue, managedEchoFixture, "positional", "--description", "", historyJSONFlag},
-		{managedKindAlias, managedOpAdd, historyBadValue, "echo", "--no-metadata", "--clear-arguments", historyJSONFlag},
-		{managedKindAlias, managedOpEdit, historyBadValue, "--no-metadata"},
+		{managedKindAlias, managedOpAdd, historyBadValue, managedEchoFixture, managedNoMetadataFlag, "--clear-arguments", historyJSONFlag},
+		{managedKindAlias, managedOpEdit, historyBadValue, managedNoMetadataFlag},
 		{managedKindScript, managedOpCreate, historyBadValue, historyJSONFlag},
 		{managedKindScript, managedOpEdit, historyBadValue, "--edit-body", managedBodyStdinFlag},
 		{managedKindAlias, managedOpAdd, historyBadValue, managedTemplateFixture, managedArgumentsJSONFlag, `[{"name":"x","required":null}]`, historyJSONFlag},

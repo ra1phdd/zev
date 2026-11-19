@@ -7,16 +7,28 @@
 # Updating Zev
 
 ```bash
-zev update
+zev update [stable|main]
 ```
 
-Zev checks the latest **stable GitHub Release** in `ra1phdd/zev`, downloads the
-archive for its operating system and architecture, verifies its SHA-256 against
-that release's `checksums.txt`, and replaces the executable that is currently
-running. It does not pull `main`, compile source, run an installation shell script,
-or use LLM credentials, provider endpoints, or custom provider HTTP headers.
-Development builds can update to a compatible stable release. Versioned builds
-never automatically downgrade.
+The default `stable` channel checks the latest **stable GitHub Release** in
+`ra1phdd/zev`, downloads the archive for its operating system and architecture,
+verifies its SHA-256 against that release's `checksums.txt`, and replaces the
+running executable. `zev update main` downloads the current `main` commit's source
+and builds it locally with the installed Go toolchain before replacement. Neither
+channel runs an installation shell script or uses LLM credentials, provider
+endpoints, or custom provider HTTP headers. Versioned stable builds never
+automatically downgrade.
+
+Zev starts a best-effort update check asynchronously and caches a successful
+result for 24 hours in `~/.zev/update-check.json`. When a command exits, the check
+is canceled and Zev waits at most 250 ms for it to stop; short-lived commands may
+exit before a fresh result is cached. A cached or completed result can print an
+update notice; run `zev update` to install the latest stable release, or
+`zev update main` to build the latest development commit.
+
+The `main` branch is under active development and may contain regressions or
+errors. Compatibility between `main` and a stable release is not guaranteed;
+switching back to `stable` may require manual file repairs or reinstalling Zev.
 
 The verified candidate must support Zev's self-update protocol before it can
 replace the executable. Releases predating this feature are rejected, rather
@@ -98,8 +110,8 @@ If replacement succeeded but a migration failed, the command exits unsuccessfull
 and **keeps the new executable**. It never rolls back the binary automatically:
 some stores may already have migrated, and an older binary may no longer read
 them. Fix the reported local problem and retry migration. A crash between
-replacement and migration likewise requires a retry; there is no background
-startup task or daemon performing these steps.
+replacement and migration likewise requires a retry; the background startup check
+only reads update metadata and never replaces the executable or runs migrations.
 
 Checksums from the same GitHub Release verify integrity, not an independent
 publisher signature. GitHub/network failures and API rate limits are reported as

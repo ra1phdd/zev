@@ -1,7 +1,6 @@
 package config
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -84,9 +83,9 @@ security:
 	}
 }
 
-func TestLegacySandboxOffIsIgnoredAndNotSaved(t *testing.T) {
+func TestLegacySandboxIsRejected(t *testing.T) {
 	t.Parallel()
-	cfg, err := Parse([]byte(`version: 1
+	_, err := Parse([]byte(`version: 1
 active_provider: openai
 providers:
   openai:
@@ -95,15 +94,8 @@ security:
   sandbox:
     mode: off
 `))
-	if err != nil {
-		t.Fatalf("Parse(legacy sandbox off) error = %v", err)
-	}
-	data, err := encodeYAML(cfg)
-	if err != nil {
-		t.Fatalf("encodeYAML() error = %v", err)
-	}
-	if strings.Contains(string(data), "sandbox") {
-		t.Fatalf("saved config retained removed sandbox setting: %s", data)
+	if err == nil {
+		t.Fatal("Parse accepted removed security.sandbox setting")
 	}
 }
 

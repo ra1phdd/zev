@@ -153,7 +153,21 @@ repository file, and does not provide a sandbox. `zev doctor` reports the select
 `security.web_fetch_enabled: true` separately enables the model's bounded `web_fetch`
 read capability. It permits only public HTTP(S) GET requests with destination checks,
 redirect limits, response limits, no cookies or credentials, and local untrusted-output
-probing. It does not enable arbitrary network access or change command delivery.
+probing. It does not enable arbitrary network access or change command delivery. To route
+model requests, web fetch, provider setup/diagnostics, history embeddings, updates,
+and recovery requests through a proxy, pass `--proxy URL`. The explicit flag
+overrides environment defaults. Without it, Zev uses the first non-empty variable in
+this order: `ALL_PROXY`, `all_proxy`, `HTTPS_PROXY`, `https_proxy`, `HTTP_PROXY`,
+`http_proxy`. `NO_PROXY`/`no_proxy` are intentionally ignored so a selected proxy is
+never bypassed. Supported URLs are `socks5://host:1080`, `socks5h://host:1080`,
+`http://host:8080`, and `https://host:8443`. `socks5://` resolves destination names
+locally; `socks5h://` sends names to the SOCKS proxy for remote resolution. Proxy URL
+userinfo may carry proxy credentials; do not expose the argument in shared logs or
+shell history. A selected proxy is trusted to establish the final connection. Web
+fetch rejects private/reserved literal IPs, retains redirect checks, and locally
+resolves/rejects private destinations for `socks5://` and direct requests; with
+`socks5h://`, HTTP(S) proxies, or HTTPS proxies, hostname resolution is performed by
+the trusted proxy.
 
 The persisted `~/.zev/config.yaml` must be a regular file owned by the current user
 with no group or other permission bits. Zev rejects symlinks, hard-linked files,

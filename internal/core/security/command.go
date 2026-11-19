@@ -1,4 +1,4 @@
-package service
+package security
 
 import (
 	"path/filepath"
@@ -6,7 +6,6 @@ import (
 	"unicode"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
-	"github.com/ra1phdd/zev/internal/core/security"
 )
 
 const (
@@ -32,24 +31,22 @@ func ValidateCommand(command string) CommandAssessment {
 // Unsupported interpreters remain unknown instead of being treated as POSIX.
 func ValidateCommandForShell(command, interpreter string) CommandAssessment {
 	const (
-		dash = "dash"
-		bash = "bash"
-		zsh  = "zsh"
-		ksh  = "ksh"
+		zsh = safetyZshCommand
+		ksh = safetyKshCommand
 	)
 	if resolved, err := filepath.EvalSymlinks(interpreter); err == nil {
 		interpreter = resolved
 	}
-	dialect := security.ShellDialect("unsupported")
+	dialect := ShellDialect("unsupported")
 	switch strings.ToLower(filepath.Base(interpreter)) {
-	case "sh", dash, ksh:
-		dialect = security.ShellPOSIX
-	case bash:
-		dialect = security.ShellBash
+	case "sh", safetyDashCommand, ksh:
+		dialect = ShellPOSIX
+	case safetyBashCommand:
+		dialect = ShellBash
 	case zsh:
-		dialect = security.ShellZsh
+		dialect = ShellZsh
 	}
-	structural := security.AnalyzeShell(command, dialect)
+	structural := AnalyzeShell(command, dialect)
 	if structural.Dangerous {
 		return CommandAssessment{Dangerous: true, Known: structural.Known, Explanation: structural.Explanation}
 	}
@@ -366,20 +363,20 @@ func assessCommandSegment(words []string) (CommandAssessment, bool) {
 		return dangerousAssessment("Filesystem formatting can destroy data on a disk."), true
 	}
 	switch executable {
-	case "rm", "rmdir", safetyDeleteCommand, "erase", "rd", "remove-item":
+	case "rm", safetyRmdirCommand, safetyDeleteCommand, safetyEraseCommand, "rd", safetyRemoveItemCommand:
 		if isHelpOnly(args) {
 			return CommandAssessment{}, true
 		}
 		return dangerousAssessment("File or directory removal can cause data loss."), true
-	case "sudo", "doas":
+	case safetySudoCommand, safetyDoasCommand:
 		return dangerousAssessment("Elevated privileges can affect protected system resources."), true
 	case "dd":
 		return dangerousAssessment("Raw disk copying can destroy data or overwrite a device."), true
-	case "chmod":
+	case safetyChmodCommand:
 		if insecureChmod(args) {
 			return dangerousAssessment("Insecure permission changes can expose files or weaken security."), true
 		}
-	case "mkfs", "newfs", "format", "format-volume":
+	case safetyMkfsCommand, safetyNewfsCommand, safetyFormatCommand, safetyFormatVolumeCommand:
 		return dangerousAssessment("Filesystem formatting can destroy data on a disk."), true
 	case "docker":
 		if dockerDestructive(args) {
@@ -397,7 +394,7 @@ func assessCommandSegment(words []string) (CommandAssessment, bool) {
 		if gitDestructive(args) {
 			return dangerousAssessment("This Git operation can delete work or rewrite repository history."), true
 		}
-	case "cat", "head", "tail", "less", "more", "type":
+	case safetyCatCommand, safetyHeadCommand, safetyTailCommand, safetyLessCommand, safetyMoreCommand, safetyTypeCommand:
 		if readsSensitiveFile(args) {
 			return dangerousAssessment("Reading this path can expose sensitive system data."), true
 		}
@@ -418,14 +415,14 @@ func commandStart(words []string) int {
 		}
 		executable := executableName(words[index])
 		switch executable {
-		case "env", "command", "exec":
+		case safetyEnvCommand, safetyCommandCommand, safetyExecCommand:
 			index++
 			for index < len(words) {
 				if isAssignment(words[index]) || words[index] == "--" {
 					index++
 					continue
 				}
-				if executable == "env" && strings.HasPrefix(words[index], "-") {
+				if executable == safetyEnvCommand && strings.HasPrefix(words[index], "-") {
 					index++
 					continue
 				}
@@ -586,7 +583,7 @@ func readsSensitiveFile(args []string) bool {
 }
 
 func shellInterpreter(executable string, args []string) bool {
-	isShell := executable == "sh" || executable == "bash" || executable == "dash" || executable == "zsh" || executable == "ksh" || executable == "fish" || executable == "pwsh" || executable == "powershell" || executable == "cmd"
+	isShell := executable == "sh" || executable == safetyBashCommand || executable == safetyDashCommand || executable == safetyZshCommand || executable == safetyKshCommand || executable == safetyFishCommand || executable == safetyPwshCommand || executable == safetyPowerShellCommand || executable == safetyCmdCommand
 	if !isShell {
 		return false
 	}
@@ -632,7 +629,7 @@ func isCommandBoundary(token safetyToken) bool {
 
 func isShellName(name string) bool {
 	switch name {
-	case "sh", "bash", "dash", "zsh", "ksh", "fish", "pwsh", "powershell", "cmd":
+	case "sh", safetyBashCommand, safetyDashCommand, safetyZshCommand, safetyKshCommand, safetyFishCommand, safetyPwshCommand, safetyPowerShellCommand, safetyCmdCommand:
 		return true
 	default:
 		return false
@@ -786,7 +783,7 @@ func knownReadOnlySegment(words []string) bool {
 
 func knownReadOnlyCommand(command string) bool {
 	switch command {
-	case "cat", "cut", "date", "du", "echo", "head", "less", "ls", "more", "printf", "pwd", "sort", "stat", "tail", "type", "uname", "wc", "which":
+	case safetyCatCommand, "cut", "date", "du", "echo", safetyHeadCommand, safetyLessCommand, "ls", safetyMoreCommand, "printf", "pwd", "sort", "stat", safetyTailCommand, safetyTypeCommand, "uname", "wc", "which":
 		return true
 	default:
 		return false
@@ -795,7 +792,7 @@ func knownReadOnlyCommand(command string) bool {
 
 func sensitivePath(value string) bool {
 	path := strings.ToLower(strings.ReplaceAll(value, "\\", "/"))
-	for _, marker := range []string{".env", "/.ssh/", "/.aws/", "/.zev/", "credential", "secret", "password", "token", "private_key", "private-key", "id_rsa", "id_ed25519"} {
+	for _, marker := range DefaultSensitivePathMarkers {
 		if strings.Contains(path, marker) {
 			return true
 		}

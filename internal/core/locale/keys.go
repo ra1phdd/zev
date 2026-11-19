@@ -8,12 +8,14 @@ type Key string
 const (
 	KeyUpdateShort          Key = "update.short"
 	KeyUpdateChecking       Key = "update.checking"
+	KeyUpdateCheckingMain   Key = "update.checking_main"
 	KeyUpdateInstalled      Key = "update.installed"
 	KeyUpdateCurrent        Key = "update.current"
 	KeyUpdateMigrating      Key = "update.migrating"
 	KeyUpdateMigrateOnly    Key = "update.migrate_only"
 	KeyUpdateMigrationsDone Key = "update.migrations_done"
 	KeyUpdateProtocol       Key = "update.protocol"
+
 	// KeyCliNoHeadersEnteredConfigurationUnchanged and the following keys are CLI messages.
 	KeyCliNoHeadersEnteredConfigurationUnchanged               Key = "cli.no_headers_entered_configuration_unchanged"
 	KeyCliHTTPHeadersUpdatedSuccessfully                       Key = "cli.http_headers_updated_successfully"
@@ -239,7 +241,6 @@ const (
 	KeyQueryAiDidNotProvideResponseMightHappen                   Key = "query.ai_did_not_provide_response_might_happen"
 	KeyQueryUnableProcessRequestMessage                          Key = "query.unable_process_request_message"
 	KeyQueryWarningMessage                                       Key = "query.warning_message"
-	KeyQueryInjectionWarning                                     Key = "query.injection_warning"
 	KeyQuerySelectedCommandMessage                               Key = "query.selected_command_message"
 	KeyQueryContinueRequiresHistoryRemoveNoHistory               Key = "query.continue_requires_history_remove_no_history"
 	KeyQueryAttachContextFilesCommaSeparatedPathsPress           Key = "query.attach_context_files_comma_separated_paths_press"
@@ -258,6 +259,7 @@ const (
 	KeyQueryNaturalLanguageTerminalCommandSuggestions            Key = "query.natural_language_terminal_command_suggestions"
 	KeyQueryNoCommandsFoundQuery2                                Key = "query.no_commands_found_query_2"
 	KeyQueryOutputCommandOptionsSchemaVersion1JSON               Key = "query.output_command_options_schema_version_1_json"
+	KeyQueryProxyModelAndWebRequests                             Key = "query.proxy_model_and_web_requests"
 	KeyQueryPasteCommandLogEnterNewlineCtrlD                     Key = "query.paste_command_log_enter_newline_ctrl_d"
 	KeyQueryPleaseClarifyRequest                                 Key = "query.please_clarify_request"
 	KeyQueryPrintChosenCommandExecuting                          Key = "query.print_chosen_command_executing"

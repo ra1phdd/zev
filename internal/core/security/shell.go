@@ -13,9 +13,9 @@ const (
 	// ShellPOSIX identifies the POSIX-compatible sh dialect.
 	ShellPOSIX ShellDialect = "posix-sh"
 	// ShellBash identifies the Bash dialect.
-	ShellBash ShellDialect = "bash"
+	ShellBash ShellDialect = safetyBashCommand
 	// ShellZsh identifies the Z shell dialect.
-	ShellZsh ShellDialect = "zsh"
+	ShellZsh ShellDialect = safetyZshCommand
 )
 
 const (
@@ -190,20 +190,20 @@ func (p *shellParser) command(words []shellLexeme) ShellAnalysis {
 	args := commandWords[start+1:]
 	analysis.Effects = appendUniqueEffects(analysis.Effects, EffectProcess)
 	switch executable {
-	case "rm", "rmdir", "unlink", "del", "erase", "rd", "remove-item":
+	case "rm", safetyRmdirCommand, "unlink", "del", safetyEraseCommand, "rd", safetyRemoveItemCommand:
 		if !shellHelpOnly(args) {
 			analysis.Dangerous = true
 			analysis.Explanation = "File or directory removal can cause data loss."
 			analysis.Effects = appendUniqueEffects(analysis.Effects, EffectDelete)
 		}
-	case "dd", "mkfs", "mkfs.ext4", "newfs", "format", "format-volume":
+	case "dd", safetyMkfsCommand, "mkfs.ext4", safetyNewfsCommand, safetyFormatCommand, safetyFormatVolumeCommand:
 		analysis.Dangerous = true
 		analysis.Explanation = "Filesystem or raw-device operations can destroy data."
 		analysis.Effects = appendUniqueEffects(analysis.Effects, EffectWrite)
-	case "sudo", "doas":
+	case safetySudoCommand, safetyDoasCommand:
 		analysis.Dangerous = true
 		analysis.Explanation = "Elevated privileges can affect protected system resources."
-	case "chmod":
+	case safetyChmodCommand:
 		if shellInsecureChmod(args) {
 			analysis.Dangerous = true
 			analysis.Explanation = "Permission or ownership changes can weaken security."
@@ -217,9 +217,9 @@ func (p *shellParser) command(words []shellLexeme) ShellAnalysis {
 		}
 	case "eval", "source", ".":
 		analysis.Known = false
-	case "sh", "bash", "dash", "zsh", "ksh":
+	case "sh", safetyBashCommand, safetyDashCommand, safetyZshCommand, safetyKshCommand:
 		analysis = p.nestedInterpreter(analysis, args)
-	case "env", "command", "exec":
+	case safetyEnvCommand, safetyCommandCommand, safetyExecCommand:
 		if len(args) == 0 {
 			analysis.Known = false
 		} else {
@@ -435,7 +435,7 @@ func shellCommandStart(words []string) int {
 			index++
 			continue
 		}
-		if words[index] == "env" || words[index] == "command" || words[index] == "exec" {
+		if words[index] == safetyEnvCommand || words[index] == safetyCommandCommand || words[index] == safetyExecCommand {
 			index++
 			continue
 		}
@@ -458,7 +458,7 @@ func shellHelpOnly(args []string) bool {
 
 func knownShellCommand(command string) bool {
 	switch command {
-	case "cat", "cut", "date", "du", "echo", "head", "less", "ls", "more", "printf", "pwd", "sort", "stat", "tail", "type", "uname", "wc", "which", "true", "false", "test", "grep", "rg", "find", "git", "docker", "kubectl", "oc", "curl", "wget":
+	case safetyCatCommand, "cut", "date", "du", "echo", safetyHeadCommand, safetyLessCommand, "ls", safetyMoreCommand, "printf", "pwd", "sort", "stat", safetyTailCommand, safetyTypeCommand, "uname", "wc", "which", "true", "false", "test", "grep", "rg", "find", "git", "docker", "kubectl", "oc", "curl", "wget":
 		return true
 	default:
 		return false

@@ -31,14 +31,22 @@ type Service struct {
 	inputContext   func(context.Context, string) (string, error)
 	selectContext  func(context.Context, list.SelectOptions) (list.Item, error)
 	listModels     modelFetcher
+	proxyURL       string
 }
 
 // New creates a setup service.
 func New() *Service {
+	return NewWithProxy("")
+}
+
+// NewWithProxy creates a setup service that routes model discovery through the
+// supplied proxy, or through the configured environment default when empty.
+func NewWithProxy(proxyURL string) *Service {
 	return &Service{
 		inputContext:  prompt.InputContext,
 		selectContext: list.SelectContext,
 		listModels:    defaultModelFetcher,
+		proxyURL:      proxyURL,
 	}
 }
 

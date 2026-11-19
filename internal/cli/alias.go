@@ -108,7 +108,9 @@ func runAliasAdd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("manage entity: %w", err)
 	}
-	if err := aliasservice.New(aliasrepo.New(dir)).AddAlias(a); err != nil {
+	if err := createManagedEntity(cmd.Context(), cmd, dir, managedKindAlias, a.Name, func() error {
+		return aliasservice.New(aliasrepo.New(dir)).AddAlias(a)
+	}); err != nil {
 		return managedStorageError(err)
 	}
 	if p.json {
@@ -326,7 +328,9 @@ func runAliasLast(cmd *cobra.Command, args []string) (err error) {
 	if err := aliasmigration.Migrate(cmd.Context(), dir); err != nil {
 		return fmt.Errorf("migrate aliases: %w", err)
 	}
-	if err := aliasservice.New(aliasrepo.New(dir)).AddCommand(args[0], last.Command); err != nil {
+	if err := createManagedEntity(cmd.Context(), cmd, dir, managedKindAlias, args[0], func() error {
+		return aliasservice.New(aliasrepo.New(dir)).AddCommand(args[0], last.Command)
+	}); err != nil {
 		if errors.Is(err, aliasservice.ErrAliasExists) {
 			return fmt.Errorf(locale.Text(locale.KeyCliAliasQAlreadyExistsChooseDifferentName), args[0], err)
 		}

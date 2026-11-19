@@ -23,6 +23,7 @@ const editorOperation = "editor"
 func TestCancellationStopsDescendants(t *testing.T) {
 	for _, operation := range []string{editorOperation, executeOperation} {
 		t.Run(operation, func(t *testing.T) {
+			setTestHome(t)
 			svc, _ := newTestService(t)
 			ready := filepath.Join(t.TempDir(), "ready")
 			source := fmt.Sprintf("#!/bin/bash\nsleep 60 &\nchild=$!\nprintf '%%s' \"$child\" > %q\nmv %q %q\nwait \"$child\"\n", ready+".tmp", ready+".tmp", ready)

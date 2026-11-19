@@ -1,4 +1,4 @@
-// Package service provides query business logic and local command safety checks.
+// Package service provides query business logic.
 package service
 
 import (
@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/security"
 )
 
 // Service управляет запросами к LLM провайдерам.
@@ -40,7 +41,7 @@ func (s *Service) GetOptions(ctx context.Context, prompt string) (*domain.Option
 	if err := response.Validate(); err != nil {
 		return nil, fmt.Errorf("validate command options: %w", err)
 	}
-	ApplyDangerousValidation(response)
+	security.ApplyDangerousValidation(response)
 	return response, nil
 }
 
@@ -53,7 +54,7 @@ func (s *Service) GetOptionsWithHistory(ctx context.Context, history *domain.Con
 	if err := response.Validate(); err != nil {
 		return nil, fmt.Errorf("validate command options: %w", err)
 	}
-	ApplyDangerousValidation(response)
+	security.ApplyDangerousValidation(response)
 	return response, nil
 }
 

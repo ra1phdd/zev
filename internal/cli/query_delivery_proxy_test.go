@@ -170,35 +170,58 @@ func TestExecuteDeliveryTreatsProviderDangerAsAdvisory(t *testing.T) {
 	}
 }
 
-func TestInjectWarningDisclosesExactCommand(t *testing.T) {
+func TestInjectDeliveryDoesNotPrintCommandOnSuccess(t *testing.T) {
 	t.Parallel()
-	var output bytes.Buffer
-	command := &domain.Command{Command: "printf 'literal'"}
-	if err := writeInjectionWarning(&output, command); err != nil {
+	var stdout, stderr bytes.Buffer
+	var outcome historyservice.SelectionOutcome
+	err := deliverQueryCommand(t.Context(), queryDelivery{
+		command: &domain.Command{Command: "printf 'literal'"}, mode: executionModeInject,
+		out: &stdout, errOut: &stderr,
+		inject: func(string) error { return nil }, outcome: &outcome,
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), `command="printf 'literal'"`) {
-		t.Fatalf("warning = %q, want exact command disclosure", output.String())
+	if stdout.Len() != 0 || stderr.Len() != 0 {
+		t.Fatalf("successful injection printed output: stdout=%q stderr=%q", stdout.String(), stderr.String())
+	}
+}
+
+func TestInjectDeliveryPrintsCommandOnlyAfterInjectionFailure(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	var outcome historyservice.SelectionOutcome
+	err := deliverQueryCommand(t.Context(), queryDelivery{
+		command: &domain.Command{Command: "printf 'literal'"}, mode: executionModeInject,
+		out: &stdout, errOut: io.Discard, logger: setupLogger(0),
+		inject: func(string) error { return errors.New("not a terminal") }, outcome: &outcome,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "printf 'literal'") {
+		t.Fatalf("fallback=%q, want exact command disclosure", stdout.String())
+	}
+	if outcome.DeliveryOutcome != queryDeliveryPrinted {
+		t.Fatalf("delivery outcome=%q, want %q", outcome.DeliveryOutcome, queryDeliveryPrinted)
 	}
 }
 
 func TestInjectDeliveryUsesRunWrapperWhenEnabled(t *testing.T) {
 	t.Parallel()
 	const command = `printf '%s' "$HOME"`
-	const conversationID = "a5aeb2b8-42c3-4f14-9a7b-fba914ef32c1"
-	const commandID = "b6d3fd36-02de-4d63-a057-1845876218e2"
 	var injected string
 	var outcome historyservice.SelectionOutcome
 	err := deliverQueryCommand(t.Context(), queryDelivery{
 		command: &domain.Command{Command: command}, mode: executionModeInject,
-		wrapInject: true, conversationID: conversationID, commandID: commandID,
+		wrapInject: true, sessionID: runSessionFixtureID,
 		logger: setupLogger(0), out: io.Discard, errOut: io.Discard,
 		inject: func(value string) error { injected = value; return nil }, outcome: &outcome,
 	})
 	if err != nil {
 		t.Fatalf("deliverQueryCommand() error = %v", err)
 	}
-	if !strings.Contains(injected, " run --conversation='"+conversationID+"' --command-id='"+commandID+"' -- ") || !strings.HasSuffix(injected, " -c "+shellQuote(command)) {
+	if !strings.Contains(injected, " run --session='") || strings.Contains(injected, "--conversation=") || strings.Contains(injected, "--command-id=") || !strings.HasSuffix(injected, " -c "+shellQuote(command)) {
 		t.Fatalf("injected command %q does not wrap the original shell program", injected)
 	}
 	if outcome.DeliveryOutcome != "injected" {

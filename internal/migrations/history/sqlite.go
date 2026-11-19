@@ -11,7 +11,6 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	"github.com/ra1phdd/zev/internal/entities/history/current"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
 )
 
@@ -53,7 +52,7 @@ func migrateSQLite(ctx context.Context, db *sql.DB) (err error) {
 		if err := tx.Rollback(); err != nil {
 			return fmt.Errorf("release history bootstrap transaction: %w", err)
 		}
-		if err := current.Validate(ctx, db); err != nil {
+		if err := Validate(ctx, db); err != nil {
 			return fmt.Errorf("validate concurrently initialized history: %w", err)
 		}
 		return nil
@@ -64,7 +63,7 @@ func migrateSQLite(ctx context.Context, db *sql.DB) (err error) {
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit history baseline: %w", err)
 	}
-	if err := current.Validate(ctx, db); err != nil {
+	if err := Validate(ctx, db); err != nil {
 		return fmt.Errorf("validate history baseline: %w", err)
 	}
 	return nil
@@ -112,7 +111,7 @@ func inspect(ctx context.Context, db *sql.DB) (databaseState, error) {
 		}
 		return unknownState, nil
 	}
-	if err := current.Validate(ctx, db); err != nil {
+	if err := Validate(ctx, db); err != nil {
 		return unknownState, fmt.Errorf("validate current history schema: %w", err)
 	}
 	return currentState, nil

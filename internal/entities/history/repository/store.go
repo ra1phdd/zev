@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/ra1phdd/zev/internal/core/filestore"
-	"github.com/ra1phdd/zev/internal/entities/history/current"
 	"github.com/ra1phdd/zev/internal/entities/history/service"
 	_ "modernc.org/sqlite" // Register the SQLite database/sql driver.
 )
@@ -23,15 +22,13 @@ const historySQLiteURLScheme = "file"
 type Store struct{ db *sql.DB }
 
 // Open opens an existing private SQLite history database. The database must
-// already have the released schema; this method never bootstraps or migrates.
+// already have the released schema; the history migrator must run before this
+// method. Open never bootstraps, migrates, or validates the schema.
 // The caller owns the returned store and must close it.
 func Open(ctx context.Context, path string) (*Store, error) {
 	db, err := OpenDatabase(ctx, path, false)
 	if err != nil {
 		return nil, fmt.Errorf("initialize history: %w", err)
-	}
-	if err := current.Validate(ctx, db); err != nil {
-		return nil, errors.Join(fmt.Errorf("validate current history schema: %w", err), db.Close())
 	}
 	if _, err := db.ExecContext(ctx, "PRAGMA journal_mode=WAL"); err != nil {
 		return nil, errors.Join(fmt.Errorf("enable WAL: %w", err), db.Close())

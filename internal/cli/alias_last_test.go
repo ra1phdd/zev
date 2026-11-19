@@ -128,7 +128,7 @@ func TestAliasAddPersistsMetadata(t *testing.T) {
 	cmd := newAliasCmd()
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
-	cmd.SetArgs([]string{"add", "show", "echo {{.arg1}}", "--description", "display a value", "--arguments-json", `[{"name":"value","description":"text"}]`})
+	cmd.SetArgs([]string{managedOpAdd, "show", "echo {{.arg1}}", "--description", "display a value", "--arguments-json", `[{"name":"value","description":"text"}]`})
 	if err := cmd.ExecuteContext(t.Context()); err != nil {
 		t.Fatal(err)
 	}

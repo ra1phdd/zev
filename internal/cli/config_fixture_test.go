@@ -11,6 +11,7 @@ import (
 )
 
 const (
+	cliConfigVersionKey    = "version"
 	cliFixtureModel        = "fixture-model"
 	cliFixtureType         = "type"
 	cliFixtureInvalidValue = "invalid"

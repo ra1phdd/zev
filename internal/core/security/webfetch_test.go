@@ -17,6 +17,16 @@ func (r fixtureResolver) LookupIPAddr(_ context.Context, host string) ([]net.IPA
 	return r[host], nil
 }
 
+type countingResolver struct {
+	addresses []net.IPAddr
+	calls     int
+}
+
+func (r *countingResolver) LookupIPAddr(context.Context, string) ([]net.IPAddr, error) {
+	r.calls++
+	return r.addresses, nil
+}
+
 type fixtureTransport func(*http.Request) (*http.Response, error)
 
 func (f fixtureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -31,6 +41,28 @@ func TestSafeURLForDisclosureRemovesPathQueryAndFragment(t *testing.T) {
 	}
 	if got := SafeURLForDisclosure("https://user:pass@example.com/path"); got != "[REDACTED_URL]" {
 		t.Fatalf("credential URL disclosure = %q", got)
+	}
+}
+
+func TestParsePublicURLPreservesProxyDNSModes(t *testing.T) {
+	t.Parallel()
+	resolver := &countingResolver{addresses: []net.IPAddr{{IP: net.ParseIP("127.0.0.1")}}}
+	if _, err := parsePublicURL(t.Context(), "https://example.com/", resolver, false); err != nil {
+		t.Fatalf("remote-DNS proxy hostname rejected: %v", err)
+	}
+	if resolver.calls != 0 {
+		t.Fatalf("remote-DNS mode performed %d local lookups", resolver.calls)
+	}
+	if _, err := parsePublicURL(t.Context(), "https://example.com/", resolver, true); err == nil {
+		t.Fatal("local-DNS mode accepted a private answer")
+	}
+	if resolver.calls != 1 {
+		t.Fatalf("local-DNS mode performed %d lookups, want 1", resolver.calls)
+	}
+	for _, rawURL := range []string{"http://127.0.0.1/", "http://[fe80::1%25lo0]/"} {
+		if _, err := parsePublicURL(t.Context(), rawURL, resolver, false); err == nil {
+			t.Errorf("remote-DNS mode accepted private or scoped IP URL %q", rawURL)
+		}
 	}
 }
 

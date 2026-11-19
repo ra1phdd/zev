@@ -15,3 +15,11 @@ const (
 	KeyProviderActiveRemoval Key = "provider.active_removal"
 	KeyProviderAlreadyExists Key = "provider.already_exists"
 )
+
+// Update message keys for branch-aware update flows.
+const (
+	KeyUpdateMainWarning                    Key = "update.main_warning"
+	KeyUpdateMainStableCompatibilityWarning Key = "update.main_stable_compatibility_warning"
+	KeyUpdateAvailable                      Key = "update.available"
+	KeyUpdateAvailableMain                  Key = "update.available_main"
+)

@@ -17,9 +17,9 @@ import (
 	"github.com/ra1phdd/zev/internal/core/filestore"
 	"github.com/ra1phdd/zev/internal/core/httpclient"
 	"github.com/ra1phdd/zev/internal/core/locale"
-	"github.com/ra1phdd/zev/internal/entities/history/repository"
 	"github.com/ra1phdd/zev/internal/entities/query/repository/factory"
 	queryservice "github.com/ra1phdd/zev/internal/entities/query/service"
+	historymigration "github.com/ra1phdd/zev/internal/migrations/history"
 	"github.com/ra1phdd/zev/pkg/tui/list"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -71,7 +71,11 @@ func newDoctorCmd() *cobra.Command {
 		Short: locale.Text(locale.KeyCliDiagnoseLocalConfigurationProviderReadiness),
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runDoctor(cmd, options, defaultDoctorDeps())
+			deps := defaultDoctorDeps()
+			deps.networkCheck = func(ctx context.Context, cfg *config.Config) error {
+				return doctorNetworkCheckWithProxy(ctx, cfg, commandProxy(cmd))
+			}
+			return runDoctor(cmd, options, deps)
 		},
 	}
 	cmd.Flags().BoolVar(&options.JSON, "json", false, locale.Text(locale.KeyCliOutputStableJSONReport))
@@ -96,7 +100,7 @@ func defaultDoctorDeps() doctorDeps {
 			}
 			return nil
 		},
-		checkHistory:   repository.CheckReadable,
+		checkHistory:   historymigration.CheckReadable,
 		findExecutable: exec.LookPath,
 		networkCheck:   doctorNetworkCheck,
 		askConfirmation: func(ctx context.Context) (bool, error) {
@@ -348,7 +352,14 @@ func validateDoctorURL(value string) error {
 }
 
 func doctorNetworkCheck(ctx context.Context, cfg *config.Config) error {
-	client := httpclient.New(cfg.EffectiveHTTPHeaders(), nil)
+	return doctorNetworkCheckWithProxy(ctx, cfg, "")
+}
+
+func doctorNetworkCheckWithProxy(ctx context.Context, cfg *config.Config, proxyURL string) error {
+	client, err := httpclient.NewWithProxy(cfg.EffectiveHTTPHeaders(), proxyURL)
+	if err != nil {
+		return fmt.Errorf("configure provider diagnostic proxy: %w", err)
+	}
 	provider, err := factory.NewProvider(cfg, client)
 	if err != nil {
 		return fmt.Errorf("create provider: %w", err)

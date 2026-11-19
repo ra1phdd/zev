@@ -108,18 +108,19 @@ program. `cd` is not an executable in argv mode.
 | `--log-limit=BYTES` | `1048576` | Combined encoded sanitized tail per attempt, 1024–16777216 bytes |
 | `--timeout=D` | `0s` | Per-attempt deadline; 0 adds none |
 | `--events-file=PATH` | unset | Separate private JSONL metadata sink |
-| `--conversation=ID` | unset | Exact original dialogue, never latest |
-| `--command-id=ID` | unset | Command in that dialogue; requires conversation |
+| `--session=ID` | unset | Exactly 10-character local registry key for the exact conversation and selected command; never latest |
 | `--no-history` | `false` | Do not open SQLite or create run artifacts/conversation |
 | `--no-context` | `false` | Do not attach automatic environment/Git context to the LLM |
 | `--tools` / `--no-tools` | tools disabled | Explicitly permit / prohibit recovery tools |
 | `--tool-approval=manual\|auto` | `manual` | Policy for explicitly enabled recovery tools only; bypass forbidden |
 
+The session ID is an opaque 10-character key, not a reversible encoding of two UUIDs. Query injection registers the exact conversation/command UUID pair in the private `run-sessions.json` registry using an atomic locked update; recovery resolves the key and rejects missing or malformed entries. This preserves exact addressing without exposing two UUIDs in the shell line and without accepting a hash collision as another session.
+
 Validate arguments before child launch or provider setup. Usage errors return `2`: empty
 command, missing `--`, unknown pre-separator options, invalid values, negative durations,
-retry with budget 0, command-id without conversation, tools/no-tools conflicts, or explicit
+invalid session token, tools/no-tools conflicts, or explicit
 approval without tools. Timeout is capped at 24 hours. Validate ID syntax before launch.
-With effective history disabled, ignore supplied IDs with a warning, without SQLite or
+With effective history disabled, ignore a supplied session key with a warning, without SQLite or
 dialogue loading, and still execute the command. This rule is identical for explicit and
 generated invocations. An active in-memory link is allowed without SQLite.
 
@@ -166,7 +167,8 @@ zev --wrap --execute 'run the tests'
 - `inject`: invoke the **absolute path of the current Zev executable**, not bare `zev`
   resolved from PATH. Quote path, argv, and original shell program for the receiving dialect;
   the entire original shell program remains one `-c` argument.
-- Printed fallback after injection failure emits the same invocation without executing it.
+- Successful injection emits no selected-command warning; fallback after injection failure emits
+  the same invocation without executing it.
 - Current binary identity means the chosen executable path at delivery time, not immutability
   of that file at a later manual launch. Same-UID replacement is outside the threat model.
 - Choose the command interpreter using the existing `$SHELL`, then `sh` rule, resolve an

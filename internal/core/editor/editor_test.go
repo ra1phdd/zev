@@ -31,6 +31,9 @@ func TestResolveEditorPrecedence(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("USERPROFILE", home)
 			t.Setenv("PATH", dir)
 			t.Setenv("SCRIPT_EDITOR", tc.scriptEditor)
 			t.Setenv("EDITOR", tc.editor)

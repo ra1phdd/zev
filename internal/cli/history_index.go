@@ -36,9 +36,13 @@ type historyEmbeddingProfileProvider interface {
 	EmbeddingProfile() string
 }
 
-func newHistoryEmbedder(cfg *config.Config) (service.Embedder, error) {
+func newHistoryEmbedder(cfg *config.Config, proxyURL string) (service.Embedder, error) {
 	if cfg == nil || !cfg.HistorySemanticEnabled {
 		return nil, errHistorySemanticDisabled
+	}
+	httpClient, err := httpclient.NewWithProxy(nil, proxyURL)
+	if err != nil {
+		return nil, fmt.Errorf("configure embedding proxy: %w", err)
 	}
 	client, err := historyclient.New(historyclient.Config{
 		Provider:   cfg.HistoryEmbeddingProvider,
@@ -47,7 +51,7 @@ func newHistoryEmbedder(cfg *config.Config) (service.Embedder, error) {
 		APIKey:     cfg.HistoryEmbeddingAPIKey,
 		Dimensions: cfg.HistoryEmbeddingDimensions,
 		MaxBytes:   cfg.HistoryEmbeddingMaxBytes,
-	}, httpclient.New(nil))
+	}, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("create embedding client: %w", err)
 	}

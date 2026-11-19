@@ -150,7 +150,12 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	if strings.TrimSpace(promptText) == "" {
 		promptText = locale.Text(locale.KeyQueryContinueUsingSuppliedContext)
 	}
-	provider, err := factory.NewProvider(cfg, httpclient.New(cfg.EffectiveHTTPHeaders(), logger))
+	client, err := httpclient.NewWithProxy(cfg.EffectiveHTTPHeaders(), flags.Proxy, logger)
+	if err != nil {
+		closeContinuationStore(store, logger)
+		return fmt.Errorf("configure HTTP proxy: %w", err)
+	}
+	provider, err := factory.NewProvider(cfg, client)
 	if err != nil {
 		closeContinuationStore(store, logger)
 		return fmt.Errorf(locale.Text(locale.KeyQueryFailedCreateProviderError), err)

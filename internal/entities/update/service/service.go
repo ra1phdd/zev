@@ -34,6 +34,27 @@ type ReleaseSource interface {
 	Download(context.Context, Release) ([]byte, error)
 }
 
+// Branch identifies the source used for an update.
+type Branch string
+
+const (
+	// Stable selects the latest published GitHub Release.
+	Stable Branch = "stable"
+	// Main selects and builds the current main commit.
+	Main Branch = "main"
+)
+
+// MainCommit identifies a commit that can be built from the development branch.
+type MainCommit struct {
+	SHA string
+}
+
+// MainSource obtains and builds a development-branch commit.
+type MainSource interface {
+	LatestMain(context.Context) (MainCommit, error)
+	BuildMain(context.Context, MainCommit, string) ([]byte, error)
+}
+
 // Installation owns executable replacement and post-install migration. Install
 // must verify that the candidate reports the supplied release version before
 // replacing the target. A nonempty path with an error can indicate a committed
@@ -48,12 +69,15 @@ type Installation interface {
 // Params configures an update Service.
 type Params struct {
 	CurrentVersion string
+	CurrentBranch  Branch
 	Releases       ReleaseSource
+	Main           MainSource
 	Installation   Installation
 }
 
 // Result describes the update decision and the selected version.
 type Result struct {
+	Branch  Branch
 	Version string
 	Updated bool
 }
@@ -65,7 +89,10 @@ type Service struct{ params Params }
 // New creates an update service.
 func New(params Params) *Service { return &Service{params: params} }
 
-var versionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+var (
+	versionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+	commitPattern  = regexp.MustCompile(`^[0-9a-f]{40}$`)
+)
 
 func normalizeVersion(value string) (string, error) {
 	value = strings.TrimPrefix(value, "v")
@@ -108,30 +135,85 @@ func (s *Service) validate() error {
 // Update downloads, verifies, installs, and migrates the latest stable release.
 // A migration error deliberately leaves the installed candidate in place.
 func (s *Service) Update(ctx context.Context) (result Result, err error) {
+	return s.UpdateBranch(ctx, Stable)
+}
+
+// UpdateBranch downloads or builds the requested branch, installs it, and runs
+// local migrations. Main updates use a commit-derived version.
+func (s *Service) UpdateBranch(ctx context.Context, branch Branch) (result Result, err error) {
 	if ctx == nil {
 		return result, errors.New("update: nil context")
 	}
 	if err := s.validate(); err != nil {
 		return result, err
 	}
+	if branch != Stable && branch != Main {
+		return result, fmt.Errorf("%w: unsupported branch %q", ErrInvalidRelease, branch)
+	}
+	if branch == Main && s.params.Main == nil {
+		return result, fmt.Errorf("%w: main update source is unavailable", ErrInvalidRelease)
+	}
 	if err := ctx.Err(); err != nil {
 		return result, fmt.Errorf("update: %w", err)
 	}
 	current := s.params.CurrentVersion
 	currentNormalized := current
-	if current != "dev" {
+	if current != devVersion && s.params.CurrentBranch != Main {
 		currentNormalized, err = normalizeVersion(current)
 		if err != nil {
 			return result, err
 		}
 	}
 	err = s.params.Installation.WithLock(ctx, func() error {
+		if branch == Main {
+			return s.updateMainLocked(ctx, &result)
+		}
 		return s.updateLocked(ctx, current, currentNormalized, &result)
 	})
 	if err != nil {
 		return result, fmt.Errorf("locked update: %w", err)
 	}
 	return result, nil
+}
+
+func (s *Service) updateMainLocked(ctx context.Context, result *Result) error {
+	commit, err := s.params.Main.LatestMain(ctx)
+	if err != nil {
+		return fmt.Errorf("get latest main commit: %w", err)
+	}
+	if !commitPattern.MatchString(commit.SHA) {
+		return fmt.Errorf("%w: invalid main commit", ErrInvalidRelease)
+	}
+	version := "main-" + commit.SHA
+	if s.params.CurrentBranch == Main && s.params.CurrentVersion == version {
+		path, err := s.params.Installation.Executable()
+		if err != nil {
+			return fmt.Errorf("locate installed executable: %w", err)
+		}
+		if err := s.params.Installation.RunMigrations(ctx, path); err != nil {
+			return fmt.Errorf("run migrations for %s (installed version retained; retry zev update --migrate-only): %w", version, err)
+		}
+		*result = Result{Branch: Main, Version: version}
+		return nil
+	}
+	data, err := s.params.Main.BuildMain(ctx, commit, version)
+	if err != nil {
+		return fmt.Errorf("build main %s: %w", commit.SHA, err)
+	}
+	path, err := s.params.Installation.Install(ctx, data, version)
+	if err != nil {
+		if path != "" {
+			*result = Result{Branch: Main, Version: version, Updated: true}
+			migrationErr := s.params.Installation.RunMigrations(ctx, path)
+			return errors.Join(fmt.Errorf("install %s: replacement committed but durability is uncertain: %w", version, err), migrationErr)
+		}
+		return fmt.Errorf("install %s: %w", version, err)
+	}
+	*result = Result{Branch: Main, Version: version, Updated: true}
+	if err := s.params.Installation.RunMigrations(ctx, path); err != nil {
+		return fmt.Errorf("run migrations for %s (installed version retained; retry zev update --migrate-only): %w", version, err)
+	}
+	return nil
 }
 
 func (s *Service) updateLocked(ctx context.Context, current, currentNormalized string, result *Result) error {
@@ -146,7 +228,7 @@ func (s *Service) updateLocked(ctx context.Context, current, currentNormalized s
 	if err != nil {
 		return err
 	}
-	if current != "dev" && compareVersions(currentNormalized, latest) >= 0 {
+	if current != "dev" && s.params.CurrentBranch != Main && compareVersions(currentNormalized, latest) >= 0 {
 		return s.migrateExisting(ctx, currentNormalized, result)
 	}
 	data, err := s.params.Releases.Download(ctx, release)
@@ -156,7 +238,7 @@ func (s *Service) updateLocked(ctx context.Context, current, currentNormalized s
 	path, err := s.params.Installation.Install(ctx, data, latest)
 	if err != nil {
 		if path != "" {
-			*result = Result{Version: latest, Updated: true}
+			*result = Result{Branch: Stable, Version: latest, Updated: true}
 			migrationErr := s.params.Installation.RunMigrations(ctx, path)
 			return errors.Join(
 				fmt.Errorf("install %s: replacement committed but durability is uncertain: %w", latest, err),
@@ -165,7 +247,7 @@ func (s *Service) updateLocked(ctx context.Context, current, currentNormalized s
 		}
 		return fmt.Errorf("install %s: %w", latest, err)
 	}
-	*result = Result{Version: latest, Updated: true}
+	*result = Result{Branch: Stable, Version: latest, Updated: true}
 	if err := s.params.Installation.RunMigrations(ctx, path); err != nil {
 		return fmt.Errorf("run migrations for %s (installed version retained; retry zev update --migrate-only): %w", latest, err)
 	}
@@ -180,6 +262,6 @@ func (s *Service) migrateExisting(ctx context.Context, version string, result *R
 	if err := s.params.Installation.RunMigrations(ctx, path); err != nil {
 		return fmt.Errorf("run migrations for %s (installed version retained; retry zev update --migrate-only): %w", version, err)
 	}
-	*result = Result{Version: version}
+	*result = Result{Branch: Stable, Version: version}
 	return nil
 }

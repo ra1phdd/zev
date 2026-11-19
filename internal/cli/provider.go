@@ -87,7 +87,7 @@ func newProviderAddCmd() *cobra.Command {
 			if _, err := prepareStore(cmd.Context(), configmigration.Migrate); err != nil {
 				return fmt.Errorf("migrate configuration: %w", err)
 			}
-			if err := setupservice.New().RunNamedContext(cmd.Context(), args[0]); err != nil {
+			if err := setupservice.NewWithProxy(commandProxy(cmd)).RunNamedContext(cmd.Context(), args[0]); err != nil {
 				return fmt.Errorf("add provider: %w", err)
 			}
 			return nil

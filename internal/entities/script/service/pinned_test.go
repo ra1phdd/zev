@@ -12,6 +12,7 @@ import (
 )
 
 func TestEditorUsesIsolatedCopy(t *testing.T) {
+	setTestHome(t)
 	svc, dir := newTestService(t)
 	if err := svc.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, []byte("original\n")); err != nil {
 		t.Fatal(err)
@@ -36,6 +37,7 @@ func TestEditorUsesIsolatedCopy(t *testing.T) {
 }
 
 func TestEditorRejectsInPlaceSourceRewrite(t *testing.T) {
+	setTestHome(t)
 	svc, dir := newTestService(t)
 	if err := svc.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, []byte("original\n")); err != nil {
 		t.Fatal(err)
@@ -56,6 +58,7 @@ func TestEditorRejectsInPlaceSourceRewrite(t *testing.T) {
 }
 
 func TestEditorCommitsAtomicSave(t *testing.T) {
+	setTestHome(t)
 	svc, dir := newTestService(t)
 	if err := svc.Create(t.Context(), domain.Script{Name: safeScriptName, ScriptFile: safeScriptFile}, []byte("original\n")); err != nil {
 		t.Fatal(err)

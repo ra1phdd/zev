@@ -13,6 +13,7 @@ import (
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/core/domain"
 	"github.com/ra1phdd/zev/internal/core/locale"
+	"github.com/ra1phdd/zev/internal/core/security"
 	toolrepo "github.com/ra1phdd/zev/internal/entities/tool/repository"
 	toolservice "github.com/ra1phdd/zev/internal/entities/tool/service"
 	"github.com/ra1phdd/zev/pkg/tui/prompt"
@@ -84,7 +85,7 @@ func configureQueryTools(cmd *cobra.Command, params toolProviderParams) (domain.
 	if err != nil {
 		return nil, fmt.Errorf("initialize tools: %w", err)
 	}
-	settings := toolservice.Settings{Mode: mode, Root: root, Executor: executor, Policy: cfg.Security.Policy().WithContext(root, homeDirectory()), WebFetch: cfg.Security.WebFetchEnabled}
+	settings := toolservice.Settings{Mode: mode, Root: root, Executor: executor, Policy: cfg.Security.Policy().WithContext(root, homeDirectory()), WebFetch: cfg.Security.WebFetchEnabled, Fetcher: security.Fetcher{Proxy: flags.Proxy}}
 	// Machine output never opens a TUI, even with --tools. A manual tool call is
 	// returned to the model as denied instead of silently approving or blocking.
 	if !flags.Print && !flags.JSON && interactiveToolInput(cmd) {

@@ -24,21 +24,45 @@ var ErrCrossOriginRedirect = errors.New("cross-origin redirect blocked")
 // handling, and redirects disabled. Redirect responses are returned to the
 // caller without replaying the approved request at another URL.
 func New(headers map[string]string, logger ...*slog.Logger) *http.Client {
+	client, err := NewWithProxy(headers, "", logger...)
+	if err != nil {
+		return &http.Client{
+			Transport:     errorTransport{err: fmt.Errorf("configure HTTP proxy: %w", err)},
+			Timeout:       30 * time.Second,
+			CheckRedirect: checkRedirect,
+		}
+	}
+	return client
+}
+
+// NewWithProxy creates an HTTP client that routes requests through the
+// supplied HTTP, HTTPS, SOCKS5, or SOCKS5H proxy URL. It returns an error when
+// the URL is invalid or the default HTTP transport cannot be cloned.
+func NewWithProxy(headers map[string]string, proxyURL string, logger ...*slog.Logger) (*http.Client, error) {
 	ownedHeaders := cloneHeaders(headers)
 	if !hasHeader(ownedHeaders, userAgentHeader) {
 		ownedHeaders[userAgentHeader] = "zev/1.0"
 	}
 
-	transport := &headersTransport{
+	base, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil, errors.New("default HTTP transport has an unsupported type")
+	}
+	baseTransport := base.Clone()
+	if err := ConfigureProxy(baseTransport, proxyURL); err != nil {
+		return nil, err
+	}
+
+	headerTransport := &headersTransport{
 		headers: ownedHeaders,
-		base:    newRetryTransport(http.DefaultTransport, firstLogger(logger), nil),
+		base:    newRetryTransport(baseTransport, firstLogger(logger), nil),
 	}
 
 	return &http.Client{
-		Transport:     transport,
+		Transport:     headerTransport,
 		Timeout:       30 * time.Second,
 		CheckRedirect: checkRedirect,
-	}
+	}, nil
 }
 
 func cloneHeaders(headers map[string]string) map[string]string {
@@ -100,6 +124,14 @@ func firstLogger(loggers []*slog.Logger) *slog.Logger {
 type headersTransport struct {
 	headers map[string]string
 	base    http.RoundTripper
+}
+
+type errorTransport struct {
+	err error
+}
+
+func (t errorTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, t.err
 }
 
 func (t *headersTransport) RoundTrip(req *http.Request) (*http.Response, error) {

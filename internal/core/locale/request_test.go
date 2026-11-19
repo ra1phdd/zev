@@ -22,9 +22,10 @@ func TestSetLanguageDetectsRequest(t *testing.T) {
 	}{
 		{"Russian short", localeAutoLanguage, localeRussianRequest, "", localeEnglishPOSIX, "ru"},
 		{"Russian long", localeAutoLanguage, "Покажи все файлы в текущем каталоге, включая скрытые файлы, и выведи подробную информацию о каждом из них", "", localeEnglishPOSIX, "ru"},
+		{"Russian Docker colloquial", localeAutoLanguage, "посмотреть стату докера одноразово снапшот", "", localeEnglishPOSIX, "ru"},
 		{"English", localeAutoLanguage, "Find all large files in the current directory", "", localeRussianPOSIX, "en"},
 		{"Ukrainian", localeAutoLanguage, "Знайди всі великі файли в поточному каталозі та відсортуй їх за розміром", "", localeRussianPOSIX, "en"},
-		{"Bulgarian", localeAutoLanguage, "Покажи всички файлове в текущата директория и ги сортирай по размер", "", localeRussianPOSIX, "en"},
+		{"Bulgarian", localeAutoLanguage, "Покажи всички файлове в текущата директория и ги сортирай по размер, също скритите", "", localeRussianPOSIX, "en"},
 		{"Serbian", localeAutoLanguage, "Прикажи све датотеке у тренутном директоријуму и сортирај их по величини", "", localeRussianPOSIX, "en"},
 		{"French", localeAutoLanguage, "Afficher tous les fichiers du répertoire courant", "", localeRussianPOSIX, "en"},
 		{"Japanese", localeAutoLanguage, "現在のディレクトリにあるファイルを表示してください", "", localeRussianPOSIX, "en"},

@@ -154,7 +154,21 @@ host `execute` без этого подтверждения. Эта настро
 `security.web_fetch_enabled: true` отдельно включает bounded `web_fetch` capability
 модели. Разрешены только public HTTP(S) GET с проверкой destination, лимитом
 redirects и response, без cookies и credentials, с local probe недоверенного output.
-Это не даёт произвольный network access и не меняет delivery команд.
+Это не даёт произвольный network access и не меняет delivery команд. Чтобы направить
+запросы модели, web fetch, setup/diagnostics провайдера, embeddings истории,
+обновления и recovery-запросы через прокси, укажите `--proxy URL`. Явный аргумент
+имеет приоритет над переменными окружения. Если аргумент не задан, Zev использует
+первую непустую переменную в порядке `ALL_PROXY`, `all_proxy`, `HTTPS_PROXY`,
+`https_proxy`, `HTTP_PROXY`, `http_proxy`. `NO_PROXY`/`no_proxy` намеренно
+игнорируются, чтобы выбранный прокси нельзя было обойти. Поддерживаются URL
+`socks5://host:1080`, `socks5h://host:1080`, `http://host:8080` и
+`https://host:8443`. `socks5://` разрешает имена назначения локально;
+`socks5h://` передаёт имя SOCKS-прокси для удалённого разрешения. Userinfo URL может
+содержать учётные данные прокси; не раскрывайте аргумент в общих логах или истории
+shell. Выбранный прокси доверенно устанавливает конечное соединение. Web fetch
+отклоняет private/reserved IP-литералы, сохраняет проверку redirects и локально
+разрешает/отклоняет private destinations для прямого соединения и `socks5://`; при
+`socks5h://` и HTTP(S)-прокси hostname разрешается доверенным прокси.
 
 Сохранённый `~/.zev/config.yaml` должен быть обычным файлом, принадлежащим текущему
 пользователю, без permission bits для группы и остальных. Zev отклоняет symlink,

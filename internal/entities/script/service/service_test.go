@@ -28,6 +28,13 @@ func newTestService(t *testing.T) (*Service, string) {
 	return New(repository.New(tmpDir)), tmpDir
 }
 
+func setTestHome(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+}
+
 func TestServiceCreate(t *testing.T) {
 	t.Parallel()
 	svc, tmpDir := newTestService(t)

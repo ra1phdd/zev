@@ -150,6 +150,55 @@ func TestMigrateExistingYAML(t *testing.T) {
 	}
 }
 
+func TestMigrateConflictDoesNotNormalizeExistingDestination(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	dest := filepath.Join(dir, canonical)
+	source := filepath.Join(dir, "config")
+	legacy := "version: 1\nactive_provider: work\nproviders: {work: {type: openai}}\nsecurity:\n  sandbox:\n    mode: off\n"
+	put(t, dest, legacy)
+	put(t, source, released)
+
+	err := Migrate(t.Context(), dir)
+	if !errors.Is(err, filetxn.ErrConflict) {
+		t.Fatalf("Migrate() error = %v, want conflict", err)
+	}
+	data, err := os.ReadFile(dest) //nolint:gosec // Reads the isolated migration destination created above.
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != legacy {
+		t.Fatalf("conflict normalized destination: %q", data)
+	}
+}
+
+func TestMigrateNormalizesLegacySandbox(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	dest := filepath.Join(dir, canonical)
+	legacy := `version: 1
+active_provider: work
+providers: {work: {type: openai}}
+security:
+  sandbox:
+    mode: off
+`
+	put(t, dest, legacy)
+	if err := Migrate(t.Context(), dir); err != nil {
+		t.Fatalf("Migrate() error = %v", err)
+	}
+	data, err := os.ReadFile(dest) //nolint:gosec // Reads the isolated migration destination created above.
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(data, []byte("sandbox")) {
+		t.Fatalf("legacy sandbox remained in current configuration: %s", data)
+	}
+	if _, err := current.Parse(data); err != nil {
+		t.Fatalf("migrated configuration is not current: %v", err)
+	}
+}
+
 func TestMigrateRecoversV1Journal(t *testing.T) {
 	t.Parallel()
 	for _, phase := range []string{"prepared", "published", "source removed"} {

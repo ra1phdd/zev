@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/spf13/cobra"
 )
 
@@ -23,5 +24,24 @@ func TestRussianHelpKeepsCommandTokens(t *testing.T) {
 		if !strings.Contains(out.String(), expected) {
 			t.Errorf("help missing %q: %s", expected, out.String())
 		}
+	}
+}
+
+//nolint:paralleltest // The fixture changes HOME and the process-wide UI language.
+func TestNewRootCommandUsesPersistedRussianLanguageForHelp(t *testing.T) {
+	home := newCLIConfigHome(t)
+	setFixtureLanguage(t, home, "ru")
+	restore := locale.SetLanguage("en", "")
+	t.Cleanup(restore)
+
+	root := NewRootCommand("test")
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetArgs([]string{entityHelpFlag})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Использование:") {
+		t.Fatalf("root help was not localized: %q", out.String())
 	}
 }

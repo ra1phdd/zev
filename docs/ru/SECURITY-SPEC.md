@@ -317,7 +317,14 @@ Web fetch — ограниченная read capability, а не произвол
 length, response bytes, redirects и временем. Она MUST отклонять loopback,
 link-local, private, unique-local, metadata-service, Unix-socket и другие reserved
 destinations на DNS resolution и повторно перед каждым redirect; для high-risk
-реализации validated address pinning защищает request от DNS-rebinding race. Нельзя
+реализации прямого соединения validated address pinning защищает request от
+DNS-rebinding race. Proxy, выбранный через `--proxy` или поддерживаемые env defaults,
+входит в trusted computing base для конечного соединения. `socks5://` локально
+разрешает hostname и отклоняет private/reserved IP перед обращением к proxy;
+`socks5h://`, HTTP- и HTTPS-proxy разрешают hostname удалённо, поэтому Zev не может
+самостоятельно проверить DNS-ответ. Проверки URL, private/reserved IP-литералов,
+лимита и назначения redirects сохраняются. `NO_PROXY` игнорируется, чтобы запросы
+не обходили выбранный proxy. Нельзя
 отправлять cookies, provider credentials, API keys, ambient authorization headers,
 локальные файлы или uploads. Redirect обязан сохранять disclosure policy и не может
 молча менять origin. Response — bounded untrusted data, проходящие local probe; он

@@ -303,8 +303,15 @@ Web fetch is a bounded read capability, not arbitrary network access. It may iss
 only `http`/`https` requests to public destinations, with bounded URL length,
 response bytes, redirects, and time. It MUST reject loopback, link-local, private,
 unique-local, metadata-service, Unix-socket, and otherwise reserved destinations at
-DNS resolution and again before every redirect; high-risk implementations pin the
-validated address for the request to avoid DNS-rebinding races. It sends no cookies,
+DNS resolution and again before every redirect; direct connections pin the validated
+address for the request to avoid DNS-rebinding races. A proxy selected by `--proxy` or
+the supported proxy environment defaults is part of the trusted computing base for the
+final connection. `socks5://` resolves destination names locally and rejects
+private/reserved answers before dialing the proxy; `socks5h://`, HTTP, and HTTPS proxies
+resolve destination names remotely, so Zev cannot independently validate those DNS
+answers. URL syntax, private/reserved IP literals, redirect limits, and redirect checks
+still apply. `NO_PROXY` is ignored so requests cannot bypass a selected proxy.
+It sends no cookies,
 provider credentials, API keys, ambient authorization headers, local files, or
 uploads. Redirects must preserve the disclosure policy and are not an opportunity to
 change origin silently. The response is bounded untrusted data, is locally probed,

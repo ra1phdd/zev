@@ -1,5 +1,4 @@
-// Package current describes the released SQLite history schema.
-package current
+package history
 
 import (
 	"context"
@@ -48,7 +47,7 @@ var requiredIndexes = []string{
 	"history_deletions_key",
 }
 
-// ValidateLedger checks the release migration ledger without changing it.
+// ValidateLedger checks the released migration ledger without changing it.
 func ValidateLedger(ctx context.Context, db *sql.DB) error {
 	var columns int
 	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('schema_migrations') WHERE name IN ('version','dirty')`).Scan(&columns); err != nil {

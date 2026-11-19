@@ -25,8 +25,8 @@ var identifierPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`)
 
 var reservedNames = map[string]bool{
 	"alias": true, fieldScript: true, "query": true, "history": true,
-	"setup": true, "doctor": true, "version": true, "continue": true,
-	"help": true,
+	"setup": true, "provider": true, "doctor": true, "version": true,
+	"continue": true, "run": true, "update": true, "tool": true, "help": true,
 }
 
 // ValidateName validates a user-created alias or script name.
@@ -38,7 +38,7 @@ func ValidateName(name string) error {
 		return fmt.Errorf("invalid name %q: expected [a-zA-Z0-9][a-zA-Z0-9._-]{0,63}", name)
 	}
 	if reservedNames[name] {
-		return fmt.Errorf("name %q is reserved", name)
+		return fmt.Errorf("name %q conflicts with a built-in command", name)
 	}
 	return nil
 }

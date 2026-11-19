@@ -1,10 +1,12 @@
-package service
+package security
 
 import (
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
 )
+
+const testCommand = "ls -la"
 
 func TestValidateCommand(t *testing.T) {
 	t.Parallel()
