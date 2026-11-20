@@ -67,7 +67,6 @@ linters:
     - goprintffuncname
 
     # Error handling
-    - wrapcheck
     - nolintlint
 
     # Modern Go and standard library

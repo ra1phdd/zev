@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -36,6 +37,9 @@ func loadProjectContext(paths []string, allowSensitive bool) (string, error) {
 	}
 	content, err := contextfile.LoadWithOptions(root, paths, allowSensitive)
 	if err != nil {
+		if errors.Is(err, contextfile.ErrSensitiveFile) {
+			return "", errors.New(locale.Text(locale.KeyCliSensitiveContextFileRejected))
+		}
 		return "", fmt.Errorf(locale.Text(locale.KeyCliLoadProjectContextError), err)
 	}
 	return content, nil

@@ -41,7 +41,7 @@ func TestQueryRunRecoveryUsesCapturedContextAndDisplaysInertSuggestions(t *testi
 		OpenAIBaseURL:  server.URL + "/v1",
 		ContextEnabled: false,
 	}
-	messages := []domain.Message{{Role: queryUserRole, Kind: "command_error", Content: `command="tool --bad" stderr="unknown option"`}}
+	messages := []domain.Message{{Role: queryUserRole, Kind: queryCommandErrorKind, Content: `command="tool --bad" stderr="unknown option"`}}
 	for _, action := range []string{runFailureAnalyze, runFailureFix} {
 		var output strings.Builder
 		cmd := &cobra.Command{}

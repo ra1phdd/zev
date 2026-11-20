@@ -88,6 +88,11 @@ other = "Fetching suggestions...\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["query.command_failed_fetching_suggestions"]
+other = "Command failed. Fetching suggestions...\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["query.increase_verbosity_level_v_info_vv_debug"]
 other = "Increase verbosity level (-v: INFO, -vv: DEBUG, -vvv: TRACE)"
 leftDelim = "[[["

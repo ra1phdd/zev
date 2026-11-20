@@ -116,6 +116,17 @@ func (s *Service) Name() string { return s.base.Name() }
 // Model returns the underlying model identifier.
 func (s *Service) Model() string { return s.base.Model() }
 
+// CompleteToolTurn forwards isolated protocol turns to the underlying provider.
+// The query safety reviewer uses this path with tools disabled; normal model tool
+// execution remains owned by GetOptionsWithHistory.
+func (s *Service) CompleteToolTurn(ctx context.Context, request domain.ToolRequest) (*domain.ToolTurn, error) {
+	turn, err := s.provider.CompleteToolTurn(ctx, request)
+	if err != nil {
+		return nil, fmt.Errorf("complete isolated tool turn: %w", err)
+	}
+	return turn, nil
+}
+
 // GetOptions gathers optional tool context before returning validated suggestions.
 func (s *Service) GetOptions(ctx context.Context, prompt, envContext string) (*domain.OptionsResponse, error) {
 	return s.GetOptionsWithHistory(ctx, &domain.ConversationHistory{SystemPrompt: fmt.Sprintf(repository.SystemPrompt, envContext), Messages: []domain.Message{{Role: "user", Content: prompt}}})

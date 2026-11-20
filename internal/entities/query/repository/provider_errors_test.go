@@ -100,6 +100,9 @@ func TestProviderInvalidResponsesHideContent(t *testing.T) {
 						t.Errorf("history=%t error=%q, want %q", history, got, want)
 					}
 				}
+				if strings.Contains(got.Error(), "response failed") {
+					t.Errorf("history=%t error repeats the response classification: %s", history, got)
+				}
 				for _, secret := range []string{testSecretKey, testPrivatePrompt, testHTTPS, testPrivateHost} {
 					if strings.Contains(got.Error(), secret) {
 						t.Errorf("history=%t error exposes %q: %s", history, secret, got)

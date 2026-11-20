@@ -55,7 +55,7 @@ func validateMachineFlags(flags parsedFlags) error {
 	if flags.Option < 1 {
 		return machineError(exitArguments, errors.New(locale.Text(locale.KeyCliOptionMustPositiveNumber)))
 	}
-	if flags.OptionSet && !flags.Print && !flags.JSON {
+	if flags.OptionSet && !flags.Print && !flags.JSON && !flags.Execute {
 		return machineError(exitArguments, errors.New(locale.Text(locale.KeyCliOptionRequiresPrintJSON)))
 	}
 	if (flags.Print || flags.JSON) && (flags.Execute || flags.Inject) {

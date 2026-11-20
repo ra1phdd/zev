@@ -65,7 +65,7 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 		MaxTokens: 2048,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%s request failed: %w", p.Name(), repository.WrapNetworkError(p.Name(), err))
+		return nil, repository.WrapNetworkError(p.Name(), err)
 	}
 
 	textContent := resp.GetFirstContentText()
@@ -75,7 +75,7 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 
 	result, err := repository.DecodeOptionsResponse(p.Name(), textContent)
 	if err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
+		return nil, err
 	}
 
 	return result, nil
@@ -101,7 +101,7 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 		MaxTokens: 2048,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%s request failed: %w", p.Name(), repository.WrapNetworkError(p.Name(), err))
+		return nil, repository.WrapNetworkError(p.Name(), err)
 	}
 
 	textContent := resp.GetFirstContentText()
@@ -111,7 +111,7 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 
 	result, err := repository.DecodeOptionsResponse(p.Name(), textContent)
 	if err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
+		return nil, err
 	}
 
 	return result, nil

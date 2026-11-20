@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
@@ -34,5 +35,36 @@ func TestExecuteDeliveryUsesSameProviderReviewForUnknownCommand(t *testing.T) {
 	})
 	if err != nil || !reviewed || stdout.Len() == 0 || outcome.DeliveryOutcome != queryDeliveryExecuted {
 		t.Fatalf("reviewed unknown command did not execute: err=%v reviewed=%t output=%q outcome=%+v", err, reviewed, stdout.String(), outcome)
+	}
+}
+
+func TestExecuteDeliveryAutomaticallyRetriesAfterCommandFailure(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	runner := terminal.Runner{Stdout: &stdout, Stderr: &stderr}
+	var outcome historyservice.SelectionOutcome
+	recoveryCalls := 0
+	err := executeQueryAttempts(t.Context(), queryDelivery{
+		command: &domain.Command{Command: `printf initial-output; exit 1`, ShortExplanation: "Fail once"},
+		mode:    executionModeExecute, securityMode: security.ModeNormal, userRequest: "Run the command",
+		reviewCommand: func(context.Context, string, string, string) (queryservice.CommandSafetyReview, error) {
+			return queryservice.CommandSafetyReview{Safe: true, Reason: "The command is allowed for this test."}, nil
+		},
+		out: &stdout, errOut: &stderr, logger: setupLogger(0), runner: &runner, outcome: &outcome,
+	}, func(_ context.Context, command *domain.Command, commandErr error, output runOutput) (*domain.Command, error) {
+		recoveryCalls++
+		if recoveryCalls == 1 && (!strings.Contains(commandErr.Error(), "exit status 1") || output.stdout != "initial-output") {
+			t.Fatalf("first failure context = command=%q error=%v output=%+v", command.Command, commandErr, output)
+		}
+		if recoveryCalls == 1 {
+			return &domain.Command{Command: `printf retry; exit 1`, ShortExplanation: "Try a corrected command"}, nil
+		}
+		if recoveryCalls == 2 && output.stdout != "retry" {
+			t.Fatalf("second failure output = %+v; want retry", output)
+		}
+		return &domain.Command{Command: "printf recovered", ShortExplanation: "Recover from the failure"}, nil
+	})
+	if err != nil || recoveryCalls != 2 || outcome.DeliveryOutcome != queryDeliveryExecuted || !strings.Contains(stdout.String(), "initial-outputretryrecovered") {
+		t.Fatalf("automatic retries = err=%v recovery_calls=%d output=%q outcome=%+v", err, recoveryCalls, stdout.String(), outcome)
 	}
 }

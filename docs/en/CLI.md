@@ -82,7 +82,7 @@ Natural-language request (zero or more positional tokens; joined as the request)
 | `--tool-approval MODE` | `manual`, `auto`, `bypass`; config default unless overridden | Set tool-call approval policy. |
 | `--print` | boolean; false | Print the selected command without executing it (machine mode). |
 | `--json` | boolean; false | Emit schema-version 1 command options JSON (machine mode). |
-| `--option N` | integer; default `1` | Choose a 1-based command option in machine mode. |
+| `--option N` | integer; default `1` | Choose a 1-based command option in machine mode or query `--execute`; `--execute` uses the same option for automatic corrections. |
 | `--context-file`, `-cf PATH` | repeatable; none | Attach a project context file. |
 | `--allow-sensitive-context` | boolean; false | Allow explicitly requested sensitive context paths; symlinks remain forbidden. |
 | `--proxy URL` | string; empty | Route provider/network requests through SOCKS5 or HTTP(S) proxy. |
@@ -100,7 +100,7 @@ zev --print --json "list current branch"
 
 ## `zev query [query]`
 
-Explicit spelling of root query mode. Accepts zero or more query tokens, joined as a prompt; unmatched flags remain available to aliases when dispatching. Has the same local flags and defaults as `zev [query]` above, plus inherited `--proxy`, `-v, --verbose`, and help. `--execute` and `--inject` conflict; in machine mode `--option` is one-based and defaults to `1`. `--print` prints the chosen command; `--json` prints the options schema. Tool usage in machine modes requires explicit `--tools`.
+Explicit spelling of root query mode. Accepts zero or more query tokens, joined as a prompt; unmatched flags remain available to aliases when dispatching. Has the same local flags and defaults as `zev [query]` above, plus inherited `--proxy`, `-v, --verbose`, and help. `--execute` and `--inject` conflict; `--option` is one-based and defaults to `1`, including automatic correction attempts in execute mode. `--print` prints the chosen command; `--json` prints the options schema. Tool usage in machine modes requires explicit `--tools`.
 
 ## `zev continue [clarification]`
 

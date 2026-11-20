@@ -111,7 +111,7 @@ func CompleteOpenAIToolTurn(ctx context.Context, params OpenAIToolParams) (*doma
 		if responseErr, ok := errors.AsType[*openAIToolResponseError](err); ok {
 			return nil, WrapResponseError(params.ProviderName, responseErr)
 		}
-		return nil, fmt.Errorf("%s request failed: %w", params.ProviderName, WrapNetworkError(params.ProviderName, err))
+		return nil, WrapNetworkError(params.ProviderName, err)
 	}
 	if len(response.Choices) == 0 {
 		return nil, domain.ErrNoResponse

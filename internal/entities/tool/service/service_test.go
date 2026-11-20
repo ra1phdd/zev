@@ -67,6 +67,26 @@ func (e *fixtureExecutor) Execute(_ context.Context, _ domain.ExecRequest, restr
 	return domain.ToolResult{Output: output, ExitCode: 0}
 }
 
+func TestServiceExposesUnderlyingToolProviderForIsolatedReviews(t *testing.T) {
+	t.Parallel()
+	provider := &fixtureProvider{turns: []*domain.ToolTurn{{Content: `{"safe":true,"reason":"read only"}`}}}
+	executor := &fixtureExecutor{}
+	service, err := New(provider, Settings{Mode: modeAuto, Root: fixtureProjectRoot, Executor: executor})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	toolProvider := domain.ToolProvider(service)
+	request := domain.ToolRequest{History: &domain.ConversationHistory{SystemPrompt: "isolated review"}}
+	got, err := toolProvider.CompleteToolTurn(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || got.Content != `{"safe":true,"reason":"read only"}` || len(provider.requests) != 1 || provider.requests[0].History.SystemPrompt != "isolated review" {
+		t.Fatalf("forwarded tool turn = (%+v, requests=%+v)", got, provider.requests)
+	}
+}
+
 func TestManualDenialReturnsToPrimaryWithoutExecuting(t *testing.T) {
 	t.Parallel()
 	p := &fixtureProvider{turns: []*domain.ToolTurn{{Calls: []domain.ToolCall{{ID: "call-1", Name: execToolName, Arguments: readArguments}}}, {Content: finalOptions}}}

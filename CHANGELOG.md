@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Automatically retry failed query `--execute` commands with provider-generated corrections; `--option` selects the initial and subsequent suggestion.
+- Remove redundant provider and operation prefixes around already-safe provider errors.
+- Explain how to explicitly allow a sensitive project context file when one is rejected.
 - Make `zev run '<command>'` execute shell text through the configured shell and use this form for generated command wrappers.
 - Render `zev history` and `zev history show` conversation views as readable text instead of exposing persistence JSON; make `zev history --json` non-interactive with summary-array output and keep explicit `history show --json` for full machine-readable conversations.
 - Bound interactive history pages with older-page navigation, sanitize human-readable history output, show model-list failures before manual fallback, document list controls, and use y/n plus Enter/Esc for interactive approval.

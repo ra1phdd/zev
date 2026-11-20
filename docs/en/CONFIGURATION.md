@@ -200,7 +200,11 @@ special files, and group/world-readable or writable configuration before parsing
 `command_wrapper_enabled: true` wraps generated `inject` commands with `zev run '<command>'` so
 the user can inspect a bounded failure log and request analysis or correction suggestions.
 Set it to `false` to inject the original command without the wrapper. This setting affects
-only generated injection, not explicit `zev run` calls. `zev run '<command>'` passes one shell
+only generated injection, not explicit `zev run` calls. Query `--execute` always captures
+bounded output and automatically requests and executes corrected suggestions after non-zero
+command exits, without a retry limit. Each corrected suggestion must pass local safety review
+and an allow decision; denials, cancellation and provider errors stop the loop. `--option N`
+selects the 1-based option on the initial and each recovery response. `zev run '<command>'` passes one shell
 program to the configured shell and does not use the query `execute`
 authorization path. On failure, `--on-failure=analyze|fix` sends a bounded diagnostic bundle
 to the configured provider only after that action is selected and Zev warns that it may

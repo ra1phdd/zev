@@ -14,7 +14,7 @@ import (
 func openReadFile(path string) (*os.File, error) {
 	file, err := os.OpenFile(path, os.O_RDONLY|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0) //nolint:gosec // Caller selects the trusted parent; O_NOFOLLOW protects the leaf.
 	if err != nil {
-		return nil, err //nolint:wrapcheck // Preserve os.IsNotExist compatibility for missing files.
+		return nil, err // Preserve os.IsNotExist compatibility for missing files.
 	}
 	return file, nil
 }

@@ -274,6 +274,14 @@ func TestCompleteToolTurnNetworkError(t *testing.T) {
 	if strings.Contains(err.Error(), url) || strings.Contains(err.Error(), toolKey) {
 		t.Fatalf("network error leaked endpoint or credential: %v", err)
 	}
+	if strings.Contains(err.Error(), "request failed:") {
+		t.Fatalf("network error has redundant request wrapper: %v", err)
+	}
+
+	_, err = provider.GetOptions(t.Context(), "fixture prompt", "fixture context")
+	if err == nil || strings.Contains(err.Error(), "request failed:") {
+		t.Fatalf("query network error = %v, want the actionable provider error without a redundant wrapper", err)
+	}
 }
 
 func newToolProvider(t *testing.T, factory providerFactory, server *httptest.Server) domain.ToolProvider {

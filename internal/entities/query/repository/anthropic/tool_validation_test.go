@@ -120,6 +120,9 @@ func TestCompleteToolTurnRejectsInvalidResponses(t *testing.T) {
 			if strings.Contains(err.Error(), "secret-sensitive-payload") || strings.Contains(err.Error(), server.URL) || len(err.Error()) > 512 {
 				t.Fatalf("unsafe error: %s", err)
 			}
+			if !strings.Contains(err.Error(), "tool response failed:") && !strings.Contains(err.Error(), "tool request failed:") {
+				t.Fatalf("tool stage is missing from the safe error: %s", err)
+			}
 			if test.shortBody && !errors.Is(err, io.ErrUnexpectedEOF) {
 				t.Fatalf("truncated body error identity lost: %v", err)
 			}

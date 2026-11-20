@@ -93,6 +93,17 @@ func TestQuerySelectionUsesCommandContext(t *testing.T) {
 	}
 }
 
+func TestExecuteSelectionUsesRequestedOption(t *testing.T) {
+	t.Parallel()
+	s := newTestQuerySession(t, &queryFlowProvider{})
+	s.selectionOption = 1
+	s.response = &domain.OptionsResponse{IsValid: true, Commands: []domain.Command{{Command: "option-one"}, {Command: "option-two"}}}
+	selected, index, err := s.selectCommand(t.Context(), executionModeExecute)
+	if err != nil || selected == nil || selected.Command != "option-two" || index != 1 {
+		t.Fatalf("selected=%+v index=%d err=%v; want second option", selected, index, err)
+	}
+}
+
 func TestQueryConversationPreservesPromptAndEnvironmentSplit(t *testing.T) {
 	t.Parallel()
 	provider := &queryFlowProvider{results: []queryProviderResult{

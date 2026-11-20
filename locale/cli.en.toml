@@ -768,6 +768,11 @@ other = "Allow explicitly requested sensitive context paths; symlinks remain for
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["cli.sensitive_context_file_rejected"]
+other = "Sensitive context files are not allowed. Use --allow-sensitive-context to include this file"
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["cli.limit_must_positive"]
 other = "limit must be positive"
 leftDelim = "[[["

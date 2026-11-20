@@ -28,7 +28,7 @@ var _ domain.ToolProvider = (*Provider)(nil)
 func (p *Provider) CompleteToolTurn(ctx context.Context, request domain.ToolRequest) (*domain.ToolTurn, error) {
 	messages, err := toolMessages(request)
 	if err != nil {
-		return nil, fmt.Errorf("%s tool response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+		return nil, fmt.Errorf("tool response failed: %w", repository.WrapResponseError(p.Name(), err))
 	}
 	body := anthropic.MessagesRequest{
 		Model: anthropic.Model(p.model), System: request.History.SystemPrompt,
@@ -42,18 +42,18 @@ func (p *Provider) CompleteToolTurn(ctx context.Context, request domain.ToolRequ
 	}
 	encoded, err := json.Marshal(body)
 	if err != nil {
-		return nil, fmt.Errorf("%s tool response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+		return nil, fmt.Errorf("tool response failed: %w", repository.WrapResponseError(p.Name(), err))
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(p.baseURL, "/")+"/messages", bytes.NewReader(encoded))
 	if err != nil {
-		return nil, fmt.Errorf("%s tool request failed: %w", p.Name(), repository.WrapNetworkError(p.Name(), err))
+		return nil, fmt.Errorf("tool request failed: %w", repository.WrapNetworkError(p.Name(), err))
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", p.apiKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%s tool request failed: %w", p.Name(), repository.WrapNetworkError(p.Name(), err))
+		return nil, fmt.Errorf("tool request failed: %w", repository.WrapNetworkError(p.Name(), err))
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -61,27 +61,27 @@ func (p *Provider) CompleteToolTurn(ctx context.Context, request domain.ToolRequ
 		}
 	}()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s tool request failed: %w", p.Name(), repository.HTTPStatusError(p.Name(), resp.StatusCode))
+		return nil, fmt.Errorf("tool request failed: %w", repository.HTTPStatusError(p.Name(), resp.StatusCode))
 	}
 	// The SDK decodes only the first JSON value. Read the complete bounded
 	// envelope here so trailing data and oversized bodies cannot be accepted.
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("%s tool response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+		return nil, fmt.Errorf("tool response failed: %w", repository.WrapResponseError(p.Name(), err))
 	}
 	var response struct {
 		anthropic.MessagesResponse
 		Error json.RawMessage `json:"error"`
 	}
 	if err := json.Unmarshal(data, &response); err != nil {
-		return nil, fmt.Errorf("%s tool response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+		return nil, fmt.Errorf("tool response failed: %w", repository.WrapResponseError(p.Name(), err))
 	}
 	if len(response.Error) != 0 {
-		return nil, fmt.Errorf("%s tool response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), errors.New("provider error envelope")))
+		return nil, fmt.Errorf("tool response failed: %w", repository.WrapResponseError(p.Name(), errors.New("provider error envelope")))
 	}
 	turn, err := decodeToolTurn(response.MessagesResponse, request.EnableTools)
 	if err != nil {
-		return nil, fmt.Errorf("%s tool response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+		return nil, fmt.Errorf("tool response failed: %w", repository.WrapResponseError(p.Name(), err))
 	}
 	return turn, nil
 }

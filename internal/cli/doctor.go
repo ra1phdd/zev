@@ -410,7 +410,7 @@ func finalizeDoctorReport(report *doctorReport) {
 
 func writeDoctorReport(cmd *cobra.Command, report doctorReport, options doctorOptions) error {
 	if options.JSON {
-		return json.NewEncoder(cmd.OutOrStdout()).Encode(report) //nolint:wrapcheck // Cobra owns the output writer boundary.
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(report)
 	}
 	for _, check := range report.Checks {
 		if _, err := fmt.Fprintf(cmd.OutOrStdout(), locale.Text(locale.KeyCliStatusLine), check.Status, check.Name, locale.TextSource(check.Message), locale.TextSource(check.ActionableMessage)); err != nil {

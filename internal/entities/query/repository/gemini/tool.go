@@ -69,7 +69,7 @@ type toolResponse struct {
 func (p *Provider) CompleteToolTurn(ctx context.Context, request domain.ToolRequest) (*domain.ToolTurn, error) {
 	contents, err := toolContents(request)
 	if err != nil {
-		return nil, fmt.Errorf("%s tool response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+		return nil, fmt.Errorf("tool response failed: %w", repository.WrapResponseError(p.Name(), err))
 	}
 	body := map[string]any{
 		geminiJSONSystem:   toolContent{Parts: []toolPart{{Text: request.History.SystemPrompt}}},
@@ -92,17 +92,17 @@ func (p *Provider) CompleteToolTurn(ctx context.Context, request domain.ToolRequ
 	}
 	data, err := json.Marshal(body)
 	if err != nil {
-		return nil, fmt.Errorf("%s tool response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+		return nil, fmt.Errorf("tool response failed: %w", repository.WrapResponseError(p.Name(), err))
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.apiURL, bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("%s tool request failed: %w", p.Name(), repository.WrapNetworkError(p.Name(), err))
+		return nil, fmt.Errorf("tool request failed: %w", repository.WrapNetworkError(p.Name(), err))
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-goog-api-key", p.apiKey)
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%s tool request failed: %w", p.Name(), repository.WrapNetworkError(p.Name(), err))
+		return nil, fmt.Errorf("tool request failed: %w", repository.WrapNetworkError(p.Name(), err))
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -110,19 +110,19 @@ func (p *Provider) CompleteToolTurn(ctx context.Context, request domain.ToolRequ
 		}
 	}()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s tool request failed: %w", p.Name(), repository.HTTPStatusError(p.Name(), resp.StatusCode))
+		return nil, fmt.Errorf("tool request failed: %w", repository.HTTPStatusError(p.Name(), resp.StatusCode))
 	}
 	data, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("%s tool response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+		return nil, fmt.Errorf("tool response failed: %w", repository.WrapResponseError(p.Name(), err))
 	}
 	var response toolResponse
 	if err := json.Unmarshal(data, &response); err != nil {
-		return nil, fmt.Errorf("%s tool response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+		return nil, fmt.Errorf("tool response failed: %w", repository.WrapResponseError(p.Name(), err))
 	}
 	turn, err := decodeToolTurn(response, request)
 	if err != nil {
-		return nil, fmt.Errorf("%s tool response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+		return nil, fmt.Errorf("tool response failed: %w", repository.WrapResponseError(p.Name(), err))
 	}
 	return turn, nil
 }

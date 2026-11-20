@@ -140,8 +140,9 @@ func TestMachineFlags(t *testing.T) {
 		{args: []string{machinePrintFlag, machineOptionFlag, "oops", historyValidationQuery}, code: 2},
 		{args: []string{machinePrintFlag, machineOptionFlag}, code: 2},
 		{args: []string{machinePrintFlag, "--json", historyValidationQuery}, code: 2},
-		{args: []string{machinePrintFlag, "--execute", historyValidationQuery}, code: 2},
+		{args: []string{machinePrintFlag, executeFlagName, historyValidationQuery}, code: 2},
 		{args: []string{machineOptionFlag, "2", historyValidationQuery}, code: 2},
+		{args: []string{machineOptionFlag, "2", executeFlagName, historyValidationQuery}, option: 2},
 	} {
 		p := parseArgsFlags(tc.args)
 		err := validateMachineFlags(p)

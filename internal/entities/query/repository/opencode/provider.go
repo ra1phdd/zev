@@ -146,7 +146,7 @@ func (p *Provider) sendRequest(ctx context.Context, reqBody openCodeRequest) (*d
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("OpenCode request failed: %w", repository.WrapNetworkError("OpenCode", err))
+		return nil, repository.WrapNetworkError("OpenCode", err)
 	}
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
@@ -155,12 +155,12 @@ func (p *Provider) sendRequest(ctx context.Context, reqBody openCodeRequest) (*d
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("OpenCode request failed: %w", repository.HTTPStatusError("OpenCode", resp.StatusCode))
+		return nil, repository.HTTPStatusError("OpenCode", resp.StatusCode)
 	}
 
 	fullContent, err := readOpenCodeContent(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), repository.WrapResponseError(p.Name(), err))
+		return nil, repository.WrapResponseError(p.Name(), err)
 	}
 	if fullContent == "" {
 		return nil, domain.ErrNoResponse
@@ -168,7 +168,7 @@ func (p *Provider) sendRequest(ctx context.Context, reqBody openCodeRequest) (*d
 
 	result, err := repository.DecodeOptionsResponse(p.Name(), fullContent)
 	if err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
+		return nil, err
 	}
 
 	return result, nil

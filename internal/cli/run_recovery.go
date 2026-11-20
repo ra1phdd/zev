@@ -76,10 +76,10 @@ func runRecovery(ctx context.Context, cmd *cobra.Command, opts runOptions, actio
 		if err != nil {
 			return err
 		}
-		messages = append(messages, domain.Message{Role: queryUserRole, Kind: "command_error", Content: message})
+		messages = append(messages, domain.Message{Role: queryUserRole, Kind: queryCommandErrorKind, Content: message})
 		return queryRunRecovery(ctx, cmd, cfg, opts, messages, action)
 	}
-	messages := []domain.Message{{Role: queryUserRole, Kind: "command_error", Content: message}}
+	messages := []domain.Message{{Role: queryUserRole, Kind: queryCommandErrorKind, Content: message}}
 	return queryRunRecovery(ctx, cmd, cfg, opts, messages, action)
 }
 

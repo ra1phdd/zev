@@ -65,7 +65,7 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%s request failed: %w", p.Name(), repository.WrapNetworkError(p.Name(), err))
+		return nil, repository.WrapNetworkError(p.Name(), err)
 	}
 
 	if len(resp.Choices) == 0 {
@@ -75,7 +75,7 @@ func (p *Provider) GetOptions(ctx context.Context, prompt, envContext string) (*
 	rawContent := resp.Choices[0].Message.Content
 	result, err := repository.DecodeOptionsResponse(p.Name(), rawContent)
 	if err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
+		return nil, err
 	}
 
 	return result, nil
@@ -104,7 +104,7 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%s request failed: %w", p.Name(), repository.WrapNetworkError(p.Name(), err))
+		return nil, repository.WrapNetworkError(p.Name(), err)
 	}
 
 	if len(resp.Choices) == 0 {
@@ -114,7 +114,7 @@ func (p *Provider) GetOptionsWithHistory(ctx context.Context, history *domain.Co
 	rawContent := resp.Choices[0].Message.Content
 	result, err := repository.DecodeOptionsResponse(p.Name(), rawContent)
 	if err != nil {
-		return nil, fmt.Errorf("%s response failed: %w", p.Name(), err)
+		return nil, err
 	}
 
 	return result, nil

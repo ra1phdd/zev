@@ -171,6 +171,7 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 		envContext = queryLocalContextDisabled
 	}
 	s := newQuerySession(queryservice.New(provider), cmd, promptText)
+	s.selectionOption = flags.Option - 1
 	s.commandOverrides = cfg.Security.CommandOverrides()
 	s.machine = flags.Print || flags.JSON
 	s.updateLanguage = locale.UpdateRequestLanguage
@@ -181,7 +182,7 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 		s.continuationMessages = append(s.continuationMessages, continuationMessage("project_context", projectContext))
 	}
 	if strings.TrimSpace(inputs.CommandLog) != "" {
-		s.continuationMessages = append(s.continuationMessages, continuationMessage("command_error", inputs.CommandLog))
+		s.continuationMessages = append(s.continuationMessages, continuationMessage(queryCommandErrorKind, inputs.CommandLog))
 	}
 	if strings.TrimSpace(clarification) != "" || promptText != "" {
 		s.continuationMessages = append(s.continuationMessages, continuationMessage("refinement", promptText))
@@ -210,14 +211,21 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	}
 	outcome := historyservice.SelectionOutcome{Index: index, DeliveryOutcome: queryDeliverySelected}
 	s.warnHistory(s.persistence.Select(cmd.Context(), outcome))
-	err = deliverQueryCommand(cmd.Context(), queryDelivery{
+	delivery := queryDelivery{
 		command: selected, mode: mode, securityMode: security.Mode(cfg.Security.Mode), securityDefaultDecision: security.Decision(cfg.Security.DefaultDecision), securityPolicy: cfg.Security.Policy(),
 		commandOverrides: cfg.Security.CommandOverrides(), rememberDenied: rememberDeniedQueryCommand,
 		out: cmd.OutOrStdout(), errOut: cmd.ErrOrStderr(), logger: logger,
 		runner:  &terminal.Runner{Stdin: cmd.InOrStdin(), Stdout: cmd.OutOrStdout(), Stderr: cmd.ErrOrStderr()},
 		confirm: confirmQueryExecution(cmd), outcome: &outcome,
 		reviewCommand: s.svc.ReviewCommandSafety, userRequest: promptText,
-	})
+	}
+	if mode == executionModeExecute {
+		err = executeQueryAttempts(cmd.Context(), delivery, func(ctx context.Context, command *domain.Command, commandErr error, output runOutput) (*domain.Command, error) {
+			return s.recoverExecuteCommand(ctx, cmd, command, commandErr, output)
+		})
+	} else {
+		err = deliverQueryCommand(cmd.Context(), delivery)
+	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(cmd.Context()), 5*time.Second)
 	s.warnHistory(s.persistence.Select(ctx, outcome))
 	cancel()

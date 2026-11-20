@@ -768,6 +768,11 @@ other = "Разрешить явно указанные чувствительн
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["cli.sensitive_context_file_rejected"]
+other = "Чувствительные файлы контекста запрещены. Чтобы включить этот файл, укажите --allow-sensitive-context"
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["cli.limit_must_positive"]
 other = "Параметр limit должен быть положительным"
 leftDelim = "[[["
