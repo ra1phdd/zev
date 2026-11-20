@@ -1152,3 +1152,43 @@ rightDelim = "]]]"
 other = "📜 История запросов"
 leftDelim = "[[["
 rightDelim = "]]]"
+
+["cli.run_short"]
+other = "Запустить literal argv и проксировать стандартные потоки"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_title"]
+other = "Команда завершилась ошибкой. Выберите следующее действие:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_do_nothing"]
+other = "Ничего не делать"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_do_nothing_description"]
+other = "Оставить исходную ошибку и завершить работу."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_analyze"]
+other = "Проанализировать ошибку"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_analyze_description"]
+other = "Отправить захваченную ошибку провайдеру для объяснения."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_fix"]
+other = "Исправить команду"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_fix_description"]
+other = "Запросить у провайдера исправленные варианты команды; ничего не запускается автоматически."
+leftDelim = "[[["
+rightDelim = "]]]"

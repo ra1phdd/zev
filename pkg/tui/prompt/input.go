@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -17,13 +18,13 @@ import (
 // InputContext displays promptText and returns trimmed input. Cancellation is
 // reported with an error matching ctx.Err() through errors.Is.
 func InputContext(ctx context.Context, promptText string) (string, error) {
-	return inputContext(ctx, promptText)
+	return runInputContextWithInput(ctx, newInputModel(promptText, false), os.Stdin)
 }
 
 // InputContextWithInput displays promptText using input as the terminal reader.
 // It is intended for command entry points that expose an injected stdin.
 func InputContextWithInput(ctx context.Context, promptText string, input io.Reader) (string, error) {
-	return inputContext(ctx, promptText, tea.WithInput(input))
+	return runInputContextWithInput(ctx, newInputModel(promptText, false), input)
 }
 
 // SecretInputContext displays promptText and masks typed input. It returns the
@@ -32,6 +33,19 @@ func InputContextWithInput(ctx context.Context, promptText string, input io.Read
 // Callers must not include secrets in promptText.
 func SecretInputContext(ctx context.Context, promptText string) (string, error) {
 	return secretInputContext(ctx, promptText)
+}
+
+// SecretInputContextWithIO displays promptText using the supplied terminal
+// streams. Nil streams use the process standard streams.
+func SecretInputContextWithIO(ctx context.Context, promptText string, input io.Reader, output io.Writer) (string, error) {
+	if input == nil {
+		input = os.Stdin
+	}
+	opts := []tea.ProgramOption{tea.WithInput(&cancelOnEOFReader{Reader: input})}
+	if output != nil {
+		opts = append(opts, tea.WithOutput(output))
+	}
+	return secretInputContext(ctx, promptText, opts...)
 }
 
 type inputError struct{ cause error }
@@ -57,6 +71,17 @@ func newInputModel(promptText string, secret bool) inputModel {
 }
 
 func runInputContext(ctx context.Context, m inputModel, opts ...tea.ProgramOption) (string, error) {
+	return runInputProgram(ctx, m, opts...)
+}
+
+func runInputContextWithInput(ctx context.Context, m inputModel, input io.Reader) (string, error) {
+	if input == nil {
+		input = os.Stdin
+	}
+	return runInputProgram(ctx, m, tea.WithInput(&cancelOnEOFReader{Reader: input}))
+}
+
+func runInputProgram(ctx context.Context, m inputModel, opts ...tea.ProgramOption) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", inputError{cause: err}
 	}

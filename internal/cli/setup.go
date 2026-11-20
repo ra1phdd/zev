@@ -26,7 +26,7 @@ func runSetup(cmd *cobra.Command, _ []string) error {
 	if _, err := prepareStore(cmd.Context(), configmigration.Migrate); err != nil {
 		return fmt.Errorf("migrate configuration: %w", err)
 	}
-	setupSvc := setupservice.NewWithProxy(commandProxy(cmd))
+	setupSvc := setupservice.NewWithProxyAndIO(commandProxy(cmd), cmd.InOrStdin(), cmd.OutOrStdout())
 	if err := setupSvc.RunContext(cmd.Context()); err != nil {
 		return fmt.Errorf(locale.Text(locale.KeyCliRunSetupError), err)
 	}

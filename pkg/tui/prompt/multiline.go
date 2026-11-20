@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"slices"
 	"strings"
 
@@ -28,15 +29,26 @@ const (
 // errors.Is. UI errors never include input contents. Input is limited to 64 KiB
 // and the textarea's 10000-line limit; exceeding either returns an explicit error.
 func MultilineInputContext(ctx context.Context, title string) (string, error) {
-	return runMultilineContext(ctx, newMultilineModel(title))
+	return runMultilineContextWithInput(ctx, newMultilineModel(title), os.Stdin)
 }
 
 // MultilineInputContextWithInput displays title using input as the terminal reader.
 func MultilineInputContextWithInput(ctx context.Context, title string, input io.Reader) (string, error) {
-	return runMultilineContext(ctx, newMultilineModel(title), tea.WithInput(input))
+	return runMultilineContextWithInput(ctx, newMultilineModel(title), input)
 }
 
 func runMultilineContext(ctx context.Context, m multilineModel, opts ...tea.ProgramOption) (string, error) {
+	return runMultilineProgram(ctx, m, opts...)
+}
+
+func runMultilineContextWithInput(ctx context.Context, m multilineModel, input io.Reader) (string, error) {
+	if input == nil {
+		input = os.Stdin
+	}
+	return runMultilineProgram(ctx, m, tea.WithInput(&cancelOnEOFReader{Reader: input}))
+}
+
+func runMultilineProgram(ctx context.Context, m multilineModel, opts ...tea.ProgramOption) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", inputError{cause: err}
 	}

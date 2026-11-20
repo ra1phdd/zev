@@ -21,6 +21,7 @@ type SelectOptions struct {
 	Items       []Item
 	ShowWarning bool // Display warnings for dangerous items.
 	Input       io.Reader
+	Output      io.Writer
 }
 
 // Item provides the display content and warning state of a selectable entry.
@@ -73,6 +74,9 @@ func selectContext(ctx context.Context, opts SelectOptions, programOpts ...tea.P
 	}
 	options := make([]tea.ProgramOption, 0, len(programOpts)+2)
 	options = append(options, tea.WithContext(inputCtx), tea.WithInput(&cancelOnEOFReader{Reader: input}))
+	if opts.Output != nil {
+		options = append(options, tea.WithOutput(opts.Output))
+	}
 	options = append(options, programOpts...)
 	p := tea.NewProgram(m, options...)
 
@@ -220,17 +224,7 @@ func truncateCells(text string, maxWidth int) string {
 	if maxWidth <= 0 {
 		return ""
 	}
-	width := 0
-	var b strings.Builder
-	for _, r := range text {
-		runeWidth := ansi.StringWidth(string(r))
-		if width+runeWidth > maxWidth {
-			break
-		}
-		b.WriteRune(r)
-		width += runeWidth
-	}
-	return b.String()
+	return ansi.Cut(text, 0, maxWidth)
 }
 
 func (m model) Init() tea.Cmd {

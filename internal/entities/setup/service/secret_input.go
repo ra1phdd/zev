@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/ra1phdd/zev/internal/core/locale"
+	"github.com/ra1phdd/zev/pkg/tui/prompt"
 )
 
 // secretInputError preserves error identity without formatting UI error text,
@@ -40,7 +41,15 @@ func (s *Service) promptAPIKey(ctx context.Context, provider, current string) (s
 	if s.runSecretInput != nil {
 		result, err = s.runSecretInput(m)
 	} else {
-		result, err = tea.NewProgram(m, tea.WithContext(ctx)).Run()
+		input, output := s.input, s.output
+		value, inputErr := prompt.SecretInputContextWithIO(ctx, promptText+":", input, output)
+		if inputErr != nil {
+			return "", fmt.Errorf("read API key: %w", inputErr)
+		}
+		if value == "" {
+			return current, nil
+		}
+		return value, nil
 	}
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return "", secretInputError{cause: ctxErr}

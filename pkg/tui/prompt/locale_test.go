@@ -17,8 +17,8 @@ func TestInputLocalizedHint(t *testing.T) {
 		language string
 		hint     string
 	}{
-		{"ru", "(Нажмите Enter для подтверждения, Esc для отмены)"},
-		{"en", "(Press Enter to confirm, Esc to cancel)"},
+		{"ru", "(y/Enter: подтвердить, n: отклонить, Esc/Ctrl+C: отмена)"},
+		{"en", "(y/Enter: confirm, n: decline, Esc/Ctrl+C: cancel)"},
 	} {
 		t.Run(tt.language, func(t *testing.T) {
 			restore := locale.SetLanguage(tt.language, "")

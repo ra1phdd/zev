@@ -1,5 +1,5 @@
 ["ui.prompt.confirm_hint"]
-other = "(Press Enter to confirm, Esc to cancel)"
+other = "(y/Enter: confirm, n: decline, Esc/Ctrl+C: cancel)"
 leftDelim = "[[["
 rightDelim = "]]]"
 

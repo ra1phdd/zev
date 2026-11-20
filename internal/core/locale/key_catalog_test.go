@@ -18,7 +18,7 @@ func TestNamedMessageKeysHaveEnglishAndRussianCatalogEntries(t *testing.T) {
 	t.Parallel()
 
 	wantEnglish := map[Key]string{
-		KeyUIConfirmHint:              "(Press Enter to confirm, Esc to cancel)",
+		KeyUIConfirmHint:              "(y/Enter: confirm, n: decline, Esc/Ctrl+C: cancel)",
 		KeyUIMultilineHint:            "(Enter: newline, Ctrl+D: submit or skip, Esc/Ctrl+C: cancel; 64 KiB / 10000 lines maximum)",
 		KeyUIListNavigationHint:       "(↑/↓ select, Enter confirm, Esc cancel)",
 		KeyCliHistoryCommandDelivery:  "     Outcome: %s\n",

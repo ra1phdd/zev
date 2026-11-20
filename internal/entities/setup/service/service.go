@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"unicode"
@@ -30,6 +31,8 @@ type Service struct {
 	runSecretInput func(tea.Model) (tea.Model, error)
 	inputContext   func(context.Context, string) (string, error)
 	selectContext  func(context.Context, list.SelectOptions) (list.Item, error)
+	input          io.Reader
+	output         io.Writer
 	listModels     modelFetcher
 	warn           func(string)
 	proxyURL       string
@@ -49,7 +52,30 @@ func NewWithProxy(proxyURL string) *Service {
 		listModels:    defaultModelFetcher,
 		warn:          func(message string) { _, _ = fmt.Fprintln(os.Stderr, message) },
 		proxyURL:      proxyURL,
+		input:         os.Stdin,
+		output:        os.Stdout,
 	}
+}
+
+// NewWithProxyAndIO creates a setup service bound to the supplied terminal
+// streams. Nil streams use the process standard streams.
+func NewWithProxyAndIO(proxyURL string, input io.Reader, output io.Writer) *Service {
+	service := NewWithProxy(proxyURL)
+	if input != nil {
+		service.input = input
+	}
+	if output != nil {
+		service.output = output
+	}
+	service.inputContext = func(ctx context.Context, title string) (string, error) {
+		return prompt.InputContextWithInput(ctx, title, service.input)
+	}
+	service.selectContext = func(ctx context.Context, options list.SelectOptions) (list.Item, error) {
+		options.Input = service.input
+		options.Output = service.output
+		return list.SelectContext(ctx, options)
+	}
+	return service
 }
 
 // maskAPIKey conceals the entire saved key, including its length.
@@ -113,10 +139,26 @@ func (s Service) runSetup(ctx context.Context, newName string) error {
 		return fmt.Errorf("setup canceled: %w", err)
 	}
 	if s.inputContext == nil {
-		s.inputContext = prompt.InputContext
+		input := s.input
+		if input == nil {
+			input = os.Stdin
+		}
+		s.inputContext = func(ctx context.Context, title string) (string, error) {
+			return prompt.InputContextWithInput(ctx, title, input)
+		}
 	}
 	if s.selectContext == nil {
-		s.selectContext = list.SelectContext
+		input, output := s.input, s.output
+		if input == nil {
+			input = os.Stdin
+		}
+		if output == nil {
+			output = os.Stdout
+		}
+		s.selectContext = func(ctx context.Context, options list.SelectOptions) (list.Item, error) {
+			options.Input, options.Output = input, output
+			return list.SelectContext(ctx, options)
+		}
 	}
 	original, err := config.LoadContext(ctx)
 	if err != nil {
@@ -152,7 +194,7 @@ func (s Service) runSetup(ctx context.Context, newName string) error {
 	if err := saveSetupProfile(ctx, setupProfileChange{name: name, before: before, after: profile, existed: exists, activate: newName == ""}); err != nil {
 		return err
 	}
-	return printSetupSaved()
+	return s.printSetupSaved()
 }
 
 type setupProfileChange struct {
@@ -278,8 +320,12 @@ func (s *Service) promptProvider(ctx context.Context, cfg *config.Config, prompt
 	return nil
 }
 
-func printSetupSaved() error {
-	if _, err := fmt.Fprintln(os.Stdout, locale.Text(locale.KeyUISetupSaved)); err != nil {
+func (s *Service) printSetupSaved() error {
+	output := s.output
+	if output == nil {
+		output = os.Stdout
+	}
+	if _, err := fmt.Fprintln(output, locale.Text(locale.KeyUISetupSaved)); err != nil {
 		return fmt.Errorf("failed to print success message: %w", err)
 	}
 	return nil

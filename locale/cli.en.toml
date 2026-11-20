@@ -1152,3 +1152,43 @@ rightDelim = "]]]"
 other = "📜 Query History"
 leftDelim = "[[["
 rightDelim = "]]]"
+
+["cli.run_short"]
+other = "Execute a literal argv and proxy its standard streams"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_title"]
+other = "Command failed. Choose the next action:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_do_nothing"]
+other = "Do nothing"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_do_nothing_description"]
+other = "Keep the original failure and exit."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_analyze"]
+other = "Analyze error"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_analyze_description"]
+other = "Send the captured failure to the provider for an explanation."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_fix"]
+other = "Fix command"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_fix_description"]
+other = "Ask the provider for corrected command suggestions; nothing runs automatically."
+leftDelim = "[[["
+rightDelim = "]]]"

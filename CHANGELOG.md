@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Render `zev history` and `zev history show` conversation views as readable text instead of exposing persistence JSON; make `zev history --json` non-interactive with summary-array output and keep explicit `history show --json` for full machine-readable conversations.
 - Bound interactive history pages with older-page navigation, sanitize human-readable history output, show model-list failures before manual fallback, document list controls, and use y/n plus Enter/Esc for interactive approval.
+- Make interactive text prompts and setup/doctor flows honor injected standard streams and cancel cleanly on EOF; localize run recovery choices, preserve ANSI styling while truncating lists, and document alphanumeric run sessions plus the `-cf` continuation alias.
 - Allow exact dangerous-command classification overrides in security YAML; persist an exact command in `security.denied_commands` when an interactive `execute` confirmation is denied, and enforce that denial even in bypass mode.
 - Suppress startup stable-release update notices for unversioned `dev` builds, and allow the bounded updater to follow GitHub source-archive redirects to `codeload.github.com`.
 - Add bilingual implementation guides for centralized security, managed aliases/scripts, and the literal `zev run` wrapper; replace README links to deleted specification documents.

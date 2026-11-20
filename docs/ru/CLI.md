@@ -106,7 +106,7 @@ zev --print --json "list current branch"
 
 Продолжает последний пригодный сохранённый диалог. Оставшиеся слова — уточнение (ноль или больше). Команда намеренно отключает разбор флагов Cobra во время выполнения, но использует тот же контракт query-флагов для справки и проверки; позиционный текст считается уточнением. `--no-history` распознаётся парсером, но отклоняется, потому что continuation требует историю.
 
-**Локальные флаги:** `--execute`, `--inject`, `--no-history`, `--no-context`, `--continue`, `--print`, `--json`, `--option N`, `--context-file PATH` (повторяемый), `--allow-sensitive-context`, `--tools`, `--no-tools`, `--tool-approval MODE` (`manual|auto|bypass`), `-h, --help`. **Наследуемые:** `--proxy URL`, `-v, --verbose`. Специальный query parser распознаёт эти флаги; `--no-history` отклоняется, потому что continuation требует историю.
+**Локальные флаги:** `--execute`, `--inject`, `--no-history`, `--no-context`, `--continue`, `--print`, `--json`, `--option N`, `--context-file PATH` (повторяемый; короткая форма `-cf`), `--allow-sensitive-context`, `--tools`, `--no-tools`, `--tool-approval MODE` (`manual|auto|bypass`), `-h, --help`. **Наследуемые:** `--proxy URL`, `-v, --verbose`. Специальный query parser распознаёт эти флаги; `--no-history` отклоняется, потому что continuation требует историю.
 
 ## Алиасы: `zev alias`
 
@@ -218,7 +218,7 @@ Run-опции должны стоять до `--`. **Локальные опц�
 | `--on-failure=POLICY` | `ask|none|analyze|fix`; default `ask` | Режим восстановления после сбоя. `analyze`/`fix` передают захваченный вывод провайдеру. |
 | `--timeout=DURATION` | Go duration `0s`–`24h`; default `0s` (без timeout попытки) | Ограничить время дочернего процесса. |
 | `--log-limit=BYTES` | integer `1024`–`16777216`; default `1048576` (1 MiB) | Максимальный общий захват stdout/stderr. |
-| `--session=ID` | ключ из 10 символов; default пусто | Связать выполнение/восстановление с диалогом. |
+| `--session=ID` | 10-символьный буквенно-цифровой ключ; default пусто | Связать выполнение/восстановление с диалогом. |
 | `--proxy=URL` | непустой URL; default пусто | Прокси HTTP(S) или SOCKS5 для восстановления/запросов, где поддерживается. |
 | `--no-interactive` | boolean; `false` | Отключить интерактивные запросы восстановления. |
 | `-h, --help` | — | Показать отдельную справку команды run. |

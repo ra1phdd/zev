@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/ra1phdd/zev/internal/core/security"
 	"github.com/ra1phdd/zev/pkg/terminal"
 	"github.com/ra1phdd/zev/pkg/tui/list"
@@ -42,7 +43,7 @@ type runOptions struct {
 func newRunCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:                "run -- command [args...]",
-		Short:              "Execute a literal argv and proxy its standard streams",
+		Short:              locale.Text(locale.KeyCliRunShort),
 		Args:               cobra.ArbitraryArgs,
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -300,12 +301,12 @@ func (i runRecoveryItem) IsWarning() bool     { return false }
 
 func selectRunRecovery(ctx context.Context, input io.Reader) (string, error) {
 	selected, err := list.SelectContext(ctx, list.SelectOptions{
-		Title: "Command failed. Choose the next action:",
+		Title: locale.Text(locale.KeyCliRunRecoveryTitle),
 		Input: input,
 		Items: []list.Item{
-			runRecoveryItem{action: runFailureNone, title: "Do nothing", detail: "Keep the original failure and exit."},
-			runRecoveryItem{action: runFailureAnalyze, title: "Analyze error", detail: "Send the captured failure to the provider for an explanation."},
-			runRecoveryItem{action: runFailureFix, title: "Fix command", detail: "Ask the provider for corrected command suggestions; nothing runs automatically."},
+			runRecoveryItem{action: runFailureNone, title: locale.Text(locale.KeyCliRunRecoveryDoNothing), detail: locale.Text(locale.KeyCliRunRecoveryDoNothingDescription)},
+			runRecoveryItem{action: runFailureAnalyze, title: locale.Text(locale.KeyCliRunRecoveryAnalyze), detail: locale.Text(locale.KeyCliRunRecoveryAnalyzeDescription)},
+			runRecoveryItem{action: runFailureFix, title: locale.Text(locale.KeyCliRunRecoveryFix), detail: locale.Text(locale.KeyCliRunRecoveryFixDescription)},
 		},
 	})
 	if err != nil {

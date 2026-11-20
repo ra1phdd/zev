@@ -106,7 +106,7 @@ Explicit spelling of root query mode. Accepts zero or more query tokens, joined 
 
 Continue the latest usable saved conversation. Remaining positional tokens are treated as a clarification (zero or more). This command intentionally bypasses Cobra flag parsing at runtime and uses the same query flag contract for help output and validation; positional text is the clarification. `--no-history` is accepted by the parser but rejected because continuation requires history.
 
-**Local flags:** `--execute`, `--inject`, `--no-history`, `--no-context`, `--continue`, `--print`, `--json`, `--option N`, `--context-file PATH` (repeatable), `--allow-sensitive-context`, `--tools`, `--no-tools`, `--tool-approval MODE` (`manual|auto|bypass`), plus `-h, --help`. **Inherited:** `--proxy URL`, `-v, --verbose`. The query parser also recognizes these flags in this special route; `--no-history` is rejected because continuation requires history.
+**Local flags:** `--execute`, `--inject`, `--no-history`, `--no-context`, `--continue`, `--print`, `--json`, `--option N`, `--context-file PATH` (repeatable; short form `-cf`), `--allow-sensitive-context`, `--tools`, `--no-tools`, `--tool-approval MODE` (`manual|auto|bypass`), plus `-h, --help`. **Inherited:** `--proxy URL`, `-v, --verbose`. The query parser also recognizes these flags in this special route; `--no-history` is rejected because continuation requires history.
 
 ## Aliases: `zev alias`
 
@@ -218,7 +218,7 @@ The run-specific options must appear before `--`. **Local options:**
 | `--on-failure=POLICY` | `ask|none|analyze|fix`; default `ask` | Choose post-failure recovery behavior. `analyze`/`fix` send captured output to the configured provider. |
 | `--timeout=DURATION` | Go duration `0s`–`24h`; default `0s` (no per-attempt timeout) | Bound the child run. |
 | `--log-limit=BYTES` | integer `1024`–`16777216`; default `1048576` (1 MiB) | Maximum combined captured stdout/stderr. |
-| `--session=ID` | 10-character key; default empty | Link run/recovery to a conversation. |
+| `--session=ID` | 10-character alphanumeric key; default empty | Link run/recovery to a conversation. |
 | `--proxy=URL` | non-empty URL; default empty | Proxy recovery/provider requests through HTTP(S) or SOCKS5 where supported. |
 | `--no-interactive` | boolean; false | Disable interactive recovery prompts. |
 | `-h, --help` | — | Print run-specific help. |

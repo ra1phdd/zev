@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/exec"
@@ -71,7 +72,7 @@ func newDoctorCmd() *cobra.Command {
 		Short: locale.Text(locale.KeyCliDiagnoseLocalConfigurationProviderReadiness),
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			deps := defaultDoctorDeps()
+			deps := defaultDoctorDeps(cmd.InOrStdin(), cmd.ErrOrStderr())
 			deps.networkCheck = func(ctx context.Context, cfg *config.Config) error {
 				return doctorNetworkCheckWithProxy(ctx, cfg, commandProxy(cmd))
 			}
@@ -84,7 +85,7 @@ func newDoctorCmd() *cobra.Command {
 	return cmd
 }
 
-func defaultDoctorDeps() doctorDeps {
+func defaultDoctorDeps(input io.Reader, output io.Writer) doctorDeps {
 	return doctorDeps{
 		loadConfig: doctorConfig,
 		checkDirectory: func(path string) error {
@@ -104,11 +105,15 @@ func defaultDoctorDeps() doctorDeps {
 		findExecutable: exec.LookPath,
 		networkCheck:   doctorNetworkCheck,
 		askConfirmation: func(ctx context.Context) (bool, error) {
-			if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
+			inFile, inOK := input.(*os.File)
+			outFile, outOK := output.(*os.File)
+			if !inOK || !outOK || !term.IsTerminal(int(inFile.Fd())) || !term.IsTerminal(int(outFile.Fd())) {
 				return false, nil
 			}
 			selected, err := list.SelectContext(ctx, list.SelectOptions{
-				Title: locale.Text(locale.KeyCliSendOneRealRequestConfiguredProvider),
+				Title:  locale.Text(locale.KeyCliSendOneRealRequestConfiguredProvider),
+				Input:  input,
+				Output: output,
 				Items: []list.Item{
 					list.NewSimpleItem(locale.Text(locale.KeyCliNo), locale.Text(locale.KeyCliKeepDiagnosisLocal)),
 					list.NewSimpleItem(locale.Text(locale.KeyCliYes), locale.Text(locale.KeyCliSendOneProviderRequest)),

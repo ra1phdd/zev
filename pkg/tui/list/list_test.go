@@ -333,6 +333,19 @@ func TestViewUsesTerminalCellWidth(t *testing.T) {
 	}
 }
 
+func TestTruncateCellsPreservesANSISequences(t *testing.T) {
+	t.Parallel()
+
+	text := "\x1b[1mselected item\x1b[0m"
+	got := truncateCells(text, 8)
+	if ansi.StringWidth(got) > 8 {
+		t.Fatalf("truncated width = %d, want <= 8: %q", ansi.StringWidth(got), got)
+	}
+	if !strings.HasPrefix(got, "\x1b[1m") || !strings.HasSuffix(got, "\x1b[0m") {
+		t.Fatalf("ANSI style was broken: %q", got)
+	}
+}
+
 func TestViewFitsTerminalCellWidthBelowPrefixWidth(t *testing.T) {
 	t.Parallel()
 
