@@ -56,6 +56,9 @@ func (s *Service) promptModel(ctx context.Context, provider, apiKey, baseURL str
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return "", fmt.Errorf("list models: %w", ctxErr)
 		}
+		if s.warn != nil {
+			s.warn(fmt.Sprintf(locale.Text(locale.KeyUISetupModelLoadFailed), err))
+		}
 		return s.promptWithDefault(ctx, locale.KeyUISetupModel, current, defaultVal)
 	}
 	if len(models) == 0 {

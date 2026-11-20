@@ -106,7 +106,7 @@ zev --print --json "list current branch"
 
 Продолжает последний пригодный сохранённый диалог. Оставшиеся слова — уточнение (ноль или больше). Команда намеренно отключает разбор флагов Cobra во время выполнения, но использует тот же контракт query-флагов для справки и проверки; позиционный текст считается уточнением. `--no-history` распознаётся парсером, но отклоняется, потому что continuation требует историю.
 
-**Локальные флаги:** `--tools` (boolean, `false`), `--no-tools` (boolean, `false`), `--tool-approval MODE` (`manual|auto|bypass`, по умолчанию из config), `-h, --help`. **Наследуемые:** `--proxy URL` (пусто), `-v, --verbose` (счётчик, `0`). Специальный query parser также распознаёт `--proxy`, `--verbose` и `-h`.
+**Локальные флаги:** `--execute`, `--inject`, `--no-history`, `--no-context`, `--continue`, `--print`, `--json`, `--option N`, `--context-file PATH` (повторяемый), `--allow-sensitive-context`, `--tools`, `--no-tools`, `--tool-approval MODE` (`manual|auto|bypass`), `-h, --help`. **Наследуемые:** `--proxy URL`, `-v, --verbose`. Специальный query parser распознаёт эти флаги; `--no-history` отклоняется, потому что continuation требует историю.
 
 ## Алиасы: `zev alias`
 
@@ -162,7 +162,7 @@ zev --print --json "list current branch"
 
 ## История: `zev history`
 
-Без аргументов открывает браузер истории. Локальный флаг: help. Наследуются proxy и verbosity.
+Без аргументов открывает браузер истории и после выбора показывает диалог в человекочитаемом виде. Браузер использует ограниченную страницу и предлагает показать более старые диалоги, если они есть. С `--json` интерактивный выбор не запускается, выводится JSON-массив кратких записей диалогов. Локальные флаги: `--json` (boolean, `false`; вывести краткие записи в JSON), help. Наследуются proxy и verbosity.
 
 ### `zev history search [query]`
 
@@ -172,7 +172,7 @@ zev --print --json "list current branch"
 
 ### `zev history show [conversation-id]`
 
-Показать диалог и, при необходимости, сообщение. Не более одного ID диалога. **Локальные:** `--message ID` (string, пусто; показать сообщение по полному ID), `--json` (boolean, `false`), help. **Наследуемые:** proxy и verbosity.
+Показать диалог и, при необходимости, сообщение в человекочитаемом виде. Не более одного ID диалога. **Локальные:** `--message ID` (string, пусто; показать сообщение по полному ID), `--json` (boolean, `false`; вывести исходный объект в JSON), help. **Наследуемые:** proxy и verbosity.
 
 ### `zev history export`
 

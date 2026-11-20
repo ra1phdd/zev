@@ -23,6 +23,8 @@ const (
 	toolApprovalFlagName      = "--tool-approval"
 	toolsFlagName             = "--tools"
 	verboseFlagName           = "--verbose"
+	completionCommandName     = "completion"
+	russianUsageHeading       = "Использование:"
 )
 
 //nolint:paralleltest // The fixture changes HOME and the process-wide UI language.
@@ -36,7 +38,7 @@ func TestRussianHelpKeepsCommandTokens(t *testing.T) {
 	if err := root.Help(); err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"Использование:", "Доступные команды:", historyValidationQuery, entityHelpFlag} {
+	for _, expected := range []string{russianUsageHeading, "Доступные команды:", historyValidationQuery, entityHelpFlag} {
 		if !strings.Contains(out.String(), expected) {
 			t.Errorf("help missing %q: %s", expected, out.String())
 		}
@@ -115,5 +117,41 @@ func TestQueryHelpListsManuallyParsedFlags(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+//nolint:paralleltest // Help output depends on process-wide locale state.
+func TestRussianCompletionHelpIsLocalized(t *testing.T) {
+	home := newCLIConfigHome(t)
+	setFixtureLanguage(t, home, "ru")
+	restore := locale.SetLanguage("en", "")
+	t.Cleanup(restore)
+
+	root := NewRootCommand("test")
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetArgs([]string{completionCommandName, entityHelpFlag})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{"Создать скрипт автодополнения", russianUsageHeading} {
+		if !strings.Contains(out.String(), expected) {
+			t.Errorf("Russian completion help missing %q: %s", expected, out.String())
+		}
+	}
+}
+
+//nolint:paralleltest // Help output depends on process-wide locale state.
+func TestRussianRemovedHelpCommandErrorIsLocalized(t *testing.T) {
+	home := newCLIConfigHome(t)
+	setFixtureLanguage(t, home, "ru")
+	restore := locale.SetLanguage("en", "")
+	t.Cleanup(restore)
+
+	root := NewRootCommand("test")
+	root.SetArgs([]string{"help"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "используйте --help или -h") {
+		t.Fatalf("removed help error = %v", err)
 	}
 }

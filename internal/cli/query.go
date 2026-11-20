@@ -352,7 +352,7 @@ func runConfiguredQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Logg
 	if len(args) == 0 {
 		var err error
 		userPrompt, err = readQueryInput(func(title string) (string, error) {
-			return prompt.InputContext(cmd.Context(), title)
+			return prompt.InputContextWithInput(cmd.Context(), title, cmd.InOrStdin())
 		}, locale.Text(locale.KeyQueryWhatCommandYouNeed))
 		if err != nil {
 			return err
@@ -484,9 +484,10 @@ func newQuerySessionWithProjectContext(svc *queryservice.Service, cmd *cobra.Com
 			Messages:     messages,
 		},
 		input: func(title string) (string, error) {
-			return prompt.InputContext(cmd.Context(), title)
+			return prompt.InputContextWithInput(cmd.Context(), title, cmd.InOrStdin())
 		},
 		selectItem: func(options list.SelectOptions) (list.Item, error) {
+			options.Input = cmd.InOrStdin()
 			return list.SelectContext(cmd.Context(), options)
 		},
 	}
@@ -989,6 +990,7 @@ func confirmQueryExecution(cmd *cobra.Command) func(context.Context, *domain.Com
 		return prompt.ConfirmContext(ctx, prompt.ApprovalOptions{
 			Prompt: fmt.Sprintf("command=%s\nexplanation=%s", strconv.QuoteToASCII(selected.Command), strconv.QuoteToASCII(selected.DangerousExplanation)),
 			Output: cmd.ErrOrStderr(),
+			Input:  cmd.InOrStdin(),
 		})
 	}
 }

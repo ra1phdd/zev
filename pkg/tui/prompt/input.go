@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -17,6 +18,12 @@ import (
 // reported with an error matching ctx.Err() through errors.Is.
 func InputContext(ctx context.Context, promptText string) (string, error) {
 	return inputContext(ctx, promptText)
+}
+
+// InputContextWithInput displays promptText using input as the terminal reader.
+// It is intended for command entry points that expose an injected stdin.
+func InputContextWithInput(ctx context.Context, promptText string, input io.Reader) (string, error) {
+	return inputContext(ctx, promptText, tea.WithInput(input))
 }
 
 // SecretInputContext displays promptText and masks typed input. It returns the

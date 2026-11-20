@@ -106,7 +106,7 @@ Explicit spelling of root query mode. Accepts zero or more query tokens, joined 
 
 Continue the latest usable saved conversation. Remaining positional tokens are treated as a clarification (zero or more). This command intentionally bypasses Cobra flag parsing at runtime and uses the same query flag contract for help output and validation; positional text is the clarification. `--no-history` is accepted by the parser but rejected because continuation requires history.
 
-**Local flags:** `--tools` (boolean, false), `--no-tools` (boolean, false), `--tool-approval MODE` (`manual|auto|bypass`, default config); plus `-h, --help`. **Inherited:** `--proxy URL` (empty), `-v, --verbose` (count, 0). The query parser also recognizes `--proxy`, `--verbose`, and `-h` in this special route.
+**Local flags:** `--execute`, `--inject`, `--no-history`, `--no-context`, `--continue`, `--print`, `--json`, `--option N`, `--context-file PATH` (repeatable), `--allow-sensitive-context`, `--tools`, `--no-tools`, `--tool-approval MODE` (`manual|auto|bypass`), plus `-h, --help`. **Inherited:** `--proxy URL`, `-v, --verbose`. The query parser also recognizes these flags in this special route; `--no-history` is rejected because continuation requires history.
 
 ## Aliases: `zev alias`
 
@@ -162,7 +162,7 @@ Check local configuration and provider readiness. Takes no positional arguments.
 
 ## History: `zev history`
 
-Root opens the history browser; no positional arguments. Local flags: help. Inherited: `--proxy URL` (default empty), `-v, --verbose` (count, default `0`; `-v` INFO, `-vv` DEBUG, `-vvv` TRACE), `-h, --help`.
+Root opens the history browser and shows the selected conversation as readable text. The browser shows a bounded page and offers an older-conversations entry when more history exists. With `--json`, it is non-interactive and emits a JSON array of conversation summaries. It takes no positional arguments. **Local flags:** `--json` (boolean, false; output conversation summaries as JSON), help. **Inherited:** `--proxy URL` (default empty), `-v, --verbose` (count, default `0`; `-v` INFO, `-vv` DEBUG, `-vvv` TRACE), `-h, --help`.
 
 ### `zev history search [query]`
 
@@ -172,7 +172,7 @@ Search zero or one query argument; omitted query uses interactive search behavio
 
 ### `zev history show [conversation-id]`
 
-Show one conversation, optionally scoped to a message. Accepts at most one conversation ID. **Local flags:** `--message ID` (string, empty; show message by full ID), `--json` (boolean, false), help. **Inherited:** `--proxy URL` (default empty), `-v, --verbose` (count, default `0`; `-v` INFO, `-vv` DEBUG, `-vvv` TRACE), `-h, --help`.
+Show one conversation, or a message, as readable text. Accepts at most one conversation ID. **Local flags:** `--message ID` (string, empty; show message by full ID), `--json` (boolean, false; output the original object as JSON), help. **Inherited:** `--proxy URL` (default empty), `-v, --verbose` (count, default `0`; `-v` INFO, `-vv` DEBUG, `-vvv` TRACE), `-h, --help`.
 
 ### `zev history export`
 

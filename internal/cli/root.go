@@ -64,6 +64,7 @@ func NewRootCommandContext(ctx context.Context, buildVersion string) *cobra.Comm
 	rootCmd.AddCommand(newVersionCmd(buildVersion))
 	rootCmd.AddCommand(newRunCmd())
 	rootCmd.AddCommand(newUpdateCmd(buildVersion))
+	rootCmd.InitDefaultCompletionCmd()
 	localizeCommandHelp(rootCmd)
 	return rootCmd
 }

@@ -8,6 +8,11 @@ other = "(Enter: новая строка, Ctrl+D: отправить или пр
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["ui.list.navigation_hint"]
+other = "(↑/↓ выбрать, Enter подтвердить, Esc отменить)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["ui.setup.current_default"]
 other = "%s (текущее: %s, нажмите Enter, чтобы сохранить, или введите 'default' для %s):"
 leftDelim = "[[["
@@ -35,6 +40,11 @@ rightDelim = "]]]"
 
 ["ui.setup.model"]
 other = "Введите модель для использования"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["ui.setup.model_load_failed"]
+other = "Не удалось загрузить модели провайдера; введите модель вручную (%v)."
 leftDelim = "[[["
 rightDelim = "]]]"
 

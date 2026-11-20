@@ -24,7 +24,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["tools.approval.prompt"]
-other = "Введите yes для разрешения этого вызова; любой другой ответ означает отказ."
+other = "Нажмите y или Enter для подтверждения; n — отказ; Esc — отмена."
 leftDelim = "[[["
 rightDelim = "]]]"
 

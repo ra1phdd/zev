@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/locale"
@@ -64,6 +65,7 @@ func TestPromptModelFallsBackToManualInputWhenCatalogFails(t *testing.T) {
 	t.Parallel()
 
 	inputCalled := false
+	var warning string
 	s := &Service{
 		listModels: func(context.Context, modelListRequest) ([]string, error) {
 			return nil, errors.New("catalog unavailable")
@@ -75,6 +77,7 @@ func TestPromptModelFallsBackToManualInputWhenCatalogFails(t *testing.T) {
 			}
 			return "manual-model", nil
 		},
+		warn: func(message string) { warning = message },
 	}
 
 	got, err := s.promptModel(t.Context(), providerOllama, "", "http://localhost:11434", nil, "", "")
@@ -83,5 +86,8 @@ func TestPromptModelFallsBackToManualInputWhenCatalogFails(t *testing.T) {
 	}
 	if got != "manual-model" || !inputCalled {
 		t.Fatalf("manual fallback = %q, input called = %v", got, inputCalled)
+	}
+	if warning == "" || !strings.Contains(warning, "catalog unavailable") {
+		t.Fatalf("model catalog warning = %q", warning)
 	}
 }

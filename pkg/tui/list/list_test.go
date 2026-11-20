@@ -3,11 +3,15 @@ package list
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 )
+
+const listTestTitle = "Select"
 
 func TestSelectContextAlreadyCanceled(t *testing.T) {
 	t.Parallel()
@@ -17,6 +21,33 @@ func TestSelectContextAlreadyCanceled(t *testing.T) {
 	_, err := SelectContext(ctx, SelectOptions{Items: []Item{NewSimpleItem("item", "")}})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("SelectContext() error = %v, want context.Canceled", err)
+	}
+}
+
+func TestSelectContextEOFReturnsWithoutSelection(t *testing.T) {
+	t.Parallel()
+
+	_, err := SelectContext(t.Context(), SelectOptions{
+		Items: []Item{NewSimpleItem("item", "")},
+		Input: strings.NewReader(""),
+	})
+	if err == nil {
+		t.Fatal("SelectContext() accepted EOF without selection")
+	}
+}
+
+func TestSelectContextUsesProvidedInput(t *testing.T) {
+	t.Parallel()
+
+	selected, err := selectContext(t.Context(), SelectOptions{
+		Items: []Item{NewSimpleItem("item", "")},
+		Input: strings.NewReader("\r"),
+	}, tea.WithoutSignalHandler())
+	if err != nil {
+		t.Fatalf("selectContext() error = %v", err)
+	}
+	if selected == nil || selected.Title() != "item" {
+		t.Fatalf("selected = %#v", selected)
 	}
 }
 
@@ -223,5 +254,127 @@ func TestViewFormat(t *testing.T) {
 
 	if !strings.Contains(view, "Select command:") {
 		t.Error("view should contain title")
+	}
+}
+
+func TestViewShowsNavigationHint(t *testing.T) {
+	t.Parallel()
+
+	m := newModel(SelectOptions{Items: []Item{NewSimpleItem("command", "")}})
+	if view := m.View(); !strings.Contains(view, "↑/↓") || !strings.Contains(view, "Enter") || !strings.Contains(view, "Esc") {
+		t.Fatalf("view lacks navigation hint: %q", view)
+	}
+}
+
+func TestViewScrollsWithCursor(t *testing.T) {
+	t.Parallel()
+
+	items := make([]Item, 8)
+	for i := range items {
+		items[i] = NewSimpleItem(fmt.Sprintf("item-%d", i), "")
+	}
+	m := newModel(SelectOptions{Items: items})
+	m.width = 80
+	m.height = 6
+
+	if view := m.View(); strings.Contains(view, "item-7") {
+		t.Fatalf("initial view should be bounded: %q", view)
+	}
+	for range 7 {
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = requireModel(t, updated)
+	}
+	view := m.View()
+	if !strings.Contains(view, "item-7") {
+		t.Fatalf("scrolled view does not contain selected item: %q", view)
+	}
+	if strings.Contains(view, "item-0") {
+		t.Fatalf("scrolled view still contains first item: %q", view)
+	}
+}
+
+func TestViewWrapsNavigationHintInNarrowTerminal(t *testing.T) {
+	t.Parallel()
+
+	m := newModel(SelectOptions{Items: []Item{NewSimpleItem("item", "")}})
+	m.width = 10
+	m.height = 8
+	view := strings.TrimSuffix(m.View(), "\n")
+	for i, line := range strings.Split(view, "\n") {
+		if len([]rune(line)) > m.width {
+			t.Fatalf("line %d exceeds terminal width: %q", i, line)
+		}
+	}
+}
+
+func TestViewFitsHeightForLongSingleItem(t *testing.T) {
+	t.Parallel()
+
+	m := newModel(SelectOptions{Title: listTestTitle, Items: []Item{
+		NewSimpleItem(strings.Repeat("long item ", 20), strings.Repeat("description ", 20)),
+	}})
+	m.width = 10
+	m.height = 3
+	view := strings.TrimSuffix(m.View(), "\n")
+	if lines := strings.Count(view, "\n") + 1; lines > m.height {
+		t.Fatalf("view has %d lines for height %d: %q", lines, m.height, view)
+	}
+}
+
+func TestViewUsesTerminalCellWidth(t *testing.T) {
+	t.Parallel()
+
+	m := newModel(SelectOptions{Items: []Item{NewSimpleItem("界界界", "")}})
+	m.width = 8
+	for i, line := range strings.Split(strings.TrimSuffix(m.View(), "\n"), "\n") {
+		if ansi.StringWidth(line) > m.width {
+			t.Fatalf("line %d exceeds terminal width: %d > %d: %q", i, ansi.StringWidth(line), m.width, line)
+		}
+	}
+}
+
+func TestViewFitsTerminalCellWidthBelowPrefixWidth(t *testing.T) {
+	t.Parallel()
+
+	m := newModel(SelectOptions{Items: []Item{NewSimpleItem("item", "")}})
+	m.width = 1
+	for i, line := range strings.Split(strings.TrimSuffix(m.View(), "\n"), "\n") {
+		if ansi.StringWidth(line) > m.width {
+			t.Fatalf("line %d exceeds terminal width: %d > %d: %q", i, ansi.StringWidth(line), m.width, line)
+		}
+	}
+}
+
+func TestViewDoesNotAddFooterWhenHeaderConsumesViewport(t *testing.T) {
+	t.Parallel()
+
+	m := newModel(SelectOptions{Title: listTestTitle, Items: []Item{NewSimpleItem("item", "")}})
+	m.width = 80
+	m.height = 1
+	view := strings.TrimSuffix(m.View(), "\n")
+	if lines := strings.Count(view, "\n") + 1; lines > m.height {
+		t.Fatalf("view has %d lines for height %d: %q", lines, m.height, view)
+	}
+}
+
+func TestEnterDoesNotSelectHiddenItem(t *testing.T) {
+	t.Parallel()
+
+	m := newModel(SelectOptions{Title: listTestTitle, Items: []Item{NewSimpleItem("item", "")}})
+	m.width = 80
+	m.height = 1
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := requireModel(t, updated)
+	if got.selected != nil || cmd != nil {
+		t.Fatalf("hidden item selected = %v, cmd = %v", got.selected, cmd)
+	}
+}
+
+func TestViewPreservesExplicitLineBreaksWithIndentation(t *testing.T) {
+	t.Parallel()
+
+	m := newModel(SelectOptions{Items: []Item{NewSimpleItem("one\ntwo", "")}})
+	if !strings.Contains(m.View(), "\n     two") {
+		t.Fatalf("multiline item is not indented: %q", m.View())
 	}
 }

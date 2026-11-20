@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"slices"
 	"strings"
 
@@ -28,6 +29,11 @@ const (
 // and the textarea's 10000-line limit; exceeding either returns an explicit error.
 func MultilineInputContext(ctx context.Context, title string) (string, error) {
 	return runMultilineContext(ctx, newMultilineModel(title))
+}
+
+// MultilineInputContextWithInput displays title using input as the terminal reader.
+func MultilineInputContextWithInput(ctx context.Context, title string, input io.Reader) (string, error) {
+	return runMultilineContext(ctx, newMultilineModel(title), tea.WithInput(input))
 }
 
 func runMultilineContext(ctx context.Context, m multilineModel, opts ...tea.ProgramOption) (string, error) {

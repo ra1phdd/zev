@@ -64,7 +64,7 @@ Use the actual supported selector strings documented in [Configuration](CONFIGUR
 
 Tools have a separate `tool_approval_mode` (`manual`, `auto`, or `bypass`); it is independent of `security.mode`.
 
-- `manual` displays the exact request and fixed working directory on stderr and requires literal `yes`. No terminal, cancellation, or refusal means denial.
+- `manual` displays the exact request and fixed working directory on stderr; `y` or Enter approves, `n` refuses, and Esc cancels. No terminal, cancellation, or refusal means denial.
 - `auto` allows only the restricted local builtins `pwd`, `ls`, `cat`, and `head` in the configured working root. It checks the request locally and sends a separate tools-disabled review request before each call. Execution repeats the checks. Review/network errors and ambiguous responses deny the call.
 - `bypass` skips the prompt/reviewer, but still uses the same restricted builtins and checks. It does not grant arbitrary process, shell, write, or network access to `exec`.
 

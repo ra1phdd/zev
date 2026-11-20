@@ -40,7 +40,7 @@ func runRecovery(ctx context.Context, cmd *cobra.Command, opts runOptions, actio
 	}
 	clarification := ""
 	if action == runFailureFix && !opts.noInteract && interactiveRunInput(cmd) {
-		value, err := prompt.InputContext(ctx, "Optional details for the correction (Enter to continue without details)")
+		value, err := prompt.InputContextWithInput(ctx, "Optional details for the correction (Enter to continue without details)", cmd.InOrStdin())
 		if err != nil {
 			return fmt.Errorf("read correction clarification: %w", err)
 		}

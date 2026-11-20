@@ -95,7 +95,7 @@ func configureQueryTools(cmd *cobra.Command, params toolProviderParams) (domain.
 				return false, fmt.Errorf("encode tool approval: %w", encodeErr)
 			}
 			title := fmt.Sprintf(locale.Text(locale.KeyToolsModelRequestsLocalCommandWorkingDirectoryQ), root, strconv.QuoteToASCII(string(encoded)))
-			return prompt.ConfirmContext(ctx, prompt.ApprovalOptions{Prompt: title, Output: cmd.ErrOrStderr()})
+			return prompt.ConfirmContext(ctx, prompt.ApprovalOptions{Prompt: title, Output: cmd.ErrOrStderr(), Input: cmd.InOrStdin()})
 		}
 	}
 	if mode == toolModeBypass {

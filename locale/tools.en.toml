@@ -24,7 +24,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["tools.approval.prompt"]
-other = "Type yes to approve this tool call; anything else denies it."
+other = "Approve with y or Enter; decline with n; Esc cancels."
 leftDelim = "[[["
 rightDelim = "]]]"
 

@@ -53,7 +53,7 @@ func dispatchOriginalArgs(cmd *cobra.Command, argv []string) (bool, error) {
 	}
 	name := argv[i]
 	if cmd == cmd.Root() && name == "help" {
-		return true, machineError(exitArguments, errors.New("the help command was removed; use --help or -h"))
+		return true, machineError(exitArguments, errors.New(locale.Text(locale.KeyCliHelpCommandRemoved)))
 	}
 	for _, builtIn := range cmd.Root().Commands() {
 		if builtIn.Name() == name {

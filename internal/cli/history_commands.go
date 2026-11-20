@@ -192,19 +192,13 @@ func newHistoryShowCmd(open historyOpener) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf(locale.Text(locale.KeyCliGetMessageError), err)
 				}
-				if err := json.NewEncoder(cmd.OutOrStdout()).Encode(v); err != nil {
-					return fmt.Errorf("encode message: %w", err)
-				}
-				return nil
+				return writeHistoryMessage(cmd.OutOrStdout(), v, jsonOutput)
 			}
 			v, err := s.GetConversation(cmd.Context(), id)
 			if err != nil {
 				return fmt.Errorf(locale.Text(locale.KeyCliGetConversationError), err)
 			}
-			if err := json.NewEncoder(cmd.OutOrStdout()).Encode(v); err != nil {
-				return fmt.Errorf("encode conversation: %w", err)
-			}
-			return nil
+			return writeHistoryConversation(cmd.OutOrStdout(), v, jsonOutput)
 		})
 	}
 	return show
@@ -408,7 +402,7 @@ func validateHistorySearchFilters(req *service.SearchRequest) error {
 	if req.Limit <= 0 {
 		return errors.New(locale.Text(locale.KeyCliLimitMustPositive))
 	}
-	if req.Type != "" && req.Type != "user" && req.Type != "assistant" && req.Type != "command" && req.Type != "explanation" {
+	if req.Type != "" && req.Type != queryUserRole && req.Type != queryAssistantRole && req.Type != "command" && req.Type != "explanation" {
 		return errors.New(locale.Text(locale.KeyCliTypeMustUserAssistantCommandExplanation))
 	}
 	if req.Status != "" && req.Status != "started" && req.Status != "completed" && req.Status != "cancelled" && req.Status != historyStatusFailed {

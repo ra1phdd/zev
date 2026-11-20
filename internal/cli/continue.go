@@ -122,9 +122,9 @@ func runContinuationQuery(cmd *cobra.Command, flags parsedFlags, logger *slog.Lo
 	defer locale.SetLanguage(cfg.UILanguage, languageRequest)()
 	interactive := !flags.Print && !flags.JSON && len(flags.Args) == 0
 	inputs, err := collectContinuationInputsWithLog(func(title string) (string, error) {
-		return prompt.InputContext(cmd.Context(), title)
+		return prompt.InputContextWithInput(cmd.Context(), title, cmd.InOrStdin())
 	}, func(title string) (string, error) {
-		return prompt.MultilineInputContext(cmd.Context(), title)
+		return prompt.MultilineInputContextWithInput(cmd.Context(), title, cmd.InOrStdin())
 	}, flags.ContextFiles, interactive)
 	if err != nil {
 		closeContinuationStore(store, logger)

@@ -31,6 +31,7 @@ type Service struct {
 	inputContext   func(context.Context, string) (string, error)
 	selectContext  func(context.Context, list.SelectOptions) (list.Item, error)
 	listModels     modelFetcher
+	warn           func(string)
 	proxyURL       string
 }
 
@@ -46,6 +47,7 @@ func NewWithProxy(proxyURL string) *Service {
 		inputContext:  prompt.InputContext,
 		selectContext: list.SelectContext,
 		listModels:    defaultModelFetcher,
+		warn:          func(message string) { _, _ = fmt.Fprintln(os.Stderr, message) },
 		proxyURL:      proxyURL,
 	}
 }

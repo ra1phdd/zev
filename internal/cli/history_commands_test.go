@@ -22,20 +22,26 @@ import (
 )
 
 const (
-	historyTestFiles      = "files"
-	historyTestQuery      = "file"
-	historyTestID         = "full-message-id-123456789"
-	historyCommandSearch  = "search"
-	historyCommandShow    = "show"
-	historyCommandClear   = "clear"
-	historyCommandIndex   = "index"
-	historyCommandRebuild = "rebuild"
-	historyBadValue       = "bad"
-	historyFormatFlag     = "--format"
-	historyYesFlag        = "--yes"
-	historyVectorsFlag    = "--vectors"
-	historyJSONFlag       = "--json"
-	historyRootCommand    = "history"
+	historyTestFiles            = "files"
+	historyTestQuery            = "file"
+	historyTestID               = "full-message-id-123456789"
+	historyCommandSearch        = "search"
+	historyCommandShow          = "show"
+	historyCommandClear         = "clear"
+	historyCommandIndex         = "index"
+	historyCommandRebuild       = "rebuild"
+	historyBadValue             = "bad"
+	historyFormatFlag           = "--format"
+	historyYesFlag              = "--yes"
+	historyVectorsFlag          = "--vectors"
+	historyJSONFlag             = "--json"
+	historyRootCommand          = "history"
+	historyBrowseConversationID = "conversation-id"
+	historyStatusCompleted      = "completed"
+	historyBrowsePromptText     = "посмотреть стату докера одноразово снапшот"
+	historyOrderFirstRequest    = "first request"
+	historyOrderSecondRequest   = "second request"
+	historyRootPrompt           = "enumerate files"
 )
 
 type historyCLIFake struct {
@@ -54,18 +60,28 @@ type historyCLIFake struct {
 	listCalls           int
 	conversationCalls   int
 	openCalls           int
+	view                service.ConversationView
+	message             service.Message
+	listRequests        []service.ListRequest
 }
 
 func (f *historyCLIFake) GetConversation(_ context.Context, id string) (service.ConversationView, error) {
 	f.conversationCalls++
+	if f.view.Conversation.ID == id {
+		return f.view, nil
+	}
 	return service.ConversationView{Conversation: service.Conversation{ID: id}}, nil
 }
 
 func (f *historyCLIFake) GetMessage(_ context.Context, id string) (service.Message, error) {
+	if f.message.ID == id {
+		return f.message, nil
+	}
 	return service.Message{ID: id}, nil
 }
 
-func (f *historyCLIFake) ListConversations(_ context.Context, _ service.ListRequest) ([]service.Conversation, error) {
+func (f *historyCLIFake) ListConversations(_ context.Context, request service.ListRequest) ([]service.Conversation, error) {
+	f.listRequests = append(f.listRequests, request)
 	if len(f.pages) == 0 {
 		return nil, nil
 	}
@@ -297,6 +313,27 @@ func TestHistoryShowMessageID(t *testing.T) {
 	}
 }
 
+func TestHistoryShowRendersReadableConversationByDefault(t *testing.T) {
+	t.Parallel()
+	fake := &historyCLIFake{view: service.ConversationView{
+		Conversation: service.Conversation{ID: historyBrowseConversationID, Status: historyStatusCompleted, InitialPrompt: historyBrowsePromptText},
+		Messages:     []service.Message{{Role: queryUserRole, Content: historyBrowsePromptText}, {Role: queryAssistantRole, Content: `{"commands":[{"command":"docker stats --no-stream"}]}`}},
+		Responses:    []service.Response{{Commands: []service.Command{{Command: "docker stats --no-stream", ShortExplanation: "Однократный снимок контейнеров"}}}},
+	}}
+	var out bytes.Buffer
+	cmd := historyTestCommand(fake, &out)
+	cmd.SetArgs([]string{historyCommandShow, historyBrowseConversationID})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "docker stats --no-stream") || !strings.Contains(out.String(), "посмотреть стату докера") {
+		t.Fatalf("readable history show output = %q", out.String())
+	}
+	if strings.Contains(out.String(), `"Conversation"`) || strings.Contains(out.String(), `{"commands"`) {
+		t.Fatalf("history show leaked persistence JSON: %q", out.String())
+	}
+}
+
 func TestHistoryBrowseUsesReadableConversationLabel(t *testing.T) {
 	t.Parallel()
 	conversation := service.Conversation{
@@ -307,6 +344,146 @@ func TestHistoryBrowseUsesReadableConversationLabel(t *testing.T) {
 	label := historyBrowsePrompt(conversation)
 	if !strings.Contains(label, "find archival files") || strings.Contains(label, "legacy_jsonl") || strings.Contains(label, "source_line") {
 		t.Fatalf("history label = %q", label)
+	}
+}
+
+func TestHistoryBrowseRendersReadableConversationByDefault(t *testing.T) {
+	t.Parallel()
+	fake := &historyCLIFake{view: service.ConversationView{
+		Conversation: service.Conversation{
+			ID:            historyBrowseConversationID,
+			Status:        historyStatusCompleted,
+			Provider:      "test-provider",
+			Model:         "claude-opus-5-5",
+			InitialPrompt: historyBrowsePromptText,
+		},
+		Messages: []service.Message{
+			{Role: queryUserRole, Content: historyBrowsePromptText},
+			{Role: queryAssistantRole, Content: `{"commands":[{"command":"docker stats --no-stream"}]}`},
+		},
+		Responses: []service.Response{{Commands: []service.Command{
+			{Command: "docker stats --no-stream", ShortExplanation: "Однократный снимок контейнеров", DeliveryOutcome: "injected"},
+		}}},
+	}}
+	entries := []historyBrowseEntry{{conversation: fake.view.Conversation}}
+	items := makeHistoryBrowseItems(entries)
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	selectItem := func(list.SelectOptions) (list.Item, error) { return items[0], nil }
+
+	if err := selectHistoryBrowseEntryWith(t.Context(), cmd, fake, entries, selectItem); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "docker stats --no-stream") || !strings.Contains(out.String(), "посмотреть стату докера") {
+		t.Fatalf("readable history output = %q", out.String())
+	}
+	if strings.Contains(out.String(), `"Conversation"`) || strings.Contains(out.String(), `"PayloadJSON"`) || strings.Contains(out.String(), `{"commands"`) {
+		t.Fatalf("history output leaked persistence JSON: %q", out.String())
+	}
+}
+
+func TestHistoryBrowseDoesNotLoadEveryPage(t *testing.T) {
+	t.Parallel()
+	first := make([]service.Conversation, 100)
+	for i := range first {
+		first[i] = service.Conversation{ID: fmt.Sprintf("conversation-%03d", i), CreatedAt: time.Date(2026, 1, 1, 0, i, 0, 0, time.UTC)}
+	}
+	fake := &historyCLIFake{pages: [][]service.Conversation{first, {{ID: "conversation-next"}}}}
+	page, err := loadHistoryBrowsePage(t.Context(), fake, service.ListRequest{Limit: historyBrowsePageSize + 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.entries) != historyBrowsePageSize || !page.hasNext || fake.listCalls != 1 || len(fake.listRequests) != 1 {
+		t.Fatalf("history page entries=%d hasNext=%t list calls=%d requests=%+v", len(page.entries), page.hasNext, fake.listCalls, fake.listRequests)
+	}
+	if fake.listRequests[0].Limit != historyBrowsePageSize+1 {
+		t.Fatalf("history page request = %+v", fake.listRequests[0])
+	}
+}
+
+func TestHistoryBrowseCanMoveToOlderPage(t *testing.T) {
+	t.Parallel()
+	first := make([]service.Conversation, historyBrowsePageSize+1)
+	for i := range first {
+		first[i] = service.Conversation{ID: fmt.Sprintf("conversation-%03d", i), CreatedAt: time.Date(2026, 1, 1, 0, i, 0, 0, time.UTC)}
+	}
+	older := service.Conversation{ID: "conversation-older", InitialPrompt: "older conversation"}
+	fake := &historyCLIFake{
+		pages: [][]service.Conversation{first, {older}},
+		view:  service.ConversationView{Conversation: older},
+	}
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	selectionCalls := 0
+	selectItem := func(options list.SelectOptions) (list.Item, error) {
+		selectionCalls++
+		if selectionCalls == 1 {
+			return options.Items[len(options.Items)-1], nil
+		}
+		return options.Items[0], nil
+	}
+	if err := runHistoryBrowseWith(t.Context(), cmd, fake, false, selectItem); err != nil {
+		t.Fatal(err)
+	}
+	if fake.listCalls != 2 || selectionCalls != 2 || len(fake.listRequests) != 2 || !strings.Contains(out.String(), "older conversation") {
+		t.Fatalf("page navigation calls=%d selections=%d requests=%+v output=%q", fake.listCalls, selectionCalls, fake.listRequests, out.String())
+	}
+	if fake.listRequests[1].Limit != historyBrowsePageSize+1 || fake.listRequests[1].BeforeID != first[historyBrowsePageSize-1].ID || !fake.listRequests[1].BeforeCreatedAt.Equal(first[historyBrowsePageSize-1].CreatedAt) {
+		t.Fatalf("older page request = %+v", fake.listRequests[1])
+	}
+}
+
+func TestHistoryBrowseHumanOutputRemovesTerminalControls(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	view := service.ConversationView{
+		Conversation: service.Conversation{ID: "conversation\x1b[id", Status: "status\x1b[status", Provider: "provider\x1b[provider", Model: "model\x1b[model", InitialPrompt: "safe prompt"},
+		Messages:     []service.Message{{Role: queryUserRole, Content: "before\x1b[31mred\x1b[0mafter"}},
+		Responses:    []service.Response{{Commands: []service.Command{{Command: "printf '\x1b[31mred'", ShortExplanation: "explanation\x1b[0m"}}}},
+	}
+	if err := writeHistoryConversation(&out, view, false); err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsRune(out.String(), '\x1b') {
+		t.Fatalf("human history output contains terminal control: %q", out.String())
+	}
+}
+
+func TestHistoryMessageHumanOutputRemovesTerminalControls(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	message := service.Message{ID: "message\x1b[id", Role: "user\x1b[role", Content: "safe content"}
+	if err := writeHistoryMessage(&out, message, false); err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsRune(out.String(), '\x1b') {
+		t.Fatalf("human message output contains terminal control: %q", out.String())
+	}
+}
+
+func TestHistoryBrowseJSONRemainsExplicitMachineOutput(t *testing.T) {
+	t.Parallel()
+	fake := &historyCLIFake{view: service.ConversationView{
+		Conversation: service.Conversation{ID: historyBrowseConversationID, Status: historyStatusCompleted},
+	}}
+	entries := []historyBrowseEntry{{conversation: fake.view.Conversation}}
+	items := makeHistoryBrowseItems(entries)
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	selectItem := func(list.SelectOptions) (list.Item, error) { return items[0], nil }
+
+	if err := selectHistoryBrowseEntryWithJSON(t.Context(), cmd, fake, entries, true, selectItem); err != nil {
+		t.Fatal(err)
+	}
+	var view service.ConversationView
+	if err := json.Unmarshal(out.Bytes(), &view); err != nil {
+		t.Fatalf("JSON output = %q: %v", out.String(), err)
+	}
+	if view.Conversation.ID != historyBrowseConversationID {
+		t.Fatalf("conversation ID = %q", view.Conversation.ID)
 	}
 }
 
@@ -321,5 +498,136 @@ func TestHistoryBrowseCancellationMatchesQueryInteractiveMode(t *testing.T) {
 	}
 	if err := selectHistoryBrowseEntryWith(cmd.Context(), cmd, fake, entries, selectItem); err != nil {
 		t.Fatalf("cancelled history selection = %v, want nil", err)
+	}
+}
+
+func TestHistoryBrowseJSONListsSummariesWithoutSelection(t *testing.T) {
+	t.Parallel()
+	fake := &historyCLIFake{pages: [][]service.Conversation{{
+		{ID: "conversation-1", Status: historyStatusCompleted, Provider: openAIKind, Model: "model-a", InitialPrompt: "find files"},
+	}}}
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	selectItem := func(list.SelectOptions) (list.Item, error) {
+		return nil, errors.New("JSON history must not open a selector")
+	}
+
+	if err := runHistoryBrowseWith(t.Context(), cmd, fake, true, selectItem); err != nil {
+		t.Fatal(err)
+	}
+	var summaries []map[string]any
+	if err := json.Unmarshal(out.Bytes(), &summaries); err != nil {
+		t.Fatalf("JSON history output = %q: %v", out.String(), err)
+	}
+	if len(summaries) != 1 || summaries[0]["id"] != "conversation-1" || summaries[0]["initialPrompt"] != "find files" {
+		t.Fatalf("JSON history summaries = %#v", summaries)
+	}
+}
+
+func TestHistoryReadableOutputPreservesConversationOrder(t *testing.T) {
+	t.Parallel()
+	view := service.ConversationView{
+		Conversation: service.Conversation{ID: "conversation-order", InitialPrompt: historyOrderFirstRequest},
+		Messages: []service.Message{
+			{Sequence: 0, Role: queryUserRole, Content: historyOrderFirstRequest},
+			{Sequence: 1, Role: queryAssistantRole, Content: `{"is_valid":true,"commands":[{"command":"first response"}]}`},
+			{Sequence: 2, Role: queryUserRole, Content: historyOrderSecondRequest},
+			{Sequence: 3, Role: queryAssistantRole, Content: `{"is_valid":true,"commands":[{"command":"second response"}]}`},
+		},
+	}
+	var out bytes.Buffer
+	if err := writeHistoryConversation(&out, view, false); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	for _, pair := range [][2]string{{historyOrderFirstRequest, "first response"}, {"first response", historyOrderSecondRequest}, {historyOrderSecondRequest, "second response"}} {
+		if strings.Index(text, pair[0]) >= strings.Index(text, pair[1]) {
+			t.Fatalf("conversation order = %q, want %q before %q", text, pair[0], pair[1])
+		}
+	}
+}
+
+func TestHistoryReadableOutputShowsInvalidResponseExplanation(t *testing.T) {
+	t.Parallel()
+	view := service.ConversationView{
+		Conversation: service.Conversation{ID: "conversation-invalid"},
+		Messages:     []service.Message{{Sequence: 0, Role: queryAssistantRole, Content: `{"is_valid":false,"explanation_if_not_valid":"Please clarify the target directory."}`}},
+	}
+	var out bytes.Buffer
+	if err := writeHistoryConversation(&out, view, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Please clarify the target directory.") {
+		t.Fatalf("invalid response explanation missing: %q", out.String())
+	}
+}
+
+func TestHistoryReadableOutputRejectsC1Controls(t *testing.T) {
+	t.Parallel()
+	view := service.ConversationView{
+		Conversation: service.Conversation{ID: "conversation\u009b31m", InitialPrompt: "prompt"},
+		Messages:     []service.Message{{Sequence: 0, Role: queryUserRole, Content: "before\u009b31mafter"}},
+	}
+	var out bytes.Buffer
+	if err := writeHistoryConversation(&out, view, false); err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsRune(out.String(), '\u009b') {
+		t.Fatalf("C1 control reached human output: %q", out.String())
+	}
+}
+
+func TestHistoryReadableOutputShowsDangerousCommandWarning(t *testing.T) {
+	t.Parallel()
+	view := service.ConversationView{
+		Conversation: service.Conversation{ID: "conversation-dangerous"},
+		Responses:    []service.Response{{IsValid: true, Commands: []service.Command{{Command: "rm -rf tmp", IsDangerous: true, DangerousExplanation: "recursive deletion"}}}},
+	}
+	var out bytes.Buffer
+	if err := writeHistoryConversation(&out, view, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "recursive deletion") {
+		t.Fatalf("dangerous explanation missing: %q", out.String())
+	}
+}
+
+func TestHistoryReadableOutputMarksDangerousCommandWithoutExplanation(t *testing.T) {
+	t.Parallel()
+	view := service.ConversationView{
+		Conversation: service.Conversation{ID: "conversation-dangerous-empty"},
+		Responses:    []service.Response{{IsValid: true, Commands: []service.Command{{Command: "rm -rf tmp", IsDangerous: true}}}},
+	}
+	var out bytes.Buffer
+	if err := writeHistoryConversation(&out, view, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Dangerous") && !strings.Contains(out.String(), "Опас") {
+		t.Fatalf("dangerous marker missing: %q", out.String())
+	}
+}
+
+func TestHistoryRootJSONIsNonInteractive(t *testing.T) {
+	t.Parallel()
+	fake := &historyCLIFake{pages: [][]service.Conversation{{
+		{ID: "conversation-root", InitialPrompt: historyRootPrompt},
+	}}}
+	var out bytes.Buffer
+	cmd := newHistoryCmdWithOpener(func(context.Context) (historyOperations, io.Closer, error) {
+		return fake, historyNopCloser{}, nil
+	})
+	cmd.SetOut(&out)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{historyJSONFlag})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var summaries []historySummary
+	if err := json.Unmarshal(out.Bytes(), &summaries); err != nil {
+		t.Fatalf("root history JSON = %q: %v", out.String(), err)
+	}
+	if len(summaries) != 1 || summaries[0].ID != "conversation-root" {
+		t.Fatalf("root history summaries = %#v", summaries)
 	}
 }

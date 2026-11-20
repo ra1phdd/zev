@@ -66,7 +66,7 @@ func runArgv(cmd *cobra.Command, args []string, runner terminal.Runner) error {
 		return runRecovery(ctx, cmd, opts, action, commandErr, output)
 	}
 	ctx := contextWithCommandProxy(cmd.Context(), opts.proxy)
-	return executeRunAttempts(ctx, opts, runner, cmd.ErrOrStderr(), !opts.noInteract && interactiveRunInput(cmd))
+	return executeRunAttemptsWithInput(ctx, opts, runner, cmd.ErrOrStderr(), cmd.InOrStdin(), !opts.noInteract && interactiveRunInput(cmd))
 }
 
 func injectedRunInvocation(command, sessionID string) (string, error) {
@@ -226,6 +226,10 @@ func runAssessmentCertainty(known bool) security.Certainty {
 }
 
 func executeRunAttempts(ctx context.Context, opts runOptions, runner terminal.Runner, failureOut io.Writer, interactive bool) error {
+	return executeRunAttemptsWithInput(ctx, opts, runner, failureOut, os.Stdin, interactive)
+}
+
+func executeRunAttemptsWithInput(ctx context.Context, opts runOptions, runner terminal.Runner, failureOut io.Writer, input io.Reader, interactive bool) error {
 	attemptCtx := ctx
 	cancel := func() {}
 	if opts.timeout > 0 {
@@ -248,7 +252,7 @@ func executeRunAttempts(ctx context.Context, opts runOptions, runner terminal.Ru
 	action := opts.onFailure
 	if opts.onFailure == runFailureAsk && interactive {
 		var err error
-		action, err = selectRunRecovery(ctx)
+		action, err = selectRunRecovery(ctx, input)
 		if err != nil {
 			return errors.Join(commandErr, err)
 		}
@@ -294,9 +298,10 @@ func (i runRecoveryItem) Title() string       { return i.title }
 func (i runRecoveryItem) Description() string { return i.detail }
 func (i runRecoveryItem) IsWarning() bool     { return false }
 
-func selectRunRecovery(ctx context.Context) (string, error) {
+func selectRunRecovery(ctx context.Context, input io.Reader) (string, error) {
 	selected, err := list.SelectContext(ctx, list.SelectOptions{
 		Title: "Command failed. Choose the next action:",
+		Input: input,
 		Items: []list.Item{
 			runRecoveryItem{action: runFailureNone, title: "Do nothing", detail: "Keep the original failure and exit."},
 			runRecoveryItem{action: runFailureAnalyze, title: "Analyze error", detail: "Send the captured failure to the provider for an explanation."},

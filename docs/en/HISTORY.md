@@ -98,7 +98,7 @@ zev history delete <conversation-id>
 zev history clear --yes
 ```
 
-`show` emits JSON. Export writes complete conversation views to stdout; shell redirection
+The `zev history` browser displays a bounded page and offers older conversations without loading the entire history at once. The browser and `zev history show` display conversations as readable text. `zev history --json` is non-interactive and emits a JSON array of conversation summaries; `zev history show --json` emits one complete conversation object. Export writes complete conversation views to stdout; shell redirection
 controls file permissions. Use a private directory and `umask 077`. Deletion cascades to
 messages, responses, commands, search documents and embeddings; `clear` requires `--yes`.
 Deletion is logical, not forensic erasure of WAL/free pages, exports, backups or remote copies. Back up an active WAL database using a consistent SQLite

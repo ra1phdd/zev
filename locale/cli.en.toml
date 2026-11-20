@@ -128,6 +128,71 @@ other = "Conversation status"
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["cli.history_conversation_meta"]
+other = "ID: %s\nStatus: %s\nProvider: %s\nModel: %s\nCreated: %s\nUpdated: %s"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_next_page"]
+other = "Show older conversations"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_suggestions"]
+other = "Command suggestions:"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_command_entry"]
+other = "  %d. %s\n     %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_command_delivery"]
+other = "     Outcome: %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_command_warning"]
+other = "     Warning: %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_dangerous_command"]
+other = "Dangerous command"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_invalid_response"]
+other = "The provider returned an invalid response."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_message"]
+other = "Message %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_role"]
+other = "Role: %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_role_assistant"]
+other = "ASSISTANT"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_role_user"]
+other = "USER"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.help_command_removed"]
+other = "use --help or -h"
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["cli.create_new_bash_script_zev_scripts_open"]
 other = "Create a new bash script in ~/.zev/scripts/ and open it in $EDITOR.\n\nExample:\n  zev script create deploy \"Deploy application to production\""
 leftDelim = "[[["

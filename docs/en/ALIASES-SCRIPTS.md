@@ -74,7 +74,7 @@ This is not a transaction spanning all files: a post-rename directory-sync error
 
 ## Metadata generation
 
-`--generate-description` and `--generate-arguments` are explicit opt-in network operations. They are not required for successful CRUD. In interactive mode Zev previews the destination, payload and whether it is local or remote, then requires literal `yes`. Generated fields are validated with the same metadata rules; a failed field generation produces a warning and does not make the artifact invalid. Script body input is bounded before it is sent for generation.
+`--generate-description` and `--generate-arguments` are explicit opt-in network operations. They are not required for successful CRUD. In interactive mode Zev previews the destination, payload and whether it is local or remote, then accepts `y` or Enter, while `n` refuses and Esc cancels. Generated fields are validated with the same metadata rules; a failed field generation produces a warning and does not make the artifact invalid. Script body input is bounded before it is sent for generation.
 
 Do not put credentials in descriptions, templates, script bodies or prompts. Provider requests and generated metadata can disclose the selected artifact to the configured endpoint.
 

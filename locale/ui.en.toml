@@ -8,6 +8,11 @@ other = "(Enter: newline, Ctrl+D: submit or skip, Esc/Ctrl+C: cancel; 64 KiB / 1
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["ui.list.navigation_hint"]
+other = "(↑/↓ select, Enter confirm, Esc cancel)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["ui.setup.current_default"]
 other = "%s (current: %s, press Enter to keep or type 'default' for %s):"
 leftDelim = "[[["
@@ -35,6 +40,11 @@ rightDelim = "]]]"
 
 ["ui.setup.model"]
 other = "Enter the model to use"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["ui.setup.model_load_failed"]
+other = "Could not load models from the provider; enter one manually (%v)."
 leftDelim = "[[["
 rightDelim = "]]]"
 

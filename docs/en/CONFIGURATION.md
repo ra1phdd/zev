@@ -227,8 +227,8 @@ are an exact argv array, not an implicitly evaluated shell string. Native tool-c
 models/endpoints are required; use `--no-tools` when an endpoint rejects function calling.
 OpenAI-compatible/Ollama, OpenCode, Anthropic and Gemini adapters support this exchange.
 
-- `manual` shows every request and the fixed working directory on stderr and requires
-  the literal `yes`. Empty input, refusal, cancellation, or an unavailable terminal never
+- `manual` shows every request and the fixed working directory on stderr; `y` or Enter
+  approves, `n` refuses, and Esc cancels. Empty input, refusal, cancellation, or an unavailable terminal never
   authorizes execution. Approval applies to this invocation only.
 - `auto` first enforces the local read-only policy, then makes a **separate request to the
   configured provider/model** for every admitted invocation. The reviewer has no tools,

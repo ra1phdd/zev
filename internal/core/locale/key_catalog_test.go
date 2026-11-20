@@ -18,21 +18,32 @@ func TestNamedMessageKeysHaveEnglishAndRussianCatalogEntries(t *testing.T) {
 	t.Parallel()
 
 	wantEnglish := map[Key]string{
-		KeyUIConfirmHint:         "(Press Enter to confirm, Esc to cancel)",
-		KeyUIMultilineHint:       "(Enter: newline, Ctrl+D: submit or skip, Esc/Ctrl+C: cancel; 64 KiB / 10000 lines maximum)",
-		KeyUISetupCurrentDefault: "%s (current: %s, press Enter to keep or type 'default' for %s):",
-		KeyUISetupCurrent:        "%s (current: %s, press Enter to keep):",
-		KeyUISetupDefault:        "%s (default: %s):",
-		KeyUISetupProvider:       "Which LLM provider would you like to use?",
-		KeyUISetupSaved:          "\n✓ Configuration saved successfully!",
-		KeyUISetupModel:          "Enter the model to use",
-		KeyUISetupSelectModel:    "Select a model (loaded from the provider)",
-		KeyUISetupManualModel:    "Enter a model manually",
-		KeyUISetupBaseURL:        "Enter custom base URL",
-		KeyUISetupOllamaBaseURL:  "Enter Ollama base URL",
-		KeyUISetupAPIKey:         "Enter your %s API key",
-		KeyUISetupCurrentAPIKey:  " (current: %s, press Enter to keep)",
-		KeyToolsApprovalPrompt:   "Type yes to approve this tool call; anything else denies it.",
+		KeyUIConfirmHint:              "(Press Enter to confirm, Esc to cancel)",
+		KeyUIMultilineHint:            "(Enter: newline, Ctrl+D: submit or skip, Esc/Ctrl+C: cancel; 64 KiB / 10000 lines maximum)",
+		KeyUIListNavigationHint:       "(↑/↓ select, Enter confirm, Esc cancel)",
+		KeyCliHistoryCommandDelivery:  "     Outcome: %s\n",
+		KeyCliHistoryCommandWarning:   "     Warning: %s\n",
+		KeyCliHistoryDangerousCommand: "Dangerous command",
+		KeyCliHistoryInvalidResponse:  "The provider returned an invalid response.",
+		KeyCliHistoryMessage:          "Message %s\n",
+		KeyCliHistoryRole:             "Role: %s\n",
+		KeyCliHistoryRoleAssistant:    "ASSISTANT",
+		KeyCliHistoryRoleUser:         "USER",
+		KeyCliHelpCommandRemoved:      "use --help or -h",
+		KeyUISetupCurrentDefault:      "%s (current: %s, press Enter to keep or type 'default' for %s):",
+		KeyUISetupCurrent:             "%s (current: %s, press Enter to keep):",
+		KeyUISetupDefault:             "%s (default: %s):",
+		KeyUISetupProvider:            "Which LLM provider would you like to use?",
+		KeyUISetupSaved:               "\n✓ Configuration saved successfully!",
+		KeyUISetupModel:               "Enter the model to use",
+		KeyUISetupModelLoadFailed:     "Could not load models from the provider; enter one manually (%v).",
+		KeyUISetupSelectModel:         "Select a model (loaded from the provider)",
+		KeyUISetupManualModel:         "Enter a model manually",
+		KeyUISetupBaseURL:             "Enter custom base URL",
+		KeyUISetupOllamaBaseURL:       "Enter Ollama base URL",
+		KeyUISetupAPIKey:              "Enter your %s API key",
+		KeyUISetupCurrentAPIKey:       " (current: %s, press Enter to keep)",
+		KeyToolsApprovalPrompt:        "Approve with y or Enter; decline with n; Esc cancels.",
 	}
 	catalogs := loadTestCatalogs(t)
 	for key, want := range wantEnglish {
@@ -135,7 +146,7 @@ func TestAllCatalogEntriesUseNamedStableIDs(t *testing.T) {
 func loadTestCatalogs(t *testing.T) map[string]map[string]map[string]string {
 	t.Helper()
 	catalogs := map[string]map[string]map[string]string{"en": {}, "ru": {}}
-	for _, path := range []string{"ui.en.toml", "ui.ru.toml", "tools.en.toml", "tools.ru.toml"} {
+	for _, path := range []string{"ui.en.toml", "ui.ru.toml", "tools.en.toml", "tools.ru.toml", "cli.en.toml", "cli.ru.toml"} {
 		data, err := fs.ReadFile(files, path)
 		if err != nil {
 			t.Fatal(err)
