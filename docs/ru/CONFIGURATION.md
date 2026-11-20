@@ -174,7 +174,7 @@ API-ключи и значения пользовательских заголо
 остаётся warning-only и не блокируется command permission rules, так как выполнение
 передаётся shell пользователя. Настройка не выбирает отдельный режим approval model tools,
 не включается через model output или файл репозитория и не создаёт sandbox. `zev run` —
-отдельно вызванная literal-argv обёртка и не использует confirmation query `execute`.
+отдельно вызванная shell-command обёртка и не использует confirmation query `execute`.
 `zev doctor` показывает выбранный режим.
 
 `security.web_fetch_enabled: true` отдельно включает bounded `web_fetch` capability
@@ -203,11 +203,11 @@ shell. Выбранный прокси доверенно устанавлива
 hard link, special file и конфигурацию, доступную для чтения или записи группе либо
 остальным, ещё до YAML parsing.
 
-`command_wrapper_enabled: true` оборачивает сгенерированные `inject`-команды в `zev run --`,
+`command_wrapper_enabled: true` оборачивает сгенерированные `inject`-команды в `zev run '<команда>'`,
 чтобы пользователь мог увидеть ограниченный лог ошибки и запросить анализ или варианты
 исправления. Значение `false` вставляет исходную команду без wrapper. Параметр влияет только
-на сгенерированную инъекцию и не меняет явный `zev run`. Команда `zev run -- <command> [args...]`
-передаёт literal argv без склеивания в shell-текст и не использует query authorization path
+на сгенерированную инъекцию и не меняет явный `zev run`. Команда `zev run '<команда>'`
+передаёт одну shell-программу настроенному shell и не использует query authorization path
 `execute`. При сбое `--on-failure=analyze|fix` отправляет ограниченный diagnostic bundle
 провайдеру только после выбора действия и предупреждения Zev, что там могут быть секреты:
 для injected-команды продолжается связанный диалог, для прямого запуска создаётся отдельный

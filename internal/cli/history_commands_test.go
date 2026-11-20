@@ -37,11 +37,11 @@ const (
 	historyJSONFlag             = "--json"
 	historyRootCommand          = "history"
 	historyBrowseConversationID = "conversation-id"
-	historyStatusCompleted      = "completed"
-	historyBrowsePromptText     = "посмотреть стату докера одноразово снапшот"
-	historyOrderFirstRequest    = "first request"
-	historyOrderSecondRequest   = "second request"
-	historyRootPrompt           = "enumerate files"
+
+	historyBrowsePromptText   = "посмотреть стату докера одноразово снапшот"
+	historyOrderFirstRequest  = "first request"
+	historyOrderSecondRequest = "second request"
+	historyRootPrompt         = "enumerate files"
 )
 
 type historyCLIFake struct {
@@ -316,7 +316,7 @@ func TestHistoryShowMessageID(t *testing.T) {
 func TestHistoryShowRendersReadableConversationByDefault(t *testing.T) {
 	t.Parallel()
 	fake := &historyCLIFake{view: service.ConversationView{
-		Conversation: service.Conversation{ID: historyBrowseConversationID, Status: historyStatusCompleted, InitialPrompt: historyBrowsePromptText},
+		Conversation: service.Conversation{ID: historyBrowseConversationID, Status: historyConversationStatusCompleted, InitialPrompt: historyBrowsePromptText},
 		Messages:     []service.Message{{Role: queryUserRole, Content: historyBrowsePromptText}, {Role: queryAssistantRole, Content: `{"commands":[{"command":"docker stats --no-stream"}]}`}},
 		Responses:    []service.Response{{Commands: []service.Command{{Command: "docker stats --no-stream", ShortExplanation: "Однократный снимок контейнеров"}}}},
 	}}
@@ -352,7 +352,7 @@ func TestHistoryBrowseRendersReadableConversationByDefault(t *testing.T) {
 	fake := &historyCLIFake{view: service.ConversationView{
 		Conversation: service.Conversation{
 			ID:            historyBrowseConversationID,
-			Status:        historyStatusCompleted,
+			Status:        historyConversationStatusCompleted,
 			Provider:      "test-provider",
 			Model:         "claude-opus-5-5",
 			InitialPrompt: historyBrowsePromptText,
@@ -380,6 +380,44 @@ func TestHistoryBrowseRendersReadableConversationByDefault(t *testing.T) {
 	}
 	if strings.Contains(out.String(), `"Conversation"`) || strings.Contains(out.String(), `"PayloadJSON"`) || strings.Contains(out.String(), `{"commands"`) {
 		t.Fatalf("history output leaked persistence JSON: %q", out.String())
+	}
+}
+
+func TestHistoryBrowseItemsShowCommandSessionAndLocalizedStatus(t *testing.T) {
+	t.Parallel()
+	entries := []historyBrowseEntry{{
+		conversation: service.Conversation{
+			InitialPrompt:   historyRootPrompt,
+			Status:          historyConversationStatusCancelled,
+			SelectedCommand: "docker ps",
+		},
+	}}
+	items := makeHistoryBrowseItems(entries)
+	item, ok := items[0].(list.SimpleItem)
+	if !ok {
+		t.Fatalf("item type = %T", items[0])
+	}
+	if !strings.Contains(item.Description(), "cancelled") {
+		t.Fatalf("description lost status = %q", item.Description())
+	}
+	if strings.Contains(item.Description(), "docker ps") || strings.Contains(item.Description(), "A1b2C3d4E5") || strings.Contains(item.Description(), "openai-compatible") || strings.Contains(item.Description(), "conversation-id") {
+		t.Fatalf("description leaked provider/UUID: %q", item.Description())
+	}
+}
+
+func TestHistoryDetailsMarksSelectedCommand(t *testing.T) {
+	t.Parallel()
+
+	var out strings.Builder
+	err := writeHistoryResponses(&out, []service.Response{{Commands: []service.Command{
+		{ID: "command-1", Command: "echo first", ShortExplanation: "first"},
+		{ID: "command-2", Command: "echo selected", ShortExplanation: "selected"},
+	}}}, "command-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), " 1. echo first") || !strings.Contains(out.String(), ">2. echo selected") {
+		t.Fatalf("history command selection markers = %q", out.String())
 	}
 }
 
@@ -466,7 +504,7 @@ func TestHistoryMessageHumanOutputRemovesTerminalControls(t *testing.T) {
 func TestHistoryBrowseJSONRemainsExplicitMachineOutput(t *testing.T) {
 	t.Parallel()
 	fake := &historyCLIFake{view: service.ConversationView{
-		Conversation: service.Conversation{ID: historyBrowseConversationID, Status: historyStatusCompleted},
+		Conversation: service.Conversation{ID: historyBrowseConversationID, Status: historyConversationStatusCompleted},
 	}}
 	entries := []historyBrowseEntry{{conversation: fake.view.Conversation}}
 	items := makeHistoryBrowseItems(entries)
@@ -504,7 +542,7 @@ func TestHistoryBrowseCancellationMatchesQueryInteractiveMode(t *testing.T) {
 func TestHistoryBrowseJSONListsSummariesWithoutSelection(t *testing.T) {
 	t.Parallel()
 	fake := &historyCLIFake{pages: [][]service.Conversation{{
-		{ID: "conversation-1", Status: historyStatusCompleted, Provider: openAIKind, Model: "model-a", InitialPrompt: "find files"},
+		{ID: "conversation-1", Status: historyConversationStatusCompleted, Provider: openAIKind, Model: "model-a", InitialPrompt: "find files"},
 	}}}
 	var out bytes.Buffer
 	cmd := &cobra.Command{}

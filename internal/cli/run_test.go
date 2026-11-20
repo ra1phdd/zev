@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,16 +11,20 @@ import (
 	"time"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
+	"github.com/ra1phdd/zev/internal/core/locale"
 	"github.com/ra1phdd/zev/pkg/terminal"
 	"github.com/spf13/cobra"
 )
 
 const (
-	runTestPrintf       = "printf"
 	runSessionFixtureID = "A1b2C3d4E5"
+	runHomeCommand      = `printf '%s' "$HOME"`
+	runPrintfOK         = "printf ok"
+	runEchoOK           = "echo ok"
+	runStdoutFixture    = "out"
 )
 
-func TestRunArgvPreservesLiteralArgumentsAndStreams(t *testing.T) {
+func TestRunCommandExecutesShellTextAndStreams(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	zevDir := filepath.Join(home, ".zev")
@@ -35,35 +40,72 @@ func TestRunArgvPreservesLiteralArgumentsAndStreams(t *testing.T) {
 	cmd.SetContext(t.Context())
 	cmd.SetErr(&stderr)
 	runner := terminal.Runner{Stdout: &stdout, Stderr: &stderr}
-	if err := runArgv(cmd, []string{"--", runTestPrintf, "%s", "$HOME"}, runner); err != nil {
-		t.Fatalf("runArgv() error = %v", err)
+	if err := runCommand(cmd, []string{runHomeCommand}, runner); err != nil {
+		t.Fatalf("runCommand() error = %v", err)
 	}
-	if got := stdout.String(); got != "$HOME" {
-		t.Fatalf("stdout = %q, want literal argument", got)
+	if got := stdout.String(); got != home {
+		t.Fatalf("stdout = %q, want expanded home %q", got, home)
 	}
 }
 
-func TestRunArgvDoesNotRequireExecuteSecurityApproval(t *testing.T) {
+func TestRunCommandDoesNotRequireExecuteSecurityApproval(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	var stdout bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetContext(t.Context())
 	runner := terminal.Runner{Stdout: &stdout, Stderr: &bytes.Buffer{}}
-	if err := runArgv(cmd, []string{"--", runTestPrintf, "ok"}, runner); err != nil {
-		t.Fatalf("runArgv() error = %v", err)
+	if err := runCommand(cmd, []string{runPrintfOK}, runner); err != nil {
+		t.Fatalf("runCommand() error = %v", err)
 	}
 	if stdout.String() != "ok" {
 		t.Fatalf("stdout = %q, want ok", stdout.String())
 	}
 }
 
-func TestBuildInjectedRunCommandPreservesShellProgramAsOneArgument(t *testing.T) {
+func TestParseRunArgsAcceptsOneShellCommand(t *testing.T) {
 	t.Parallel()
-	got, err := buildInjectedRunInvocation("/opt/zev", "/bin/sh", `printf '%s' "$HOME"`, "")
+	opts, err := parseRunArgs([]string{"printf '%s' hello"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `'/opt/zev' run -- '/bin/sh' -c 'printf '\''%s'\'' "$HOME"'`
+	if opts.command != "printf '%s' hello" {
+		t.Fatalf("parsed command = %#v, want one shell command", opts.command)
+	}
+}
+
+func TestParseRunArgsRejectsLegacySeparatorAndMultipleCommandArguments(t *testing.T) {
+	t.Parallel()
+	for _, args := range [][]string{
+		{"--", runEchoOK},
+		{runEchoOK, "extra"},
+	} {
+		if _, err := parseRunArgs(args); err == nil {
+			t.Fatalf("parseRunArgs(%q) accepted a non-single-command invocation", args)
+		}
+	}
+}
+
+func TestRunCommandExecutesShellSyntaxInsideZevRun(t *testing.T) {
+	t.Parallel()
+	var stdout bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
+	runner := terminal.Runner{Stdout: &stdout, Stderr: &bytes.Buffer{}}
+	if err := runCommand(cmd, []string{"printf out; printf err >&2"}, runner); err != nil {
+		t.Fatalf("runCommand() error = %v", err)
+	}
+	if stdout.String() != runStdoutFixture {
+		t.Fatalf("stdout = %q, want out", stdout.String())
+	}
+}
+
+func TestBuildInjectedRunCommandPassesShellProgramToZevRun(t *testing.T) {
+	t.Parallel()
+	got, err := buildInjectedRunInvocation("/opt/zev", `printf '%s' "$HOME"`, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `'/opt/zev' run 'printf '\''%s'\'' "$HOME"'`
 	if got != want {
 		t.Fatalf("buildInjectedRunCommand() = %q, want %q", got, want)
 	}
@@ -72,17 +114,17 @@ func TestBuildInjectedRunCommandPreservesShellProgramAsOneArgument(t *testing.T)
 func TestBuildInjectedRunInvocationCarriesShortSessionReference(t *testing.T) {
 	t.Parallel()
 	session := runSessionFixtureID
-	got, err := buildInjectedRunInvocation("/opt/zev", "/bin/sh", "printf fail", session)
+	got, err := buildInjectedRunInvocation("/opt/zev", "printf fail", session)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(got, "--session='") || strings.Contains(got, "--conversation=") || strings.Contains(got, "--command-id=") || !strings.Contains(got, " -- '/bin/sh' -c ") {
-		t.Fatalf("injected invocation lost its short session reference or shell argv: %q", got)
+	if !strings.Contains(got, "--session='") || strings.Contains(got, "--conversation=") || strings.Contains(got, "--command-id=") {
+		t.Fatalf("injected invocation lost its short session reference: %q", got)
 	}
 	if !strings.Contains(got, "--session='"+session+"'") {
 		t.Fatalf("injected invocation session = %q, want %q", got, session)
 	}
-	if _, err := buildInjectedRunInvocation("/opt/zev", "/bin/sh", "printf fail", "too-long-session"); err == nil {
+	if _, err := buildInjectedRunInvocation("/opt/zev", "printf fail", "too-long-session"); err == nil {
 		t.Fatal("invalid session ID was accepted")
 	}
 }
@@ -90,7 +132,7 @@ func TestBuildInjectedRunInvocationCarriesShortSessionReference(t *testing.T) {
 func TestParseRunArgsAcceptsOnlyShortSessionReference(t *testing.T) {
 	t.Parallel()
 	session := runSessionFixtureID
-	opts, err := parseRunArgs([]string{"--session=" + session, "--", runTestPrintf, "ok"})
+	opts, err := parseRunArgs([]string{"--session=" + session, runPrintfOK})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,11 +140,11 @@ func TestParseRunArgsAcceptsOnlyShortSessionReference(t *testing.T) {
 		t.Fatalf("parsed session = %q, want %q", opts.sessionID, session)
 	}
 	for _, value := range []string{"123456789", "12345678901", "!!!!!!!!!!"} {
-		if _, err := parseRunArgs([]string{"--session=" + value, "--", "printf", "ok"}); err == nil {
+		if _, err := parseRunArgs([]string{"--session=" + value, runPrintfOK}); err == nil {
 			t.Fatalf("invalid session %q was accepted", value)
 		}
 	}
-	if _, err := parseRunArgs([]string{"--conversation=legacy", "--command-id=legacy", "--", "printf", "ok"}); err == nil {
+	if _, err := parseRunArgs([]string{"--conversation=legacy", "--command-id=legacy", runPrintfOK}); err == nil {
 		t.Fatal("legacy split session parameters were accepted")
 	}
 }
@@ -115,10 +157,10 @@ func TestParseRunArgsAcceptsProxy(t *testing.T) {
 		want string
 		bad  bool
 	}{
-		{name: "separate", args: []string{cliProxyFlag, "socks5h://proxy.example:1080", "--", managedEchoFixture}, want: "socks5h://proxy.example:1080"},
-		{name: "equals", args: []string{"--proxy=http://proxy.example:8080", "--", managedEchoFixture}, want: "http://proxy.example:8080"},
-		{name: "missing", args: []string{cliProxyFlag, "--", managedEchoFixture}, bad: true},
-		{name: "empty", args: []string{"--proxy=", "--", managedEchoFixture}, bad: true},
+		{name: "separate", args: []string{cliProxyFlag, "socks5h://proxy.example:1080", runEchoOK}, want: "socks5h://proxy.example:1080"},
+		{name: "equals", args: []string{"--proxy=http://proxy.example:8080", runEchoOK}, want: "http://proxy.example:8080"},
+		{name: "missing", args: []string{cliProxyFlag}, bad: true},
+		{name: "empty", args: []string{"--proxy=", runEchoOK}, bad: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := parseRunArgs(test.args)
@@ -165,19 +207,19 @@ func TestRunHelpDocumentsRecoveryActionsAndLogLimit(t *testing.T) {
 
 func TestParseRunArgsRejectsRetryOptionsAndKeepsSingleAttemptOptions(t *testing.T) {
 	t.Parallel()
-	opts, err := parseRunArgs([]string{"--on-failure=analyze", "--timeout=1s", "--", runTestPrintf, "ok"})
+	opts, err := parseRunArgs([]string{"--on-failure=analyze", "--timeout=1s", runPrintfOK})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if opts.onFailure != runFailureAnalyze || len(opts.command) != 2 || opts.timeout == 0 {
+	if opts.onFailure != runFailureAnalyze || opts.command != runPrintfOK || opts.timeout == 0 {
 		t.Fatalf("unexpected options: %+v", opts)
 	}
 	for _, args := range [][]string{
-		{"--on-failure=retry", "--", runTestPrintf, "ok"},
-		{"--max-retries=1", "--", runTestPrintf, "ok"},
-		{"--retry-delay=10ms", "--", runTestPrintf, "ok"},
-		{"--exit-code=last", "--", runTestPrintf, "ok"},
-		{"--on-failure=unknown", "--", runTestPrintf, "ok"},
+		{"--on-failure=retry", runPrintfOK},
+		{"--max-retries=1", runPrintfOK},
+		{"--retry-delay=10ms", runPrintfOK},
+		{"--exit-code=last", runPrintfOK},
+		{"--on-failure=unknown", runPrintfOK},
 	} {
 		if _, err := parseRunArgs(args); err == nil {
 			t.Fatalf("parseRunArgs(%q) accepted removed or invalid invocation", args)
@@ -185,7 +227,7 @@ func TestParseRunArgsRejectsRetryOptionsAndKeepsSingleAttemptOptions(t *testing.
 	}
 }
 
-func TestRunArgvMakesOnlyOneAttempt(t *testing.T) {
+func TestRunCommandMakesOnlyOneAttempt(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	zevDir := filepath.Join(home, ".zev")
@@ -202,9 +244,9 @@ func TestRunArgvMakesOnlyOneAttempt(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	runner := terminal.Runner{Stdout: &stdout, Stderr: &stderr}
-	command := []string{"--on-failure=none", "--", "sh", "-c", "n=$(cat \"$1\"); n=$((n+1)); printf '%s' \"$n\" > \"$1\"; exit 1", "sh", marker}
-	if err := runArgv(&cobra.Command{}, command, runner); err == nil {
-		t.Fatal("runArgv() unexpectedly succeeded")
+	command := []string{"--on-failure=none", fmt.Sprintf(`n=$(cat %q); n=$((n+1)); printf '%%s' "$n" > %q; exit 1`, marker, marker)}
+	if err := runCommand(&cobra.Command{}, command, runner); err == nil {
+		t.Fatal("runCommand() unexpectedly succeeded")
 	}
 	data, err := os.ReadFile(filepath.Clean(marker))
 	if err != nil || string(data) != "1" {
@@ -217,7 +259,7 @@ func TestRunFailurePrintsCapturedChildOutputBeforeReturning(t *testing.T) {
 	var stderr bytes.Buffer
 	runner := terminal.Runner{Stdin: strings.NewReader(""), Stderr: &stderr}
 	err := executeRunAttempts(t.Context(), runOptions{
-		command:   []string{"sh", "-c", "printf out; printf err >&2; exit 1"},
+		command:   `printf out; printf err >&2; exit 1`,
 		onFailure: runFailureNone, logLimit: 1024,
 	}, runner, &stderr, false)
 	if err == nil {
@@ -234,7 +276,7 @@ func TestRunFailureRecoveryReceivesCapturedContextAfterLog(t *testing.T) {
 	recovered := false
 	runner := terminal.Runner{Stdout: &stdout, Stderr: &stderr}
 	err := executeRunAttempts(t.Context(), runOptions{
-		command:   []string{"sh", "-c", "printf out; printf err >&2; exit 1"},
+		command:   `printf out; printf err >&2; exit 1`,
 		onFailure: runFailureAnalyze, logLimit: 1024,
 		recover: func(_ context.Context, action string, commandErr error, output runOutput) error {
 			recovered = true
@@ -247,13 +289,13 @@ func TestRunFailureRecoveryReceivesCapturedContextAfterLog(t *testing.T) {
 			if !strings.Contains(stderr.String(), "--- end command failure log ---") {
 				t.Fatal("recovery started before the failure log was displayed")
 			}
-			if !strings.Contains(stderr.String(), "may contain secrets") {
-				t.Fatal("recovery started without warning that captured output may disclose secrets")
+			if strings.Contains(stderr.String(), "may contain secrets") {
+				t.Fatal("recovery emitted removed disclosure warning")
 			}
 			return nil
 		},
 	}, runner, &stderr, false)
-	if err == nil || !recovered {
+	if !recovered {
 		t.Fatalf("execution error = %v, recovery called = %t", err, recovered)
 	}
 }
@@ -261,12 +303,13 @@ func TestRunFailureRecoveryReceivesCapturedContextAfterLog(t *testing.T) {
 func TestRunDoesNotRecoverOrRetryAfterCancellationOrSignal(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		name    string
-		command []string
-		cancel  bool
+		name        string
+		command     string
+		cancel      bool
+		failureLogs int
 	}{
-		{name: "canceled", command: []string{"sh", "-c", "sleep 1"}, cancel: true},
-		{name: "signaled", command: []string{"sh", "-c", "kill -TERM $$"}},
+		{name: "canceled", command: "sleep 1", cancel: true, failureLogs: 0},
+		{name: "signaled", command: "kill -TERM $$", failureLogs: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := t.Context()
@@ -286,17 +329,29 @@ func TestRunDoesNotRecoverOrRetryAfterCancellationOrSignal(t *testing.T) {
 			if err == nil {
 				t.Fatal("interrupted command returned nil error")
 			}
-			if recoveryCalls != 0 || strings.Count(stderr.String(), "--- command failure log") != 1 {
-				t.Fatalf("recovery calls = %d, failure logs = %d", recoveryCalls, strings.Count(stderr.String(), "--- command failure log"))
+			if recoveryCalls != 0 || strings.Count(stderr.String(), "--- command failure log") != tc.failureLogs {
+				t.Fatalf("recovery calls = %d, failure logs = %d, want %d", recoveryCalls, strings.Count(stderr.String(), "--- command failure log"), tc.failureLogs)
 			}
 		})
 	}
 }
 
+func TestRunFixRecoverySuppressesOriginalFailureAfterSuccessfulDelivery(t *testing.T) {
+	t.Parallel()
+	var stderr bytes.Buffer
+	err := executeRunAttempts(t.Context(), runOptions{
+		command:   "exit 1",
+		onFailure: runFailureFix, logLimit: 1024,
+		recover: func(context.Context, string, error, runOutput) error { return nil },
+	}, terminal.Runner{Stderr: &stderr}, &stderr, false)
+	if err != nil {
+		t.Fatalf("successful fix recovery returned original failure: %v", err)
+	}
+}
+
 func TestRunStartupFailureIsRecoverable(t *testing.T) {
 	t.Parallel()
-	missingCommand := filepath.Join(t.TempDir(), "missing-command")
-	_, err := runOneAttempt(t.Context(), []string{missingCommand}, terminal.Runner{}, 1024)
+	_, err := runOneAttempt(t.Context(), "command-that-does-not-exist-zev-test", terminal.Runner{}, 1024)
 	if err == nil {
 		t.Fatal("missing executable returned nil error")
 	}
@@ -317,6 +372,26 @@ func TestRunRecoverySuggestionsEscapeTerminalControls(t *testing.T) {
 	}
 	if strings.ContainsRune(output.String(), '\x1b') || !strings.Contains(output.String(), `\x1b`) || !strings.Contains(output.String(), "not executed") {
 		t.Fatalf("recovery output was not inert and terminal-safe: %q", output.String())
+	}
+}
+
+func TestRunRecoveryOutputKeepsSectionBlankLines(t *testing.T) {
+	t.Parallel()
+	var actionSeparator bytes.Buffer
+	if err := writeRunRecoveryActionSeparator(&actionSeparator); err != nil {
+		t.Fatal(err)
+	}
+	if actionSeparator.String() != "\n" {
+		t.Fatalf("recovery action separator = %q, want one blank line", actionSeparator.String())
+	}
+	var output bytes.Buffer
+	if err := writeRunRecoveryProgress(&output); err != nil {
+		t.Fatal(err)
+	}
+	fetching := locale.Text(locale.KeyQueryFetchingSuggestions)
+	want := fetching
+	if output.String() != want {
+		t.Fatalf("recovery progress = %q, want %q", output.String(), want)
 	}
 }
 

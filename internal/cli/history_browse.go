@@ -138,10 +138,10 @@ func writeHistoryConversation(out io.Writer, view service.ConversationView, json
 	if _, err := fmt.Fprintf(out, "%s\n", title); err != nil {
 		return fmt.Errorf("write conversation title: %w", err)
 	}
-	if _, err := fmt.Fprintf(out, locale.Text(locale.KeyCliHistoryConversationMeta), safeHistoryField(conversation.ID), safeHistoryField(conversation.Status), safeHistoryField(conversation.Provider), safeHistoryField(conversation.Model), conversation.CreatedAt.Format("2006-01-02 15:04:05"), conversation.UpdatedAt.Format("2006-01-02 15:04:05")); err != nil {
+	if _, err := fmt.Fprintf(out, locale.Text(locale.KeyCliHistoryConversationMeta), safeHistoryField(conversation.ID), historyStatusText(conversation.Status), safeHistoryField(conversation.Provider), safeHistoryField(conversation.Model), conversation.CreatedAt.Format("2006-01-02 15:04:05"), conversation.UpdatedAt.Format("2006-01-02 15:04:05")); err != nil {
 		return fmt.Errorf("write conversation metadata: %w", err)
 	}
-	if err := writeHistoryMessages(out, view.Messages, view.Responses); err != nil {
+	if err := writeHistoryMessages(out, view.Messages, view.Responses, conversation.SelectedCommandID); err != nil {
 		return err
 	}
 	return nil
@@ -184,7 +184,7 @@ func writeAssistantHistoryMessage(out io.Writer, content string) error {
 		}
 		return nil
 	}
-	return writeHistoryResponses(out, []service.Response{{Commands: commands}})
+	return writeHistoryResponses(out, []service.Response{{Commands: commands}}, "")
 }
 
 func writeHistoryMessageContent(out io.Writer, content string) error {
@@ -194,7 +194,7 @@ func writeHistoryMessageContent(out io.Writer, content string) error {
 	return nil
 }
 
-func writeHistoryMessages(out io.Writer, messages []service.Message, responses []service.Response) error {
+func writeHistoryMessages(out io.Writer, messages []service.Message, responses []service.Response, selectedCommandID string) error {
 	responsesByMessage := make(map[string]service.Response, len(responses))
 	for _, response := range responses {
 		if response.MessageID != "" {
@@ -203,7 +203,7 @@ func writeHistoryMessages(out io.Writer, messages []service.Message, responses [
 	}
 	renderedResponses := make(map[string]struct{}, len(responsesByMessage))
 	for _, message := range messages {
-		rendered, err := writeHistoryMessageEvent(out, message, responsesByMessage)
+		rendered, err := writeHistoryMessageEvent(out, message, responsesByMessage, selectedCommandID)
 		if err != nil {
 			return err
 		}
@@ -215,16 +215,16 @@ func writeHistoryMessages(out io.Writer, messages []service.Message, responses [
 		if _, rendered := renderedResponses[response.ID]; rendered {
 			continue
 		}
-		if err := writeHistoryResponse(out, response); err != nil {
+		if err := writeHistoryResponse(out, response, selectedCommandID); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeHistoryMessageEvent(out io.Writer, message service.Message, responses map[string]service.Response) (string, error) {
+func writeHistoryMessageEvent(out io.Writer, message service.Message, responses map[string]service.Response, selectedCommandID string) (string, error) {
 	if message.Role == queryAssistantRole {
-		return writeHistoryAssistantEvent(out, message, responses)
+		return writeHistoryAssistantEvent(out, message, responses, selectedCommandID)
 	}
 	if _, err := fmt.Fprintf(out, "\n%s\n%s\n", historyRoleText(message.Role), safeHistoryOutputText(message.Content)); err != nil {
 		return "", fmt.Errorf("write conversation message: %w", err)
@@ -232,9 +232,9 @@ func writeHistoryMessageEvent(out io.Writer, message service.Message, responses 
 	return "", nil
 }
 
-func writeHistoryAssistantEvent(out io.Writer, message service.Message, responses map[string]service.Response) (string, error) {
+func writeHistoryAssistantEvent(out io.Writer, message service.Message, responses map[string]service.Response, selectedCommandID string) (string, error) {
 	if response, ok := responses[message.ID]; ok {
-		if err := writeHistoryResponse(out, response); err != nil {
+		if err := writeHistoryResponse(out, response, selectedCommandID); err != nil {
 			return "", err
 		}
 		return response.ID, nil
@@ -252,7 +252,7 @@ func writeHistoryAssistantEvent(out io.Writer, message service.Message, response
 	return "", nil
 }
 
-func writeHistoryResponse(out io.Writer, response service.Response) error {
+func writeHistoryResponse(out io.Writer, response service.Response, selectedCommandID string) error {
 	if !response.IsValid && len(response.Commands) == 0 {
 		var payload domain.OptionsResponse
 		if err := json.Unmarshal([]byte(response.PayloadJSON), &payload); err == nil && payload.ExplanationIfNotValid != "" {
@@ -266,10 +266,10 @@ func writeHistoryResponse(out io.Writer, response service.Response) error {
 		}
 		return nil
 	}
-	return writeHistoryResponses(out, []service.Response{response})
+	return writeHistoryResponses(out, []service.Response{response}, selectedCommandID)
 }
 
-func writeHistoryResponses(out io.Writer, responses []service.Response) error {
+func writeHistoryResponses(out io.Writer, responses []service.Response, selectedCommandID string) error {
 	if len(responses) == 0 {
 		return nil
 	}
@@ -279,7 +279,7 @@ func writeHistoryResponses(out io.Writer, responses []service.Response) error {
 	ordinal := 1
 	for _, response := range responses {
 		for _, command := range response.Commands {
-			if err := writeHistoryCommand(out, command, ordinal); err != nil {
+			if err := writeHistoryCommand(out, command, ordinal, selectedCommandID); err != nil {
 				return err
 			}
 			ordinal++
@@ -288,8 +288,12 @@ func writeHistoryResponses(out io.Writer, responses []service.Response) error {
 	return nil
 }
 
-func writeHistoryCommand(out io.Writer, command service.Command, ordinal int) error {
-	if _, err := fmt.Fprintf(out, locale.Text(locale.KeyCliHistoryCommandEntry), ordinal, safeHistoryOutputText(command.Command), safeHistoryOutputText(command.ShortExplanation)); err != nil {
+func writeHistoryCommand(out io.Writer, command service.Command, ordinal int, selectedCommandID string) error {
+	marker := " "
+	if command.ID == selectedCommandID {
+		marker = ">"
+	}
+	if _, err := fmt.Fprintf(out, locale.Text(locale.KeyCliHistoryCommandEntry), marker, ordinal, safeHistoryOutputText(command.Command), safeHistoryOutputText(command.ShortExplanation)); err != nil {
 		return fmt.Errorf("write conversation command: %w", err)
 	}
 	if command.DeliveryOutcome != "" {
@@ -443,10 +447,24 @@ func makeHistoryBrowseItems(entries []historyBrowseEntry) []list.Item {
 	for i, entry := range entries {
 		items[i] = list.NewSimpleItem(
 			historyBrowsePrompt(entry.conversation),
-			fmt.Sprintf("%s • %s • %s • %s", entry.conversation.CreatedAt.Format("2006-01-02 15:04"), safeHistoryField(entry.conversation.Status), safeHistoryField(entry.conversation.Provider), safeHistoryField(entry.conversation.ID)),
+			fmt.Sprintf("%s • %s", entry.conversation.CreatedAt.Format("2006-01-02 15:04"), historyStatusText(entry.conversation.Status)),
 		)
 	}
 	return items
+}
+
+func historyStatusText(status string) string {
+	keys := map[string]locale.Key{
+		historyConversationStatusStarted:   locale.KeyCliHistoryStatusStarted,
+		historyConversationStatusCompleted: locale.KeyCliHistoryStatusCompleted,
+		historyConversationStatusCancelled: locale.KeyCliHistoryStatusCancelled,
+		historyStatusFailed:                locale.KeyCliHistoryStatusFailed,
+		"unknown":                          locale.KeyCliHistoryStatusUnknown,
+	}
+	if key, ok := keys[status]; ok {
+		return locale.Text(key)
+	}
+	return safeHistoryField(status)
 }
 
 func selectedHistoryEntry(items []list.Item, entries []historyBrowseEntry, selected list.Item) (historyBrowseEntry, bool) {

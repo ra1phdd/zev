@@ -1,5 +1,5 @@
 ["ui.prompt.confirm_hint"]
-other = "(y/Enter: подтвердить, n: отклонить, Esc/Ctrl+C: отмена)"
+other = "(y/Enter: подтвердить, n/Esc: отмена)"
 leftDelim = "[[["
 rightDelim = "]]]"
 

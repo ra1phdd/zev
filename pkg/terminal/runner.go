@@ -13,8 +13,7 @@ import (
 )
 
 // Runner executes either shell text or literal argv through one process boundary.
-// It owns the child process and forwards the supplied standard streams without
-// interpreting argv as shell syntax.
+// It owns the child process and forwards the supplied standard streams.
 type Runner struct {
 	Stdin  io.Reader
 	Stdout io.Writer
@@ -57,11 +56,7 @@ func (r Runner) run(ctx context.Context, cmd *exec.Cmd) error {
 	return nil
 }
 
-func defaultRunner() Runner {
-	return Runner{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}
-}
-
 // DefaultRunner returns a proxy runner connected to the current process streams.
 func DefaultRunner() Runner {
-	return defaultRunner()
+	return Runner{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}
 }

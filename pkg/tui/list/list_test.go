@@ -257,6 +257,19 @@ func TestViewFormat(t *testing.T) {
 	}
 }
 
+func TestViewStartsWithTitle(t *testing.T) {
+	t.Parallel()
+
+	m := newModel(SelectOptions{
+		Title: listTestTitle,
+		Items: []Item{NewSimpleItem("ls -la", "")},
+	})
+	lines := strings.Split(strings.TrimSuffix(m.View(), "\n"), "\n")
+	if len(lines) < 1 || lines[0] != listTestTitle {
+		t.Fatalf("title layout = %q, want title on the first line", m.View())
+	}
+}
+
 func TestViewShowsNavigationHint(t *testing.T) {
 	t.Parallel()
 
@@ -290,6 +303,21 @@ func TestViewScrollsWithCursor(t *testing.T) {
 	}
 	if strings.Contains(view, "item-0") {
 		t.Fatalf("scrolled view still contains first item: %q", view)
+	}
+}
+
+func TestViewKeepsSelectedItemDescriptionAfterMovingCursor(t *testing.T) {
+	t.Parallel()
+
+	m := newModel(SelectOptions{Items: []Item{
+		NewSimpleItem("first", "first description"),
+		NewSimpleItem("second", "second description"),
+	}})
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = requireModel(t, updated)
+	view := m.View()
+	if !strings.Contains(view, "second description") {
+		t.Fatalf("selected item description disappeared after moving cursor: %q", view)
 	}
 }
 

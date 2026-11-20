@@ -14,7 +14,7 @@ This reference describes the complete command tree and each command's own flags.
 - Unless noted, booleans default to `false`; strings default to empty. `--help` (`-h`) is available on every Cobra command and prints help without performing the operation.
 - **Inherited flags on ordinary subcommands:** `--proxy URL` (default empty; route Zev network requests through SOCKS5 or HTTP(S)) and `-v, --verbose` (count, default `0`; `-v` INFO, `-vv` DEBUG, `-vvv` TRACE). Each command entry lists these inherited flags explicitly.
 - **Root query mode:** the root accepts an unparsed natural-language query, preserving flags not recognized by Zev for aliases/scripts. It also has query-tool flags `--tools`, `--no-tools`, and `--tool-approval MODE`; see `zev [query]` below. Root dispatch flags are manually parsed, so use `zev --help` for the root Cobra help and `zev query --help` for query flags.
-- `zev run` has a separate literal-argv parser because it uses `DisableFlagParsing`; its `--proxy` is the run-specific recovery proxy and its options must precede `--`.
+- `zev run` has a separate shell-command parser because it uses `DisableFlagParsing`; its `--proxy` is the run-specific recovery proxy and its options must precede the command.
 
 ## Command tree
 
@@ -207,11 +207,11 @@ Manage named LLM profiles. The parent accepts no positional arguments. **Local f
 - `zev provider add NAME`: exactly one profile name; starts interactive named-provider setup. **Local flags:** `-h, --help`. **Inherited:** `--proxy URL` (default empty; used for provider requests), `-v, --verbose` (count, default `0`; `-v` INFO, `-vv` DEBUG, `-vvv` TRACE), `-h, --help`.
 - `zev provider remove NAME`: exactly one profile name. **Local flags:** `-h, --help`. **Inherited:** `--proxy URL` (default empty), `-v, --verbose` (count, default `0`; `-v` INFO, `-vv` DEBUG, `-vvv` TRACE), `-h, --help`. The active profile cannot be removed.
 
-## `zev run -- command [args...]`
+## `zev run [options] command`
 
-Run a literal argv and proxy standard streams. Everything after `--` is passed directly to the child process, without shell parsing; the separator is required. Zev makes **one attempt per invocation**; retry count/delay/exit-code retry controls are not part of this command. Failure recovery may ask, analyze, or suggest a fix; suggestions are never automatically executed. Captured output sent for provider analysis can contain secrets.
+Run one shell command through the configured shell and proxy standard streams. The command is one positional shell-text argument; shell syntax is interpreted inside `zev run`. Zev makes **one attempt per invocation**; retry count/delay/exit-code retry controls are not part of this command. Failure recovery may ask, analyze, or suggest a fix; suggestions are never automatically executed. Captured output sent for provider analysis can contain secrets.
 
-The run-specific options must appear before `--`. **Local options:**
+The run-specific options must appear before the command. **Local options:**
 
 | Option | Accepted values/default | Meaning |
 |---|---|---|
@@ -223,7 +223,7 @@ The run-specific options must appear before `--`. **Local options:**
 | `--no-interactive` | boolean; false | Disable interactive recovery prompts. |
 | `-h, --help` | — | Print run-specific help. |
 
-No short aliases are defined for these run options. The command's `--help` is handled by its own parser. The run option contract is literal-argv-specific and distinct from Cobra flags. (Older builds may show retry-related options; they are removed in the documented one-attempt behavior.)
+No short aliases are defined for these run options. The command's `--help` is handled by its own parser. The run option contract is shell-command-specific and distinct from Cobra flags. (Older builds may show retry-related options; they are removed in the documented one-attempt behavior.)
 
 ## Scripts: `zev script`
 

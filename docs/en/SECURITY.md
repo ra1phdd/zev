@@ -20,7 +20,7 @@ Zev does not defend against a compromised OS/kernel, administrator, or hostile p
 
 Zev selects a command and attempts to insert it into terminal input. It never presses Enter. The command warning and exact selected command are shown before insertion when a warning is present. Injection is **warning-only**: the user's shell will later execute the text if the user submits it, and Zev cannot control or observe that later execution. On unsupported/denied injection, Zev prints the command instead. If injection was partial, do not submit the terminal input; inspect it first.
 
-When `command_wrapper_enabled: true` (default), generated injection is wrapped with `zev run --` so the later shell invocation can capture bounded failure output and offer recovery. Disable the wrapper with `command_wrapper_enabled: false`; explicit `zev run` remains available. The wrapper is unsupported for injection on Windows. Wrapping does not turn injection into a sandbox or authorize execution by Zev.
+When `command_wrapper_enabled: true` (default), generated injection is wrapped with `zev run '<command>'` so the later shell invocation can capture bounded failure output and offer recovery. Disable the wrapper with `command_wrapper_enabled: false`; explicit `zev run '<command>'` remains available. The wrapper is unsupported for injection on Windows. Wrapping does not turn injection into a sandbox or authorize execution by Zev.
 
 ### `execute`
 

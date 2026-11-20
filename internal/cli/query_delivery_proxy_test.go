@@ -225,7 +225,7 @@ func TestInjectDeliveryUsesRunWrapperWhenEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("deliverQueryCommand() error = %v", err)
 	}
-	if !strings.Contains(injected, " run --session='") || strings.Contains(injected, "--conversation=") || strings.Contains(injected, "--command-id=") || !strings.HasSuffix(injected, " -c "+shellQuote(command)) {
+	if !strings.Contains(injected, " run --session='") || strings.Contains(injected, "--conversation=") || strings.Contains(injected, "--command-id=") || !strings.HasSuffix(injected, " "+shellQuote(command)) {
 		t.Fatalf("injected command %q does not wrap the original shell program", injected)
 	}
 	if outcome.DeliveryOutcome != "injected" {

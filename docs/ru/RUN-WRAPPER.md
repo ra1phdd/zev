@@ -4,17 +4,17 @@
 
 </div>
 
-# `zev run`: literal execution и recovery
+# `zev run`: shell execution и recovery
 
-`zev run -- <command> [args...]` — отдельная обёртка для запуска host-команды. Это не shell parser, не retry loop и не sandbox.
+`zev run '<command>'` — отдельная обёртка для запуска одной shell-команды. Команда выполняется внутри настроенного `$SHELL`; `zev run` не является retry loop или sandbox.
 
 ## Контракт разбора
 
-Разделитель `--` обязателен. Опции wrapper задаются до него; всё после разделителя — literal executable и argv, которые передаются дочернему процессу. Zev не склеивает аргументы обратно в shell-текст для запуска или анализа безопасности.
+Опции wrapper задаются до команды. После опций должен идти ровно один аргумент с shell-текстом; Zev не разбирает его заранее и передаёт как программу настроенному shell.
 
 ```bash
-zev run -- git status --short
-zev run --timeout=30s --log-limit=65536 -- ./build/check --format json
+zev run 'git status --short'
+zev run --timeout=30s --log-limit=65536 './build/check --format json'
 ```
 
 Поддерживаемые опции:
@@ -32,7 +32,7 @@ zev run --timeout=30s --log-limit=65536 -- ./build/check --format json
 
 ## Процесс и вывод
 
-Zev передаёт stdout/stderr дочернего процесса вызывающей стороне и одновременно сохраняет ограниченные хвосты потоков отдельно для recovery. Захваченные байты преобразуются в valid UTF-8, управляющие символы экранируются в failure log. При удалении ранних байтов показывается marker усечения. Процесс получает literal argv, рабочий каталог и обычную process boundary wrapper. Recovery пишет в stderr и не заменяет исходный exit result.
+Zev передаёт stdout/stderr настроенного shell вызывающей стороне и одновременно сохраняет ограниченные хвосты потоков отдельно для recovery. Захваченные байты преобразуются в valid UTF-8, управляющие символы экранируются в failure log. Настроенный shell получает исходный текст команды и обычную process boundary wrapper. Recovery пишет в stderr и не заменяет исходный exit result.
 
 `--timeout` ограничивает попытку через context cancellation. Очистка процесса может занять больше deadline; detached descendants и процессы, созданные внешними broker, находятся вне границы владения Zev. Это host execution, а не OS isolation.
 
@@ -55,15 +55,15 @@ Registry — локальное удобство, не remote protocol. Неве
 
 ## Связь с command security
 
-`zev run` — literal argv wrapper, поэтому он не использует query `execute` authorization path и confirmation `security.mode` для дочерней команды. Пользователь явно вызвал wrapper; его технические границы сохраняются: лимиты аргументов/вывода, cancellation, фильтрация process environment там, где она применяется, и отсутствие неявного восстановления shell. Если executable сам является shell, это явно указано в argv, и дочерний процесс получает соответствующую host capability.
+`zev run` выполняет shell-текст, поэтому намеренно предоставляет capability настроенного shell и не использует query `execute` authorization path или подтверждение `security.mode`. Пользователь явно вызвал wrapper; его технические границы сохраняются: ограниченный вывод, cancellation, фильтрация process handling там, где она применяется, и отсутствие автоматических повторов. Shell metacharacters обрабатывает настроенный shell.
 
 Различие важно:
 
 - query `inject` вставляет текст и оставляет запуск пользовательской shell;
 - query `execute` — отдельный security-gated host delivery path;
-- `zev run` напрямую запускает одну literal argv request;
+- `zev run '<команда>'` выполняет одну shell-команду внутри Zev и сохраняет ограниченный failure context;
 - recovery suggestions — только inert text.
 
 ## Проверка и ограничения
 
-Сфокусированные тесты покрывают separator parsing, границы опций, literal argv, одну попытку, truncation output, cancellation, validation session registry и проверку связанной conversation. Они не доказывают безопасность каждого executable или shell dialect, containment detached процессов и native Windows runtime. Запускайте `make test`, `make test-race` и применимый `make test-e2e` gate. См. [Безопасность](SECURITY.md), [CLI](CLI.md), [Конфигурацию](CONFIGURATION.md) и [Разработку](DEVELOPMENT.md).
+Сфокусированные тесты покрывают разбор опций, одну shell-команду, выполнение shell-синтаксиса, одну попытку, усечение вывода, cancellation, проверку session registry и связанной conversation. Они не доказывают безопасность каждой shell-команды или dialect, containment detached процессов и native Windows runtime. Запускайте `make test`, `make test-race` и применимый `make test-e2e` gate. См. [Безопасность](SECURITY.md), [CLI](CLI.md), [Конфигурацию](CONFIGURATION.md) и [Разработку](DEVELOPMENT.md).

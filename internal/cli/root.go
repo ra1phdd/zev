@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"slices"
 
 	"github.com/ra1phdd/zev/internal/core/config"
 	"github.com/ra1phdd/zev/internal/core/locale"
@@ -106,6 +107,9 @@ func Execute(ctx context.Context, root *cobra.Command) int {
 	if err == nil {
 		return 0
 	}
+	if isInteractiveCancellation(err) {
+		return 0
+	}
 	if machineErr, ok := errors.AsType[*machineExitError](err); ok {
 		if _, writeErr := fmt.Fprintf(root.ErrOrStderr(), locale.Text(locale.KeyQueryErrorMessage), err); writeErr != nil {
 			slog.Error("Failed to write command error", "error", writeErr)
@@ -122,6 +126,25 @@ func Execute(ctx context.Context, root *cobra.Command) int {
 		slog.Error("Failed to write command error", "error", writeErr)
 	}
 	return 1
+}
+
+func isInteractiveCancellation(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, errQueryCancelled) {
+		return true
+	}
+	var joined interface{ Unwrap() []error }
+	if errors.As(err, &joined) {
+		return slices.ContainsFunc(joined.Unwrap(), isInteractiveCancellation)
+	}
+	for current := err; current != nil; current = errors.Unwrap(current) {
+		if current.Error() == queryCancelled {
+			return true
+		}
+	}
+	return false
 }
 
 func newVersionCmd(buildVersion string) *cobra.Command {

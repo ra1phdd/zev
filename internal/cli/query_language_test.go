@@ -18,6 +18,15 @@ func TestAutoLanguageFollowsNaturalLanguageQuery(t *testing.T) {
 }
 
 //nolint:paralleltest // locale.SetLanguage mutates process-global locale state.
+func TestAutoLanguageFollowsShortRussianTechnicalQuery(t *testing.T) {
+	restore := locale.SetLanguage(queryUILanguage("auto", false), "пинг гугла")
+	t.Cleanup(restore)
+	if got := locale.Language(); got != "ru" {
+		t.Fatalf("language=%q, want ru", got)
+	}
+}
+
+//nolint:paralleltest // locale.SetLanguage mutates process-global locale state.
 func TestRefinementUpdatesInterfaceWithoutChangingMessages(t *testing.T) {
 	for _, configured := range []string{"auto", "ru", "en"} {
 		t.Run(configured, func(t *testing.T) {

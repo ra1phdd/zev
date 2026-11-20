@@ -144,7 +144,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_command_entry"]
-other = "  %d. %s\n     %s\n"
+other = "%s%d. %s\n     %s\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1149,12 +1149,12 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.query_history"]
-other = "📜 История запросов"
+other = "История запросов"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_short"]
-other = "Запустить literal argv и проксировать стандартные потоки"
+other = "Запустить shell-команду через настроенный shell и проксировать стандартные потоки"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1189,6 +1189,66 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_recovery_fix_description"]
-other = "Запросить у провайдера исправленные варианты команды; ничего не запускается автоматически."
+other = "Запросить у провайдера исправленные варианты команды."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_clarification"]
+other = "Дополнительные сведения для исправления (Enter — продолжить без них)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_analysis_title"]
+other = "Анализ сбоя команды (варианты не выполняются):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_correction_title"]
+other = "Предлагаемое исправление (не выполняется):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_warning"]
+other = "   Предупреждение: %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_unavailable"]
+other = "Восстановление с помощью ИИ недоступно для этого запуска."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_failed"]
+other = "Восстановление с помощью ИИ не удалось; результат команды не изменён."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_skipped"]
+other = "Восстановление пропущено: процесс прерван или его результат нельзя подтвердить."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_status_started"]
+other = "запущен"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_status_completed"]
+other = "завершён"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_status_cancelled"]
+other = "отменён"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_status_failed"]
+other = "ошибка"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_status_unknown"]
+other = "неизвестно"
 leftDelim = "[[["
 rightDelim = "]]]"

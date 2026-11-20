@@ -258,6 +258,11 @@ other = "⚠️  ВНИМАНИЕ: %s\n\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
+["query.terminal_injection_partial"]
+other = "Вставка в терминал выполнена частично; не отправляйте введённое и проверьте его перед продолжением."
+leftDelim = "[[["
+rightDelim = "]]]"
+
 ["query.usage"]
 other = "Использование:"
 leftDelim = "[[["

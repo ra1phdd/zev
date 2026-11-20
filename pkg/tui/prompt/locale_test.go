@@ -17,8 +17,8 @@ func TestInputLocalizedHint(t *testing.T) {
 		language string
 		hint     string
 	}{
-		{"ru", "(y/Enter: подтвердить, n: отклонить, Esc/Ctrl+C: отмена)"},
-		{"en", "(y/Enter: confirm, n: decline, Esc/Ctrl+C: cancel)"},
+		{"ru", "(y/Enter: подтвердить, n/Esc: отмена)"},
+		{"en", "(y/Enter: confirm, n/Esc: cancel)"},
 	} {
 		t.Run(tt.language, func(t *testing.T) {
 			restore := locale.SetLanguage(tt.language, "")
@@ -29,8 +29,11 @@ func TestInputLocalizedHint(t *testing.T) {
 				if !strings.Contains(view, tt.hint) {
 					t.Errorf("View() lacks localized hint %q: %s", tt.hint, view)
 				}
-				if !strings.HasPrefix(view, "Enter custom base URL\n") {
+				if !strings.HasPrefix(view, "\nEnter custom base URL\n") {
 					t.Errorf("View() changed caller-provided prompt: %s", view)
+				}
+				if strings.HasPrefix(view, "\nEnter custom base URL\n\n") {
+					t.Errorf("View() added a redundant blank line after the prompt: %s", view)
 				}
 			}
 		})
@@ -48,8 +51,11 @@ func TestMultilineLocalizedHint(t *testing.T) {
 	if !strings.Contains(view, "Enter: новая строка, Ctrl+D: отправить или пропустить") {
 		t.Errorf("View() lacks Russian multiline hint: %s", view)
 	}
-	if !strings.HasPrefix(view, "Enter custom base URL\n") {
+	if !strings.HasPrefix(view, "\nEnter custom base URL\n") {
 		t.Errorf("View() changed caller-provided title: %s", view)
+	}
+	if strings.HasPrefix(view, "\nEnter custom base URL\n\n") {
+		t.Errorf("View() added a redundant blank line after the title: %s", view)
 	}
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
 	if got := requireMultilineModel(t, updated).value; got != value {

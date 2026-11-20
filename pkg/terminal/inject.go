@@ -37,7 +37,7 @@ func (e *PartialInjectionError) Unwrap() error { return e.Err }
 // of command; this function does not sanitize shell syntax or prompt for confirmation.
 func Execute(ctx context.Context, command string) error {
 	shell := shellFromEnvironment()
-	return defaultRunner().RunShell(ctx, shell, command)
+	return DefaultRunner().RunShell(ctx, shell, command)
 }
 
 func shellFromEnvironment() string {

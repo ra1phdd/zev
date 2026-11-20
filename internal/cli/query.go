@@ -529,9 +529,9 @@ func (s *querySession) closeHistory(ctx context.Context, resultErr *error) {
 }
 
 func (s *querySession) finishHistory(ctx context.Context, store *historyrepo.Store, resultErr *error) {
-	status := "completed"
+	status := historyConversationStatusCompleted
 	if errors.Is(*resultErr, errQueryCancelled) || errors.Is(*resultErr, context.Canceled) {
-		status = "cancelled"
+		status = historyConversationStatusCancelled
 	} else if *resultErr != nil {
 		status = historyStatusFailed
 	}
@@ -595,7 +595,7 @@ func (s *querySession) start(ctx context.Context) error {
 		return err
 	}
 	if strings.TrimSpace(refined) == "" {
-		return errors.New("the request cannot be empty")
+		return errors.New(locale.Text(locale.KeyQueryRequestCannotEmpty))
 	}
 	s.addRefinement(refined)
 	if s.persistence != nil {
@@ -957,7 +957,7 @@ func deliverInjectCommand(delivery queryDelivery, selected *domain.Command, outc
 		if errors.As(err, &partial) && partial.Written > 0 {
 			outcome.DeliveryOutcome = queryDeliveryUnknown
 			outcome.ExecutionError = err.Error()
-			if warningErr := writeQueryOutput(delivery.errOut, locale.Text(locale.KeyQueryWarningMessage), "Terminal injection was partial; do not submit the terminal input and inspect it before continuing."); warningErr != nil {
+			if warningErr := writeQueryOutput(delivery.errOut, locale.Text(locale.KeyQueryWarningMessage), locale.Text(locale.KeyQueryTerminalInjectionPartial)); warningErr != nil {
 				return errors.Join(err, warningErr)
 			}
 			return fmt.Errorf("partial terminal injection: %w", err)

@@ -45,7 +45,7 @@ func runMultilineContextWithInput(ctx context.Context, m multilineModel, input i
 	if input == nil {
 		input = os.Stdin
 	}
-	return runMultilineProgram(ctx, m, tea.WithInput(&cancelOnEOFReader{Reader: input}))
+	return runMultilineProgram(ctx, m, tea.WithInput(readerForProgram(input)))
 }
 
 func runMultilineProgram(ctx context.Context, m multilineModel, opts ...tea.ProgramOption) (string, error) {
@@ -166,5 +166,5 @@ func (m multilineModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m multilineModel) View() string {
-	return fmt.Sprintf("%s\n\n%s\n\n%s", m.title, m.textArea.View(), locale.Text(locale.KeyUIMultilineHint))
+	return fmt.Sprintf("\n%s\n%s\n\n%s", m.title, m.textArea.View(), locale.Text(locale.KeyUIMultilineHint))
 }

@@ -4,17 +4,17 @@
 
 </div>
 
-# `zev run`: literal execution and recovery
+# `zev run`: shell execution and recovery
 
-`zev run -- <command> [args...]` is a standalone host command wrapper. It is not a shell parser, retry loop, or sandbox.
+`zev run '<command>'` is a wrapper for one shell command. The command runs inside the configured `$SHELL`; `zev run` is not a retry loop or sandbox.
 
 ## Parsing contract
 
-The separator `--` is mandatory. Wrapper options must appear before it; everything after it is the literal executable and argv passed to the child. Zev never joins those arguments back into shell text for execution or safety analysis.
+Wrapper options must appear before the command. Exactly one argument containing shell text must follow the options; Zev does not parse that text itself and passes it as the program to the configured shell.
 
 ```bash
-zev run -- git status --short
-zev run --timeout=30s --log-limit=65536 -- ./build/check --format json
+zev run 'git status --short'
+zev run --timeout=30s --log-limit=65536 './build/check --format json'
 ```
 
 Supported options:
@@ -32,7 +32,7 @@ Unknown options, options after `--`, an absent separator, an empty executable an
 
 ## Process and output behavior
 
-Zev forwards the child’s stdout and stderr to the caller while capturing bounded tails independently for recovery. Captured bytes are converted to valid UTF-8 and terminal controls are escaped in the failure log. A truncation marker is shown when earlier bytes were discarded. The child receives literal argv, the configured working directory and the wrapper’s normal process boundary. Recovery output is written to stderr and does not replace the original exit result.
+Zev forwards the shell's stdout and stderr to the caller while capturing bounded tails independently for recovery. Captured bytes are converted to valid UTF-8 and terminal controls are escaped in the failure log. The configured shell receives the command text and the wrapper's normal process boundary. Recovery output is written to stderr and does not replace the original exit result.
 
 `--timeout` bounds the wrapper attempt through context cancellation. Process cleanup can take longer than the deadline, and detached descendants or processes started by external brokers are outside Zev’s ownership boundary. This is host execution, not OS isolation.
 
@@ -55,15 +55,15 @@ The registry is a local convenience, not a remote protocol. Invalid IDs, malform
 
 ## Relationship to command security
 
-`zev run` is a literal argv wrapper, so it does not use the query `execute` authorization path or `security.mode` confirmation for the child. The user explicitly invoked the wrapper; its technical boundaries still apply: bounded arguments and output, cancellation, filtered process handling where used, and no implicit shell reconstruction. If the executable itself is a shell, the shell is explicit in argv and the child has the corresponding host capability.
+`zev run` executes shell text, so it intentionally provides the configured shell's host capability and does not use the query `execute` authorization path or `security.mode` confirmation. The user explicitly invoked the wrapper; its technical boundaries still apply: bounded output, cancellation, filtered process handling where used, and no automatic retries. Shell metacharacters are interpreted by the configured shell.
 
 This distinction is important:
 
-- query `inject` inserts text and waits for the user’s shell;
+- query `inject` inserts text and waits for the user's shell;
 - query `execute` is a separate security-gated host delivery path;
-- `zev run` directly launches one literal argv request;
+- `zev run '<command>'` executes one shell command inside Zev and records bounded failure context;
 - recovery suggestions are inert text only.
 
 ## Verification and limitations
 
-Focused tests cover separator parsing, option bounds, literal argv handling, one-attempt behavior, output truncation, cancellation, session registry validation and linked conversation checks. They do not prove security of every executable or shell dialect, containment of detached processes, or native Windows runtime behavior. Run `make test`, `make test-race` and the applicable `make test-e2e` gate. See [Security](SECURITY.md), [CLI reference](CLI.md), [Configuration](CONFIGURATION.md), and [Development](DEVELOPMENT.md).
+Focused tests cover option parsing, exactly one shell-command argument, shell syntax execution, one attempt, output truncation, cancellation, session registry validation and linked conversation checks. They do not prove security of every shell command or shell dialect, containment of detached processes, or native Windows runtime behavior. Run `make test`, `make test-race` and the applicable `make test-e2e` gate. See [Security](SECURITY.md), [CLI reference](CLI.md), [Configuration](CONFIGURATION.md), and [Development](DEVELOPMENT.md).

@@ -21,9 +21,12 @@ import (
 )
 
 const (
-	historyExportJSON   = "json"
-	historyExportJSONL  = "jsonl"
-	historyStatusFailed = "failed"
+	historyExportJSON                  = "json"
+	historyExportJSONL                 = "jsonl"
+	historyConversationStatusStarted   = "started"
+	historyConversationStatusCompleted = "completed"
+	historyConversationStatusCancelled = "cancelled"
+	historyStatusFailed                = "failed"
 )
 
 // historyOperations is the CLI boundary; the repository and search service supply it.
@@ -405,7 +408,7 @@ func validateHistorySearchFilters(req *service.SearchRequest) error {
 	if req.Type != "" && req.Type != queryUserRole && req.Type != queryAssistantRole && req.Type != "command" && req.Type != "explanation" {
 		return errors.New(locale.Text(locale.KeyCliTypeMustUserAssistantCommandExplanation))
 	}
-	if req.Status != "" && req.Status != "started" && req.Status != "completed" && req.Status != "cancelled" && req.Status != historyStatusFailed {
+	if req.Status != "" && req.Status != historyConversationStatusStarted && req.Status != historyConversationStatusCompleted && req.Status != historyConversationStatusCancelled && req.Status != historyStatusFailed {
 		return errors.New(locale.Text(locale.KeyCliInvalidStatus))
 	}
 	return nil

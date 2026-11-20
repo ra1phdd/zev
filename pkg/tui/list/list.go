@@ -8,11 +8,13 @@ import (
 	"io"
 	"os"
 	"strings"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/ra1phdd/zev/internal/core/locale"
+	"golang.org/x/term"
 )
 
 // SelectOptions configures the list title, required items, and optional warnings.
@@ -73,7 +75,7 @@ func selectContext(ctx context.Context, opts SelectOptions, programOpts ...tea.P
 		input = os.Stdin
 	}
 	options := make([]tea.ProgramOption, 0, len(programOpts)+2)
-	options = append(options, tea.WithContext(inputCtx), tea.WithInput(&cancelOnEOFReader{Reader: input}))
+	options = append(options, tea.WithContext(inputCtx), tea.WithInput(readerForProgram(input)))
 	if opts.Output != nil {
 		options = append(options, tea.WithOutput(opts.Output))
 	}
@@ -85,6 +87,9 @@ func selectContext(ctx context.Context, opts SelectOptions, programOpts ...tea.P
 		return nil, fmt.Errorf("selection canceled: %w", ctxErr)
 	}
 	if err != nil {
+		if errors.Is(err, syscall.EINTR) {
+			return nil, fmt.Errorf("selection canceled: %w", context.Canceled)
+		}
 		return nil, fmt.Errorf("run selection UI: %w", err)
 	}
 
@@ -97,6 +102,14 @@ func selectContext(ctx context.Context, opts SelectOptions, programOpts ...tea.P
 	}
 
 	return finalModel.selected, nil
+}
+
+func readerForProgram(input io.Reader) io.Reader {
+	file, ok := input.(*os.File)
+	if ok && term.IsTerminal(int(file.Fd())) {
+		return file
+	}
+	return &cancelOnEOFReader{Reader: input}
 }
 
 type cancelOnEOFReader struct {
@@ -292,7 +305,7 @@ func (m model) View() string {
 	start, end := m.visibleRange(width)
 	header := []string{}
 	if m.title != "" {
-		header = []string{m.title, ""}
+		header = strings.Split(m.title, "\n")
 	}
 	hint := strings.Split(m.navigationHint(width), "\n")
 	height := max(1, m.height)
@@ -351,7 +364,7 @@ func (m model) navigationHint(width int) string {
 func (m model) availableHeight(width int) int {
 	headerLines := 0
 	if m.title != "" {
-		headerLines = 2
+		headerLines = len(strings.Split(m.title, "\n"))
 	}
 	hintLines := strings.Count(m.navigationHint(width), "\n") + 1
 	return max(0, m.height-headerLines-hintLines)

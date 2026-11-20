@@ -30,7 +30,7 @@ const (
 )
 
 type runOptions struct {
-	command    []string
+	command    string
 	sessionID  string
 	proxy      string
 	logLimit   int
@@ -42,7 +42,7 @@ type runOptions struct {
 
 func newRunCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:                "run -- command [args...]",
+		Use:                "run [options] <command>",
 		Short:              locale.Text(locale.KeyCliRunShort),
 		Args:               cobra.ArbitraryArgs,
 		DisableFlagParsing: true,
@@ -50,12 +50,12 @@ func newRunCmd() *cobra.Command {
 			if isRunHelp(args) {
 				return writeRunHelp(cmd)
 			}
-			return runArgv(cmd, args, terminal.DefaultRunner())
+			return runCommand(cmd, args, terminal.DefaultRunner())
 		},
 	}
 }
 
-func runArgv(cmd *cobra.Command, args []string, runner terminal.Runner) error {
+func runCommand(cmd *cobra.Command, args []string, runner terminal.Runner) error {
 	if cmd.Context() == nil {
 		cmd.SetContext(context.Background())
 	}
@@ -63,11 +63,13 @@ func runArgv(cmd *cobra.Command, args []string, runner terminal.Runner) error {
 	if err != nil {
 		return err
 	}
+	restoreSessionLanguage := setRunSessionLanguage(cmd.Context(), opts.sessionID)
+	defer restoreSessionLanguage()
 	opts.recover = func(ctx context.Context, action string, commandErr error, output runOutput) error {
 		return runRecovery(ctx, cmd, opts, action, commandErr, output)
 	}
 	ctx := contextWithCommandProxy(cmd.Context(), opts.proxy)
-	return executeRunAttemptsWithInput(ctx, opts, runner, cmd.ErrOrStderr(), cmd.InOrStdin(), !opts.noInteract && interactiveRunInput(cmd))
+	return executeRunAttempts(ctx, opts, runner, cmd.ErrOrStderr(), !opts.noInteract && interactiveRunInput(cmd))
 }
 
 func injectedRunInvocation(command, sessionID string) (string, error) {
@@ -82,27 +84,14 @@ func injectedRunInvocation(command, sessionID string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve absolute zev executable path: %w", err)
 	}
-	shell, err := exec.LookPath(terminal.DefaultShell())
-	if err != nil {
-		return "", fmt.Errorf("resolve shell for run wrapper: %w", err)
-	}
-	shell, err = filepath.Abs(shell)
-	if err != nil {
-		return "", fmt.Errorf("resolve absolute shell path: %w", err)
-	}
-	switch filepath.Base(shell) {
-	case "sh", "bash", "dash", "zsh":
-	default:
-		return "", fmt.Errorf("shell %q is not supported for POSIX run wrapper quoting", filepath.Base(shell))
-	}
-	return buildInjectedRunInvocation(zevPath, shell, command, sessionID)
+	return buildInjectedRunInvocation(zevPath, command, sessionID)
 }
 
-func buildInjectedRunInvocation(zevPath, shell, command, sessionID string) (string, error) {
-	if !filepath.IsAbs(zevPath) || !filepath.IsAbs(shell) {
-		return "", errors.New("run wrapper requires absolute executable and shell paths")
+func buildInjectedRunInvocation(zevPath, command, sessionID string) (string, error) {
+	if !filepath.IsAbs(zevPath) {
+		return "", errors.New("run wrapper requires an absolute executable path")
 	}
-	if strings.ContainsRune(zevPath, 0) || strings.ContainsRune(shell, 0) || strings.ContainsRune(command, 0) {
+	if strings.ContainsRune(zevPath, 0) || strings.ContainsRune(command, 0) {
 		return "", errors.New("run wrapper arguments must not contain NUL")
 	}
 	if sessionID != "" {
@@ -114,26 +103,27 @@ func buildInjectedRunInvocation(zevPath, shell, command, sessionID string) (stri
 	if sessionID != "" {
 		invocation += " --session=" + shellQuote(sessionID)
 	}
-	return invocation + " -- " + shellQuote(shell) + " -c " + shellQuote(command), nil
+	return invocation + " " + shellQuote(command), nil
 }
 
-//nolint:gocognit // The standalone parser keeps all pre-separator validation in one fail-closed boundary.
+//nolint:gocognit // The standalone parser keeps all option validation in one fail-closed boundary.
 func parseRunArgs(args []string) (runOptions, error) {
 	opts := runOptions{onFailure: runFailureAsk, logLimit: 1 << 20}
-	separator := -1
+	commandIndex := -1
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--" {
-			separator = i
+			return runOptions{}, errors.New("run no longer accepts --; quote the shell command as one argument")
+		}
+		if !strings.HasPrefix(arg, "--") {
+			commandIndex = i
 			break
 		}
 		if arg == "--no-interactive" {
 			opts.noInteract = true
 			continue
 		}
-		if !strings.HasPrefix(arg, "--") {
-			return runOptions{}, fmt.Errorf("run option must precede --: %q", arg)
-		}
+
 		name, value, hasValue := strings.Cut(arg, "=")
 		switch name {
 		case cliProxyFlag:
@@ -180,16 +170,16 @@ func parseRunArgs(args []string) (runOptions, error) {
 			return runOptions{}, fmt.Errorf("unknown run option %q", name)
 		}
 	}
-	if separator < 0 {
-		return runOptions{}, errors.New("run requires -- before the executable")
+	if commandIndex < 0 {
+		return runOptions{}, errors.New("run requires one shell command")
 	}
-	if separator == len(args)-1 {
-		return runOptions{}, errors.New("run requires an executable after --")
+	if commandIndex != len(args)-1 {
+		return runOptions{}, errors.New("run accepts exactly one shell command")
 	}
-	opts.command = append([]string(nil), args[separator+1:]...)
-	if opts.command[0] == "" {
-		return runOptions{}, errors.New("run requires a non-empty executable")
+	if args[commandIndex] == "" {
+		return runOptions{}, errors.New("run requires a non-empty shell command")
 	}
+	opts.command = args[commandIndex]
 	return opts, nil
 }
 
@@ -227,10 +217,6 @@ func runAssessmentCertainty(known bool) security.Certainty {
 }
 
 func executeRunAttempts(ctx context.Context, opts runOptions, runner terminal.Runner, failureOut io.Writer, interactive bool) error {
-	return executeRunAttemptsWithInput(ctx, opts, runner, failureOut, os.Stdin, interactive)
-}
-
-func executeRunAttemptsWithInput(ctx context.Context, opts runOptions, runner terminal.Runner, failureOut io.Writer, input io.Reader, interactive bool) error {
 	attemptCtx := ctx
 	cancel := func() {}
 	if opts.timeout > 0 {
@@ -241,11 +227,16 @@ func executeRunAttemptsWithInput(ctx context.Context, opts runOptions, runner te
 	if commandErr == nil {
 		return nil
 	}
-	if err := writeRunFailureLog(failureOut, output); err != nil {
-		return errors.Join(commandErr, err)
+	if ctx.Err() != nil || isInterruptedProcess(commandErr) {
+		return context.Canceled
 	}
 	if !recoverableRunFailure(ctx, commandErr) {
-		if err := writeRunStatus(failureOut, "Recovery skipped because the process was interrupted or its outcome could not be confirmed."); err != nil {
+		if !interactive {
+			if err := writeRunFailureLog(failureOut, output); err != nil {
+				return errors.Join(commandErr, err)
+			}
+		}
+		if err := writeRunStatus(failureOut, locale.Text(locale.KeyCliRunRecoverySkipped)); err != nil {
 			return errors.Join(commandErr, err)
 		}
 		return commandErr
@@ -253,31 +244,98 @@ func executeRunAttemptsWithInput(ctx context.Context, opts runOptions, runner te
 	action := opts.onFailure
 	if opts.onFailure == runFailureAsk && interactive {
 		var err error
-		action, err = selectRunRecovery(ctx, input)
+		action, err = selectRunFailureAction(ctx, failureOut)
 		if err != nil {
+			return errors.Join(commandErr, err)
+		}
+	}
+	if !interactive {
+		if err := writeRunFailureLog(failureOut, output); err != nil {
 			return errors.Join(commandErr, err)
 		}
 	}
 	if err := runFailureRecovery(ctx, opts, action, commandErr, output, failureOut); err != nil {
 		return errors.Join(commandErr, err)
 	}
+	return runFailureOutcome(action, commandErr)
+}
+
+func runFailureOutcome(action string, commandErr error) error {
+	if action == runFailureFix {
+		return nil
+	}
 	return commandErr
 }
 
 func runFailureRecovery(ctx context.Context, opts runOptions, action string, commandErr error, output runOutput, failureOut io.Writer) error {
+	if action == runFailureNone {
+		return nil
+	}
 	if action != runFailureAnalyze && action != runFailureFix {
 		return nil
 	}
 	if opts.recover == nil {
-		return writeRunStatus(failureOut, "AI recovery is unavailable for this invocation.")
-	}
-	if err := writeRunStatus(failureOut, "Warning: captured command output will be sent to the configured provider and may contain secrets."); err != nil {
-		return err
+		return writeRunStatus(failureOut, locale.Text(locale.KeyCliRunRecoveryUnavailable))
 	}
 	if err := opts.recover(ctx, action, commandErr, output); err != nil {
-		if writeErr := writeRunStatus(failureOut, "AI recovery failed; the command result is unchanged."); writeErr != nil {
+		if writeErr := writeRunStatus(failureOut, locale.Text(locale.KeyCliRunRecoveryFailed)); writeErr != nil {
 			return errors.Join(err, writeErr)
 		}
+	}
+	return nil
+}
+
+func selectRunFailureAction(ctx context.Context, output io.Writer) (string, error) {
+	if err := writeRunRecoveryActionSeparator(output); err != nil {
+		return "", err
+	}
+	items := []list.Item{
+		list.NewSimpleItem(locale.Text(locale.KeyCliRunRecoveryFix), locale.Text(locale.KeyCliRunRecoveryFixDescription)),
+		list.NewSimpleItem(locale.Text(locale.KeyCliRunRecoveryAnalyze), locale.Text(locale.KeyCliRunRecoveryAnalyzeDescription)),
+		list.NewSimpleItem(locale.Text(locale.KeyCliRunRecoveryDoNothing), locale.Text(locale.KeyCliRunRecoveryDoNothingDescription)),
+	}
+	selected, err := list.SelectContext(ctx, list.SelectOptions{
+		Title:  runRecoveryActionTitle(),
+		Items:  items,
+		Output: output,
+	})
+	if err != nil {
+		return "", fmt.Errorf("select run recovery action: %w", err)
+	}
+	item, ok := selected.(list.SimpleItem)
+	if !ok {
+		return "", fmt.Errorf("unexpected recovery selection %T", selected)
+	}
+	switch item.Title() {
+	case locale.Text(locale.KeyCliRunRecoveryFix):
+		return runFailureFix, nil
+	case locale.Text(locale.KeyCliRunRecoveryAnalyze):
+		return runFailureAnalyze, nil
+	case locale.Text(locale.KeyCliRunRecoveryDoNothing):
+		return runFailureNone, nil
+	default:
+		return "", errors.New("unknown recovery selection")
+	}
+}
+
+func writeRunRecoveryActionSeparator(out io.Writer) error {
+	return writeBlankLine(out)
+}
+
+func runRecoveryActionTitle() string {
+	return locale.Text(locale.KeyCliRunRecoveryTitle)
+}
+
+func writeRunRecoveryProgress(out io.Writer) error {
+	if err := writeQueryOutput(out, "%s", locale.Text(locale.KeyQueryFetchingSuggestions)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeBlankLine(out io.Writer) error {
+	if _, err := fmt.Fprintln(out); err != nil {
+		return fmt.Errorf("write section separator: %w", err)
 	}
 	return nil
 }
@@ -289,46 +347,16 @@ func writeRunStatus(out io.Writer, status string) error {
 	return nil
 }
 
-type runRecoveryItem struct {
-	action string
-	title  string
-	detail string
-}
-
-func (i runRecoveryItem) Title() string       { return i.title }
-func (i runRecoveryItem) Description() string { return i.detail }
-func (i runRecoveryItem) IsWarning() bool     { return false }
-
-func selectRunRecovery(ctx context.Context, input io.Reader) (string, error) {
-	selected, err := list.SelectContext(ctx, list.SelectOptions{
-		Title: locale.Text(locale.KeyCliRunRecoveryTitle),
-		Input: input,
-		Items: []list.Item{
-			runRecoveryItem{action: runFailureNone, title: locale.Text(locale.KeyCliRunRecoveryDoNothing), detail: locale.Text(locale.KeyCliRunRecoveryDoNothingDescription)},
-			runRecoveryItem{action: runFailureAnalyze, title: locale.Text(locale.KeyCliRunRecoveryAnalyze), detail: locale.Text(locale.KeyCliRunRecoveryAnalyzeDescription)},
-			runRecoveryItem{action: runFailureFix, title: locale.Text(locale.KeyCliRunRecoveryFix), detail: locale.Text(locale.KeyCliRunRecoveryFixDescription)},
-		},
-	})
-	if err != nil {
-		return "", fmt.Errorf("select run recovery action: %w", err)
-	}
-	item, ok := selected.(runRecoveryItem)
-	if !ok {
-		return "", errors.New("invalid run recovery selection")
-	}
-	return item.action, nil
-}
-
 func interactiveRunInput(cmd *cobra.Command) bool {
 	file, ok := cmd.InOrStdin().(*os.File)
 	return ok && term.IsTerminal(int(file.Fd()))
 }
 
-func runOneAttempt(ctx context.Context, args []string, runner terminal.Runner, logLimit int) (runOutput, error) {
+func runOneAttempt(ctx context.Context, command string, runner terminal.Runner, logLimit int) (runOutput, error) {
 	stdoutCapture, stderrCapture := newRunOutputCapture(logLimit)
 	runner.Stdout = captureWriter(runner.Stdout, stdoutCapture)
 	runner.Stderr = captureWriter(runner.Stderr, stderrCapture)
-	if err := runner.RunArgv(ctx, args[0], args[1:]); err != nil {
+	if err := runner.RunShell(ctx, terminal.DefaultShell(), command); err != nil {
 		return snapshotRunOutput(stdoutCapture, stderrCapture), fmt.Errorf("run command: %w", err)
 	}
 	return snapshotRunOutput(stdoutCapture, stderrCapture), nil
@@ -379,7 +407,7 @@ func isRunHelp(args []string) bool {
 }
 
 func writeRunHelp(cmd *cobra.Command) error {
-	_, err := fmt.Fprintln(cmd.OutOrStdout(), `Usage: zev run [options] -- command [args...]
+	_, err := fmt.Fprintln(cmd.OutOrStdout(), `Usage: zev run [options] command
 
 Options:
   --on-failure=ask|none|analyze|fix
@@ -390,19 +418,11 @@ Options:
   --proxy=URL                   Route recovery requests through an HTTP(S) or SOCKS5 proxy
   --no-interactive             Disable recovery prompts
 
-Recovery sends captured output, which may contain secrets, to the configured provider. Suggestions are never executed automatically. Arguments after -- are passed literally; no shell parsing is performed.`)
+The command is executed by the configured shell. Quote the entire command as one argument. Recovery sends captured output, which may contain secrets, to the configured provider. Suggestions are never executed automatically.`)
 	if err != nil {
 		return fmt.Errorf("write run help: %w", err)
 	}
 	return nil
-}
-
-func makeAssessmentArgv(args []string) string {
-	quoted := make([]string, len(args))
-	for i, arg := range args {
-		quoted[i] = shellQuote(arg)
-	}
-	return strings.Join(quoted, " ")
 }
 
 func shellQuote(value string) string {

@@ -3,6 +3,7 @@ package locale
 import (
 	"strings"
 	"sync/atomic"
+	"unicode"
 
 	"github.com/abadojack/whatlanggo"
 )
@@ -17,9 +18,10 @@ var selectedLanguage atomic.Pointer[languageSelection]
 // SetLanguage selects the process-wide UI language for one CLI command and returns
 // a function restoring the previous selection. configured accepts auto (or empty),
 // ru, or en; other values behave as auto and must be rejected by config validation.
-// Auto detects a nonempty request locally, mapping Russian to ru and all other
-// results to en. Detection inspects at most the first 4096 runes and is statistical:
-// short or similar-language texts can be misclassified. An empty request uses the
+// Auto detects a nonempty request locally, mapping Russian and otherwise
+// unambiguous Cyrillic technical requests to ru; Bulgarian, Ukrainian, and
+// non-Cyrillic results use en. Detection inspects at most the first 4096 runes
+// and is statistical: short or similar-language texts can be misclassified. An empty request uses the
 // system locale. An explicit configured ru/en takes precedence. No environment
 // variables are changed.
 // Commands with independent locales must not run concurrently in the same process;
@@ -74,7 +76,15 @@ func detectRequestLanguage(request string) string {
 			return "ru"
 		}
 	}
-	if whatlanggo.DetectLang(request) == whatlanggo.Rus {
+	info := whatlanggo.Detect(request)
+	if info.Lang == whatlanggo.Rus {
+		return "ru"
+	}
+	// Very short Cyrillic requests can be assigned to an unrelated profile
+	// (for example, "пинг гугла" can look Azerbaijani). Keep the supported
+	// Russian UI useful for those requests, while preserving the explicit
+	// Bulgarian, Macedonian, Serbian, Belarusian, and Ukrainian fallback languages.
+	if info.Script == unicode.Cyrillic && info.Lang != whatlanggo.Bul && info.Lang != whatlanggo.Ukr && info.Lang != whatlanggo.Srp && info.Lang != whatlanggo.Bel && info.Lang != whatlanggo.Mkd {
 		return "ru"
 	}
 	return "en"

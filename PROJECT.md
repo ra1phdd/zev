@@ -358,7 +358,7 @@ GoReleaser уже использует `-s -w` и `-trimpath`.
 - [Конфигурация](docs/ru/CONFIGURATION.md) — параметры и файлы данных.
 - [Безопасность](docs/ru/SECURITY.md) — реализованное поведение policy, tools, web fetch и приватности.
 - [Алиасы и скрипты](docs/ru/ALIASES-SCRIPTS.md) — текущий формат, валидация, публикация и выполнение.
-- [Обёртка `zev run`](docs/ru/RUN-WRAPPER.md) — literal argv, recovery и границы процесса.
+- [Обёртка `zev run`](docs/ru/RUN-WRAPPER.md) — shell-команды, recovery и границы процесса.
 - [История](docs/ru/HISTORY.md) — постоянное хранилище, миграция, поиск и semantic opt-in.
 - [Архитектура](docs/ru/ARCHITECTURE.md) — пакеты и порт провайдера.
 - [Разработка](docs/ru/DEVELOPMENT.md) и [участие](CONTRIBUTING.ru.md) — команды и правила.

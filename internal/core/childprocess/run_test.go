@@ -106,7 +106,7 @@ func runParentHelper(t *testing.T) {
 	if err := child.Start(); err != nil {
 		t.Fatalf("start helper child: %v", err)
 	}
-	if err := publishReady(readyPath, []byte(fmt.Sprintf("parent=%d\nchild=%d\n", os.Getpid(), child.Process.Pid))); err != nil {
+	if err := publishReady(readyPath, fmt.Appendf(nil, "parent=%d\nchild=%d\n", os.Getpid(), child.Process.Pid)); err != nil {
 		if killErr := child.Process.Kill(); killErr != nil {
 			t.Logf("kill helper child: %v", killErr)
 		}

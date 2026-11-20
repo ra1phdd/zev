@@ -65,10 +65,12 @@ func newSourceKeys() map[string]Key {
 			if source == "" {
 				continue
 			}
-			if previous, exists := keys[source]; exists && previous != Key(id) {
-				panic("duplicate English localization value: " + source)
+			// Multiple stable keys may intentionally share one English rendering
+			// (for example, the generic and tool approval hints). Reverse lookup
+			// only needs one canonical key for that source value.
+			if _, exists := keys[source]; !exists {
+				keys[source] = Key(id)
 			}
-			keys[source] = Key(id)
 		}
 	}
 	return keys

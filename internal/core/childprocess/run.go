@@ -34,11 +34,31 @@ type processControl struct {
 	started    func() error
 	waitExited func() error
 	kill       func() error
+	restore    func() error
 	close      func() error
 }
 
 func runPrepared(ctx context.Context, cmd *exec.Cmd, control processControl) (err error) {
-	defer func() { err = errors.Join(err, control.close()) }()
+	restored := false
+	restoreControl := func() error {
+		if restored || control.restore == nil {
+			return nil
+		}
+		restored = true
+		return control.restore()
+	}
+	closed := false
+	closeControl := func() error {
+		if control.close == nil {
+			return nil
+		}
+		if !closed {
+			closed = true
+			return control.close()
+		}
+		return nil
+	}
+	defer func() { err = errors.Join(err, restoreControl(), closeControl()) }()
 	commandCanceled := make(chan struct{}, 1)
 	// CommandContext must not kill the leader before group cleanup. Its watcher
 	// only requests cancellation; this goroutine alone signals and then reaps.
@@ -77,11 +97,16 @@ func runPrepared(ctx context.Context, cmd *exec.Cmd, control processControl) (er
 	case <-ctx.Done():
 	case <-commandCanceled:
 	}
+	// Restore terminal/job ownership before reaping the leader. On Unix the
+	// unreaped process group still pins the terminal relationship needed by
+	// TIOCSPGRP; waiting first can leave the caller unable to enter its next UI.
 	// Exit observation does not reap: the leader's identity pins its PGID until
 	// the final group signal. No numeric PID/PGID signal occurs after cmd.Wait.
+	restoreErr := restoreControl()
 	killErr := control.kill()
 	if !observed {
 		observeErr = <-exited
 	}
-	return errors.Join(ctx.Err(), observeErr, killErr, cmd.Wait())
+	closeErr := closeControl()
+	return errors.Join(ctx.Err(), observeErr, restoreErr, killErr, closeErr, cmd.Wait())
 }

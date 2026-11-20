@@ -134,7 +134,7 @@ func directoryIdentity(path string) (string, error) {
 func digestBytes(value any) string {
 	encoded, err := json.Marshal(value)
 	if err != nil {
-		return digest([]byte(fmt.Sprintf("%T", value)))
+		return digest(fmt.Appendf(nil, "%T", value))
 	}
 	return digest(encoded)
 }

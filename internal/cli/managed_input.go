@@ -48,7 +48,7 @@ func (m managedInput) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m managedInput) View() string {
-	return m.title + "\n" + m.input.View() + "\n" + locale.Text(locale.KeyUIConfirmHint) + "\n"
+	return "\n" + m.title + "\n" + m.input.View() + "\n\n" + locale.Text(locale.KeyUIConfirmHint) + "\n"
 }
 
 func readManagedTTY(cmd *cobra.Command, title, current string) (string, error) {

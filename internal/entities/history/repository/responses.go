@@ -365,7 +365,7 @@ func (s *Store) ListConversations(ctx context.Context, in service.ListRequest) (
 		cursor = "9999-12-31T23:59:59.999999999Z"
 		in.BeforeID = "~"
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT c.id,c.created_at,c.updated_at,c.status,c.kind,c.provider,c.model,COALESCE(c.selected_command_id,''),COALESCE(c.metadata_json,''),COALESCE((SELECT m.content FROM messages m WHERE m.conversation_id=c.id AND m.role='user' AND m.kind='initial_prompt' ORDER BY m.sequence LIMIT 1),'') FROM conversations c WHERE c.created_at < ? OR (c.created_at = ? AND c.id < ?) ORDER BY c.created_at DESC,c.id DESC LIMIT ?`, cursor, cursor, in.BeforeID, in.Limit)
+	rows, err := s.db.QueryContext(ctx, `SELECT c.id,c.created_at,c.updated_at,c.status,c.kind,c.provider,c.model,COALESCE(c.selected_command_id,''),COALESCE((SELECT command FROM commands WHERE id=c.selected_command_id),''),COALESCE(c.metadata_json,''),COALESCE((SELECT m.content FROM messages m WHERE m.conversation_id=c.id AND m.role='user' AND m.kind='initial_prompt' ORDER BY m.sequence LIMIT 1),'') FROM conversations c WHERE c.created_at < ? OR (c.created_at = ? AND c.id < ?) ORDER BY c.created_at DESC,c.id DESC LIMIT ?`, cursor, cursor, in.BeforeID, in.Limit)
 	if err != nil {
 		return nil, historyError(err)
 	}
@@ -374,7 +374,7 @@ func (s *Store) ListConversations(ctx context.Context, in service.ListRequest) (
 	for rows.Next() {
 		var c service.Conversation
 		var created, updated string
-		if err = rows.Scan(&c.ID, &created, &updated, &c.Status, &c.Kind, &c.Provider, &c.Model, &c.SelectedCommandID, &c.MetadataJSON, &c.InitialPrompt); err != nil {
+		if err = rows.Scan(&c.ID, &created, &updated, &c.Status, &c.Kind, &c.Provider, &c.Model, &c.SelectedCommandID, &c.SelectedCommand, &c.MetadataJSON, &c.InitialPrompt); err != nil {
 			return nil, historyError(err)
 		}
 		c.CreatedAt, err = time.Parse(time.RFC3339Nano, created)

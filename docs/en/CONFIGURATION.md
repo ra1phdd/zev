@@ -169,8 +169,7 @@ applies local policy; `bypass` skips confirmation for otherwise valid `execute` 
 while matching deny rules and technical checks still apply. `inject` is warning-only and
 is not denied by command permission rules because execution is handed to the user's shell.
 This setting does not select or rewrite the separate model-tool approval mode, is never
-enabled by model output or a repository file, and does not provide a sandbox. `zev run` is
-an independently invoked literal-argv wrapper and does not use query `execute` confirmation.
+enabled by model output or a repository file, and does not provide a sandbox. `zev run` is an independently invoked shell-command wrapper and does not use query `execute` confirmation.
 `zev doctor` reports the selected mode.
 
 `security.web_fetch_enabled: true` separately enables the model's bounded `web_fetch`
@@ -198,11 +197,11 @@ The persisted `~/.zev/config.yaml` must be a regular file owned by the current u
 with no group or other permission bits. Zev rejects symlinks, hard-linked files,
 special files, and group/world-readable or writable configuration before parsing it.
 
-`command_wrapper_enabled: true` wraps generated `inject` commands with `zev run --` so
+`command_wrapper_enabled: true` wraps generated `inject` commands with `zev run '<command>'` so
 the user can inspect a bounded failure log and request analysis or correction suggestions.
 Set it to `false` to inject the original command without the wrapper. This setting affects
-only generated injection, not explicit `zev run` calls. `zev run -- <command> [args...]`
-passes literal argv without joining it into shell text and does not use the query `execute`
+only generated injection, not explicit `zev run` calls. `zev run '<command>'` passes one shell
+program to the configured shell and does not use the query `execute`
 authorization path. On failure, `--on-failure=analyze|fix` sends a bounded diagnostic bundle
 to the configured provider only after that action is selected and Zev warns that it may
 contain secrets; injected commands continue their linked conversation, while direct runs

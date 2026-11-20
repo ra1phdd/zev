@@ -11,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"golang.org/x/term"
 
 	"github.com/ra1phdd/zev/internal/core/locale"
 )
@@ -41,7 +42,7 @@ func SecretInputContextWithIO(ctx context.Context, promptText string, input io.R
 	if input == nil {
 		input = os.Stdin
 	}
-	opts := []tea.ProgramOption{tea.WithInput(&cancelOnEOFReader{Reader: input})}
+	opts := []tea.ProgramOption{tea.WithInput(readerForProgram(input))}
 	if output != nil {
 		opts = append(opts, tea.WithOutput(output))
 	}
@@ -78,7 +79,15 @@ func runInputContextWithInput(ctx context.Context, m inputModel, input io.Reader
 	if input == nil {
 		input = os.Stdin
 	}
-	return runInputProgram(ctx, m, tea.WithInput(&cancelOnEOFReader{Reader: input}))
+	return runInputProgram(ctx, m, tea.WithInput(readerForProgram(input)))
+}
+
+func readerForProgram(input io.Reader) io.Reader {
+	file, ok := input.(*os.File)
+	if ok && term.IsTerminal(int(file.Fd())) {
+		return file
+	}
+	return &cancelOnEOFReader{Reader: input}
 }
 
 func runInputProgram(ctx context.Context, m inputModel, opts ...tea.ProgramOption) (string, error) {
@@ -180,7 +189,7 @@ func (m inputModel) View() string {
 
 	wrappedPrompt := wrapText(m.prompt, maxWidth)
 
-	return fmt.Sprintf("%s\n\n%s\n\n%s",
+	return fmt.Sprintf("\n%s\n%s\n\n%s",
 		wrappedPrompt,
 		m.textInput.View(),
 		locale.Text(locale.KeyUIConfirmHint),

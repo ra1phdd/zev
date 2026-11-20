@@ -69,6 +69,20 @@ func TestApprovalModelUsesYNUILanguage(t *testing.T) {
 	}
 }
 
+func TestApprovalModelCancelsOnCtrlC(t *testing.T) {
+	t.Parallel()
+
+	model := approvalModel{prompt: approvalTestPrompt}
+	updated, cmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	got, ok := updated.(approvalModel)
+	if !ok {
+		t.Fatalf("unexpected model type %T", updated)
+	}
+	if !got.cancelled || got.approved || got.denied || cmd == nil {
+		t.Fatalf("Ctrl+C did not cancel approval: %+v, cmd=%v", got, cmd)
+	}
+}
+
 func TestConfirmContextAcceptsYAndN(t *testing.T) {
 	t.Parallel()
 

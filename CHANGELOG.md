@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Make `zev run '<command>'` execute shell text through the configured shell and use this form for generated command wrappers.
 - Render `zev history` and `zev history show` conversation views as readable text instead of exposing persistence JSON; make `zev history --json` non-interactive with summary-array output and keep explicit `history show --json` for full machine-readable conversations.
 - Bound interactive history pages with older-page navigation, sanitize human-readable history output, show model-list failures before manual fallback, document list controls, and use y/n plus Enter/Esc for interactive approval.
 - Make interactive text prompts and setup/doctor flows honor injected standard streams and cancel cleanly on EOF; localize run recovery choices, preserve ANSI styling while truncating lists, and document alphanumeric run sessions plus the `-cf` continuation alias.
+- Treat Ctrl+C cancellation as a successful silent exit at the CLI boundary and keep approval prompts on y/Enter, n, and Esc without mentioning Ctrl+C in the prompt text.
+- Unify interactive TUI spacing: progress messages end at the current line, list and input titles receive one leading separator, and prompts no longer add a redundant blank line after their title.
+- Localize recovery/status output and partial-injection warnings through the same catalog keys as the interactive prompts; keep machine-readable history statuses unchanged.
+- Keep history selectors focused on the request and status; show all stored command alternatives only after opening a history entry and mark the selected alternative with `>`.
+- Treat PTY foreground-group cleanup errors caused by a disappearing terminal as cleanup conditions rather than false command failures; retry interrupted foreground-group restoration.
+- Bound best-effort PTY foreground-group cleanup so a completed command cannot keep `zev run` open when terminal ownership teardown blocks.
+- Start interactive recovery without duplicating the command's already-forwarded failure output, localize the recovery menu from its linked query session, and order actions as fix, analyze, then do nothing.
+- Keep recovery section separators in one tested output path so the action menu and provider progress retain their required blank lines.
+- Remove the recovery disclosure banner, request optional fix clarification before provider progress, and fail recovery when a selected correction is not actually injected into the terminal.
 - Allow exact dangerous-command classification overrides in security YAML; persist an exact command in `security.denied_commands` when an interactive `execute` confirmation is denied, and enforce that denial even in bypass mode.
 - Suppress startup stable-release update notices for unversioned `dev` builds, and allow the bounded updater to follow GitHub source-archive redirects to `codeload.github.com`.
 - Add bilingual implementation guides for centralized security, managed aliases/scripts, and the literal `zev run` wrapper; replace README links to deleted specification documents.
@@ -35,9 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deny-over-ask-over-allow priority, explicit effect coverage, and no sandbox claim; default
   child-process execution filters ambient environment variables, project context travels as
   an untrusted user-data envelope, and fetched URL diagnostics disclose only the public origin.
-- Add a literal `zev run -- <command> [args...]` wrapper for inject, with direct argv
-  forwarding, stream proxying, bounded failure logs, and provider-backed analysis
-  or correction suggestions that never execute automatically.
+- Make the shell-command `zev run '<command>'` wrapper available for inject, with shell execution, stream proxying, bounded failure logs, and provider-backed analysis or correction suggestions that never execute automatically.
 - Reject configuration files that are not private, regular files owned by the current
   user, and block automatic model-tool follow-ups after suspicious or incomplete output.
 - Add opt-in bounded `web_fetch` model capability with public-destination validation,

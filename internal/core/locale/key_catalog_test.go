@@ -18,7 +18,7 @@ func TestNamedMessageKeysHaveEnglishAndRussianCatalogEntries(t *testing.T) {
 	t.Parallel()
 
 	wantEnglish := map[Key]string{
-		KeyUIConfirmHint:              "(y/Enter: confirm, n: decline, Esc/Ctrl+C: cancel)",
+		KeyUIConfirmHint:              "(y/Enter: confirm, n/Esc: cancel)",
 		KeyUIMultilineHint:            "(Enter: newline, Ctrl+D: submit or skip, Esc/Ctrl+C: cancel; 64 KiB / 10000 lines maximum)",
 		KeyUIListNavigationHint:       "(↑/↓ select, Enter confirm, Esc cancel)",
 		KeyCliHistoryCommandDelivery:  "     Outcome: %s\n",
@@ -43,7 +43,7 @@ func TestNamedMessageKeysHaveEnglishAndRussianCatalogEntries(t *testing.T) {
 		KeyUISetupOllamaBaseURL:       "Enter Ollama base URL",
 		KeyUISetupAPIKey:              "Enter your %s API key",
 		KeyUISetupCurrentAPIKey:       " (current: %s, press Enter to keep)",
-		KeyToolsApprovalPrompt:        "Approve with y or Enter; decline with n; Esc cancels.",
+		KeyToolsApprovalPrompt:        "(y/Enter: confirm, n/Esc: cancel)",
 	}
 	catalogs := loadTestCatalogs(t)
 	for key, want := range wantEnglish {

@@ -144,7 +144,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_command_entry"]
-other = "  %d. %s\n     %s\n"
+other = "%s%d. %s\n     %s\n"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1149,12 +1149,12 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.query_history"]
-other = "📜 Query History"
+other = "Query History"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_short"]
-other = "Execute a literal argv and proxy its standard streams"
+other = "Execute a shell command through the configured shell and proxy its standard streams"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1189,6 +1189,66 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_recovery_fix_description"]
-other = "Ask the provider for corrected command suggestions; nothing runs automatically."
+other = "Ask the provider for corrected command suggestions."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_clarification"]
+other = "Optional details for the correction (Enter to continue without details)"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_analysis_title"]
+other = "Command failure analysis (suggestions are not executed):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_correction_title"]
+other = "Suggested correction (not executed):"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_warning"]
+other = "   Warning: %s\n"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_unavailable"]
+other = "AI recovery is unavailable for this invocation."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_failed"]
+other = "AI recovery failed; the command result is unchanged."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.run_recovery_skipped"]
+other = "Recovery skipped because the process was interrupted or its outcome could not be confirmed."
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_status_started"]
+other = "started"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_status_completed"]
+other = "completed"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_status_cancelled"]
+other = "cancelled"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_status_failed"]
+other = "failed"
+leftDelim = "[[["
+rightDelim = "]]]"
+
+["cli.history_status_unknown"]
+other = "unknown"
 leftDelim = "[[["
 rightDelim = "]]]"

@@ -20,8 +20,8 @@ type ApprovalOptions struct {
 	Input  io.Reader
 }
 
-// ConfirmContext accepts y or Enter as approval and n as denial. Esc and Ctrl+C
-// cancel the prompt. All UI output goes to Output.
+// ConfirmContext accepts y or Enter as approval, n or Esc as cancellation, and
+// Ctrl+C as a terminal cancellation. All UI output goes to Output.
 func ConfirmContext(ctx context.Context, options ApprovalOptions) (bool, error) {
 	return confirmContext(ctx, options)
 }
@@ -41,7 +41,7 @@ func confirmContext(ctx context.Context, options ApprovalOptions, programOpts ..
 		input = os.Stdin
 	}
 	opts := make([]tea.ProgramOption, 0, len(programOpts)+3)
-	opts = append(opts, tea.WithContext(inputCtx), tea.WithOutput(options.Output), tea.WithInput(&cancelOnEOFReader{Reader: input}))
+	opts = append(opts, tea.WithContext(inputCtx), tea.WithOutput(options.Output), tea.WithInput(readerForProgram(input)))
 	opts = append(opts, programOpts...)
 	result, err := tea.NewProgram(m, opts...).Run()
 	if ctxErr := ctx.Err(); ctxErr != nil {
@@ -122,5 +122,5 @@ func (m approvalModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m approvalModel) View() string {
-	return fmt.Sprintf("%s\n%s", m.prompt, locale.Text(locale.KeyToolsApprovalPrompt))
+	return fmt.Sprintf("\n%s\n%s", m.prompt, locale.Text(locale.KeyToolsApprovalPrompt))
 }

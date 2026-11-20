@@ -46,7 +46,7 @@ func TestQueryRunRecoveryUsesCapturedContextAndDisplaysInertSuggestions(t *testi
 		var output strings.Builder
 		cmd := &cobra.Command{}
 		cmd.SetErr(&output)
-		if err := queryRunRecovery(t.Context(), cmd, cfg, messages, action); err != nil {
+		if err := queryRunRecovery(t.Context(), cmd, cfg, runOptions{}, messages, action); err != nil {
 			t.Fatalf("queryRunRecovery(%s): %v", action, err)
 		}
 		if !strings.Contains(output.String(), "printf fixed") || !strings.Contains(output.String(), "not executed") {
@@ -74,5 +74,16 @@ func TestQueryRunRecoveryUsesCapturedContextAndDisplaysInertSuggestions(t *testi
 		if !strings.Contains(output.String(), wantTitle) {
 			t.Errorf("%s output missing title %q: %q", action, wantTitle, output.String())
 		}
+	}
+}
+
+func TestRunRecoveryInstructionIncludesOptionalClarification(t *testing.T) {
+	t.Parallel()
+	instruction := runRecoveryInstruction(runFailureFix, "use the package manager available in the image")
+	if !strings.Contains(instruction, "use the package manager available in the image") {
+		t.Fatalf("instruction = %q, want clarification", instruction)
+	}
+	if strings.Contains(runRecoveryInstruction(runFailureFix, ""), "User clarification:") {
+		t.Fatal("empty clarification was sent to the provider")
 	}
 }
