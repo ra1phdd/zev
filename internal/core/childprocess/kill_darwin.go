@@ -26,6 +26,12 @@ func classifyGroupSignal(pid int, signalErr error, members []unix.KinfoProc, que
 	if queryErr != nil {
 		return errors.Join(signalErr, fmt.Errorf("inspect owned process group: %w", queryErr))
 	}
+	// XNU can report an empty group after the leader exits and before the
+	// process-group membership snapshot catches up. There is nothing left to
+	// signal in that case, so the original EPERM is no longer actionable.
+	if len(members) == 0 {
+		return nil
+	}
 	// XNU killpg1 excludes SZOMB from its iteration and returns EPERM when no
 	// signalable members remain. Suppress only a confirmed zombie-only group
 	// containing our unreaped leader; a permission error on a live group is real.

@@ -4,6 +4,7 @@ package childprocess
 
 import (
 	"errors"
+	"os/exec"
 	"syscall"
 	"testing"
 
@@ -23,7 +24,7 @@ func TestDarwinGroupSignalPreservesPermissionErrors(t *testing.T) {
 	}{
 		{"zombie leader only", []unix.KinfoProc{leader}, nil, false},
 		{"live descendant", []unix.KinfoProc{leader, live}, nil, true},
-		{"empty observation", nil, nil, true},
+		{"empty group", nil, nil, false},
 		{"missing leader", []unix.KinfoProc{{Proc: unix.ExternProc{P_pid: 43, P_stat: 5}}}, nil, true},
 		{"failed observation", []unix.KinfoProc{leader}, queryErr, true},
 	} {
@@ -37,5 +38,28 @@ func TestDarwinGroupSignalPreservesPermissionErrors(t *testing.T) {
 				t.Errorf("classifyGroupSignal() lost observation error: %v", err)
 			}
 		})
+	}
+}
+
+func TestDarwinKillProcessAllowsAnExitedLeaderWithAnEmptyGroup(t *testing.T) {
+	t.Parallel()
+	cmd := exec.CommandContext(t.Context(), "true")
+	if _, err := prepareCommand(cmd); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if err := waitForExit(cmd.Process.Pid); err != nil {
+		t.Fatal(err)
+	}
+	if err := killProcess(cmd); err != nil {
+		if waitErr := cmd.Wait(); waitErr != nil {
+			t.Errorf("reap exited leader: %v", waitErr)
+		}
+		t.Fatalf("killProcess() = %v, want no error for an already exited leader", err)
+	}
+	if err := cmd.Wait(); err != nil {
+		t.Fatal(err)
 	}
 }
