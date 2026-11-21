@@ -1,30 +1,30 @@
 ["query.no_commands_found_query"]
-other = "\n⚠️  Для запроса не найдено команд.\n"
+other = "⚠️  Для запроса не найдено команд."
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.ai_did_not_provide_response_please_try"]
-other = "\n⚠️  Модель не вернула ответ. Попробуйте переформулировать запрос.\n"
+other = "⚠️  Модель не вернула ответ. Попробуйте переформулировать запрос."
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.ai_did_not_provide_response_might_happen"]
-other = "\n⚠️  Модель не вернула ответ. Возможно, запрос требует уточнения.\n\n"
+other = "⚠️  Модель не вернула ответ. Возможно, запрос требует уточнения."
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.unable_process_request_message"]
-other = "\n⚠️  Не удалось обработать запрос:\n%s\n"
+other = "⚠️  Не удалось обработать запрос:\n%s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.warning_message"]
-other = "\n⚠️  ВНИМАНИЕ: %s\n"
+other = "⚠️  ВНИМАНИЕ: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.selected_command_message"]
-other = "\n✓ Выбранная команда:\n\n  %s\n\n"
+other = "✓ Выбранная команда:\n\n  %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -34,7 +34,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.attach_context_files_comma_separated_paths_press"]
-other = "Прикрепите файлы контекста через запятую или нажмите Enter для пропуска:"
+other = "Прикрепите файлы контекста через запятую или нажмите Enter для пропуска"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -59,7 +59,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.describe_continue_press_enter_skip"]
-other = "Опишите, как продолжить, или нажмите Enter для пропуска:"
+other = "Опишите, как продолжить, или нажмите Enter для пропуска"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -74,7 +74,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.error_message"]
-other = "Ошибка: %v\n"
+other = "Ошибка: %v"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -84,12 +84,12 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.fetching_suggestions"]
-other = "Получение вариантов команд...\n"
+other = "Получение вариантов команд..."
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.command_failed_fetching_suggestions"]
-other = "Команда завершилась с ошибкой. Получение новых вариантов команд...\n"
+other = "Команда завершилась с ошибкой. Получение новых вариантов команд..."
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -114,7 +114,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.no_commands_found_query_2"]
-other = "Для запроса не найдено команд.\n"
+other = "Для запроса не найдено команд."
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -129,12 +129,12 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.paste_command_log_enter_newline_ctrl_d"]
-other = "Вставьте лог команды (Enter — новая строка, Ctrl+D — продолжить или пропустить):"
+other = "Вставьте лог команды (Enter — новая строка, Ctrl+D — продолжить или пропустить)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.please_clarify_request"]
-other = "Уточните запрос:"
+other = "Уточните запрос"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -149,7 +149,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.select_command_run"]
-other = "Выберите команду для запуска:"
+other = "Выберите команду для запуска"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -159,17 +159,17 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.specify_request"]
-other = "Уточните задачу:"
+other = "Уточните задачу"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.request_cannot_empty"]
-other = "Запрос не может быть пустым.\n"
+other = "Запрос не может быть пустым."
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.warning_failed_save_history_message"]
-other = "Предупреждение: не удалось сохранить историю: %v\n"
+other = "Предупреждение: не удалось сохранить историю: %v"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -254,12 +254,12 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.zev_version_message"]
-other = "zev версия %s\n"
+other = "zev версия %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.warning_s_2"]
-other = "⚠️  ВНИМАНИЕ: %s\n\n"
+other = "⚠️  ВНИМАНИЕ: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -269,42 +269,42 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.usage"]
-other = "Использование:"
+other = "Использование"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.aliases"]
-other = "Алиасы:"
+other = "Алиасы"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.examples"]
-other = "Примеры:"
+other = "Примеры"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.available_commands"]
-other = "Доступные команды:"
+other = "Доступные команды"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.additional_commands"]
-other = "Дополнительные команды:"
+other = "Дополнительные команды"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.flags"]
-other = "Флаги:"
+other = "Флаги"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.global_flags"]
-other = "Глобальные флаги:"
+other = "Глобальные флаги"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["query.additional_help_topics"]
-other = "Дополнительные разделы помощи:"
+other = "Дополнительные разделы помощи"
 leftDelim = "[[["
 rightDelim = "]]]"
 

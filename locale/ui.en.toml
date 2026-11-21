@@ -14,17 +14,17 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["ui.setup.current_default"]
-other = "%s (current: %s, press Enter to keep or type 'default' for %s):"
+other = "%s (current: %s, press Enter to keep or type 'default' for %s)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["ui.setup.current"]
-other = "%s (current: %s, press Enter to keep):"
+other = "%s (current: %s, press Enter to keep)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["ui.setup.default"]
-other = "%s (default: %s):"
+other = "%s (default: %s)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -34,7 +34,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["ui.setup.saved"]
-other = "\n✓ Configuration saved successfully!"
+other = "✓ Configuration saved successfully!"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -74,6 +74,6 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["ui.setup.current_api_key"]
-other = " (current: %s, press Enter to keep)"
+other = "(current: %s, press Enter to keep)"
 leftDelim = "[[["
 rightDelim = "]]]"

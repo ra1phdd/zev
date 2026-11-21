@@ -99,7 +99,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["managed.field_prompt"]
-other = "%s [%s]: "
+other = "%s [%s]"
 leftDelim = "[[["
 rightDelim = "]]]"
 

@@ -68,8 +68,9 @@ func newSourceKeys() map[string]Key {
 			// Multiple stable keys may intentionally share one English rendering
 			// (for example, the generic and tool approval hints). Reverse lookup
 			// only needs one canonical key for that source value.
-			if _, exists := keys[source]; !exists {
-				keys[source] = Key(id)
+			normalized := normalizeCatalogSource(source)
+			if _, exists := keys[normalized]; !exists {
+				keys[normalized] = Key(id)
 			}
 		}
 	}
@@ -118,13 +119,13 @@ func Text(key Key) string {
 	if err != nil || value == "" {
 		return string(key)
 	}
-	return value
+	return applyCatalogLayout(key, value)
 }
 
 // TextSource translates a dynamic English catalog value at a localization boundary.
 // Unknown dynamic values remain unchanged instead of becoming catalog IDs.
 func TextSource(source string) string {
-	key, ok := sourceKeys[source]
+	key, ok := sourceKeys[normalizeCatalogSource(source)]
 	if !ok {
 		return source
 	}

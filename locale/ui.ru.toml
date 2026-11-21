@@ -14,17 +14,17 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["ui.setup.current_default"]
-other = "%s (текущее: %s, нажмите Enter, чтобы сохранить, или введите 'default' для %s):"
+other = "%s (текущее: %s, нажмите Enter, чтобы сохранить, или введите 'default' для %s)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["ui.setup.current"]
-other = "%s (текущее: %s, нажмите Enter, чтобы сохранить):"
+other = "%s (текущее: %s, нажмите Enter, чтобы сохранить)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["ui.setup.default"]
-other = "%s (по умолчанию: %s):"
+other = "%s (по умолчанию: %s)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -34,7 +34,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["ui.setup.saved"]
-other = "\n✓ Настройки успешно сохранены!"
+other = "✓ Настройки успешно сохранены!"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -74,6 +74,6 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["ui.setup.current_api_key"]
-other = " (текущее: %s, нажмите Enter, чтобы сохранить)"
+other = "(текущее: %s, нажмите Enter, чтобы сохранить)"
 leftDelim = "[[["
 rightDelim = "]]]"

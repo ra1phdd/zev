@@ -1,35 +1,35 @@
 ["cli.no_headers_entered_configuration_unchanged"]
-other = "\n⚠️  Заголовки не введены. Настройки не изменены."
+other = "⚠️  Заголовки не введены. Настройки не изменены."
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.http_headers_updated_successfully"]
-other = "\n✅ HTTP-заголовки обновлены!"
+other = "✅ HTTP-заголовки обновлены!"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.enter_headers_one_per_line_format_header"]
-other = "\n✏️  Вводите заголовки по одному в строке в формате 'Header-Name:Header-Value'\n   Нажмите Enter на пустой строке для завершения\n   Типичные заголовки:\n     User-Agent:zev/1.0\n     X-Custom-Header:custom-value\n     Authorization:Bearer ***\n\n"
+other = "✏️  Вводите заголовки по одному в строке в формате 'Header-Name:Header-Value'\n   Нажмите Enter на пустой строке для завершения\n   Типичные заголовки:\n     User-Agent:zev/1.0\n     X-Custom-Header:custom-value\n     Authorization:Bearer ***"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.current_http_headers"]
-other = "\n📋 Текущие HTTP-заголовки:"
+other = "📋 Текущие HTTP-заголовки"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.new_headers"]
-other = "\n📋 Новые заголовки:"
+other = "📋 Новые заголовки"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.s_redacted"]
-other = "  %s: [скрыто]\n"
+other = "%s: [скрыто]"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.none_set"]
-other = "  (не заданы)"
+other = "(не заданы)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -139,22 +139,22 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_suggestions"]
-other = "Варианты команд:"
+other = "Варианты команд"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_command_entry"]
-other = "%s%d. %s\n     %s\n"
+other = "%s%d. %s\n     %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_command_delivery"]
-other = "     Результат: %s\n"
+other = "Результат: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_command_warning"]
-other = "     Предупреждение: %s\n"
+other = "Предупреждение: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -169,12 +169,12 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_message"]
-other = "Сообщение %s\n"
+other = "Сообщение %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_role"]
-other = "Роль: %s\n"
+other = "Роль: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -214,7 +214,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.current_command_execution_mode_message"]
-other = "Текущий режим выполнения команд: %s\n"
+other = "Текущий режим выполнения команд: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -279,7 +279,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.header_empty_finish"]
-other = "Заголовок (пустая строка для завершения):"
+other = "Заголовок (пустая строка для завершения)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -489,7 +489,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.status_line"]
-other = "[%s] %s: %s (действие: %s)\n"
+other = "[%s] %s: %s (действие: %s)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -594,7 +594,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.index_status_line"]
-other = "документов=%d лексический_индекс_готов=%t подходящих=%d готовых=%d ошибок=%d устаревших=%d\n"
+other = "документов=%d лексический_индекс_готов=%t подходящих=%d готовых=%d ошибок=%d устаревших=%d"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -619,7 +619,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.embedding_status_line"]
-other = "векторизация: провайдер=%s модель=%s подходящих=%d\n"
+other = "векторизация: провайдер=%s модель=%s подходящих=%d"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1079,7 +1079,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.vectors_rebuilt_ready_d_failed_summary"]
-other = "векторы перестроены: готовых=%d ошибок=%d\n"
+other = "векторы перестроены: готовых=%d ошибок=%d"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1109,47 +1109,47 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.added_s_redacted"]
-other = "✅ Добавлен: %s: [скрыто]\n"
+other = "✅ Добавлен: %s: [скрыто]"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.alias_q_added_successfully"]
-other = "✓ Алиас %q добавлен\n"
+other = "✓ Алиас %q добавлен"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.alias_q_removed_successfully"]
-other = "✓ Алиас %q удалён\n"
+other = "✓ Алиас %q удалён"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.alias_q_updated_successfully"]
-other = "✓ Алиас %q обновлён\n"
+other = "✓ Алиас %q обновлён"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.command_execution_mode_set_message"]
-other = "✓ Установлен режим выполнения команд: %s\n"
+other = "✓ Установлен режим выполнения команд: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.saved_command_q_alias_q_run_zev"]
-other = "✓ Команда %q сохранена как алиас %q\nЗапуск: zev %s\n"
+other = "✓ Команда %q сохранена как алиас %q\nЗапуск: zev %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.script_q_created_successfully"]
-other = "✓ Скрипт %q создан\n"
+other = "✓ Скрипт %q создан"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.script_q_removed_successfully"]
-other = "✓ Скрипт %q удалён\n"
+other = "✓ Скрипт %q удалён"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.script_q_updated_successfully"]
-other = "✓ Скрипт %q обновлён\n"
+other = "✓ Скрипт %q обновлён"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1164,7 +1164,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_recovery_title"]
-other = "Команда завершилась ошибкой. Выберите следующее действие:"
+other = "Команда завершилась ошибкой. Выберите следующее действие"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1204,17 +1204,17 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_recovery_analysis_title"]
-other = "Анализ сбоя команды (варианты не выполняются):"
+other = "Анализ сбоя команды (варианты не выполняются)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_recovery_correction_title"]
-other = "Предлагаемое исправление (не выполняется):"
+other = "Предлагаемое исправление (не выполняется)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_recovery_warning"]
-other = "   Предупреждение: %s\n"
+other = "Предупреждение: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 

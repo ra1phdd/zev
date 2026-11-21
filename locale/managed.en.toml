@@ -3,4 +3,4 @@ other = "Entity help must be the sole argument before --"
 ["managed.missing_argument"]
 other = "%s %q requires argument %d: %s — %s\nusage: %s\nhelp: zev %s --help"
 ["managed.entity_help"]
-other = "%s %s\n%s\nSource: %s\nDialect: argv-safe (aliases); Bash argv (scripts)\nUsage: %s\nExample: %s\nPosition\tName\tRequired\tDescription\n"
+other = "%s %s\n%s\nSource: %s\nDialect: argv-safe (aliases); Bash argv (scripts)\nUsage: %s\nExample: %s\nPosition\tName\tRequired\tDescription"

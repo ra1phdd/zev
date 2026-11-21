@@ -60,7 +60,7 @@ func TestNamedMessageKeysHaveEnglishAndRussianCatalogEntries(t *testing.T) {
 			if message["other"] == "" {
 				t.Errorf("empty %s catalog entry for %q", language, id)
 			}
-			if language == "en" && message["other"] != want {
+			if language == "en" && normalizeCatalogSource(message["other"]) != normalizeCatalogSource(want) {
 				t.Errorf("English value for %q = %q, want %q", id, message["other"], want)
 			}
 		}

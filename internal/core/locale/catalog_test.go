@@ -56,6 +56,33 @@ func TestCatalogsHaveMatchingMessagesAndFormatVerbs(t *testing.T) {
 	}
 }
 
+func TestCatalogEntriesKeepLayoutPunctuationOutOfOtherValues(t *testing.T) {
+	t.Parallel()
+	paths, err := fs.Glob(files, "*.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range paths {
+		data, err := fs.ReadFile(files, path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var messages map[string]map[string]string
+		if err := toml.Unmarshal(data, &messages); err != nil {
+			t.Fatal(err)
+		}
+		for id, message := range messages {
+			value := message["other"]
+			if value != strings.TrimSpace(value) {
+				t.Errorf("%s:%s keeps edge whitespace: %q", path, id, value)
+			}
+			if strings.HasSuffix(value, ":") {
+				t.Errorf("%s:%s keeps a trailing colon: %q", path, id, value)
+			}
+		}
+	}
+}
+
 func formatVerbs(s string) []string {
 	var verbs []string
 	for i := 0; i < len(s); i++ {

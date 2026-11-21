@@ -1,35 +1,35 @@
 ["cli.no_headers_entered_configuration_unchanged"]
-other = "\n⚠️  No headers entered. Configuration unchanged."
+other = "⚠️  No headers entered. Configuration unchanged."
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.http_headers_updated_successfully"]
-other = "\n✅ HTTP headers updated successfully!"
+other = "✅ HTTP headers updated successfully!"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.enter_headers_one_per_line_format_header"]
-other = "\n✏️  Enter headers one per line in format 'Header-Name:Header-Value'\n   Press Enter on empty line to finish\n   Common headers:\n     User-Agent:zev/1.0\n     X-Custom-Header:custom-value\n     Authorization:Bearer ***\n\n"
+other = "✏️  Enter headers one per line in format 'Header-Name:Header-Value'\n   Press Enter on empty line to finish\n   Common headers:\n     User-Agent:zev/1.0\n     X-Custom-Header:custom-value\n     Authorization:Bearer ***"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.current_http_headers"]
-other = "\n📋 Current HTTP headers:"
+other = "📋 Current HTTP headers"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.new_headers"]
-other = "\n📋 New headers:"
+other = "📋 New headers"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.s_redacted"]
-other = "  %s: [redacted]\n"
+other = "%s: [redacted]"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.none_set"]
-other = "  (none set)"
+other = "(none set)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -139,22 +139,22 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_suggestions"]
-other = "Command suggestions:"
+other = "Command suggestions"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_command_entry"]
-other = "%s%d. %s\n     %s\n"
+other = "%s%d. %s\n     %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_command_delivery"]
-other = "     Outcome: %s\n"
+other = "Outcome: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_command_warning"]
-other = "     Warning: %s\n"
+other = "Warning: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -169,12 +169,12 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_message"]
-other = "Message %s\n"
+other = "Message %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.history_role"]
-other = "Role: %s\n"
+other = "Role: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -214,7 +214,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.current_command_execution_mode_message"]
-other = "Current command execution mode: %s\n"
+other = "Current command execution mode: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -279,7 +279,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.header_empty_finish"]
-other = "Header (empty to finish):"
+other = "Header (empty to finish)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -489,7 +489,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.status_line"]
-other = "[%s] %s: %s (action: %s)\n"
+other = "[%s] %s: %s (action: %s)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -594,7 +594,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.index_status_line"]
-other = "documents=%d lexical_ready=%t eligible=%d ready=%d failed=%d stale=%d\n"
+other = "documents=%d lexical_ready=%t eligible=%d ready=%d failed=%d stale=%d"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -619,7 +619,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.embedding_status_line"]
-other = "embedding provider=%s model=%s eligible=%d\n"
+other = "embedding provider=%s model=%s eligible=%d"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1079,7 +1079,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.vectors_rebuilt_ready_d_failed_summary"]
-other = "vectors rebuilt: ready=%d failed=%d\n"
+other = "vectors rebuilt: ready=%d failed=%d"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1109,47 +1109,47 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.added_s_redacted"]
-other = "✅ Added: %s: [redacted]\n"
+other = "✅ Added: %s: [redacted]"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.alias_q_added_successfully"]
-other = "✓ Alias %q added successfully\n"
+other = "✓ Alias %q added successfully"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.alias_q_removed_successfully"]
-other = "✓ Alias %q removed successfully\n"
+other = "✓ Alias %q removed successfully"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.alias_q_updated_successfully"]
-other = "✓ Alias %q updated successfully\n"
+other = "✓ Alias %q updated successfully"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.command_execution_mode_set_message"]
-other = "✓ Command execution mode set to: %s\n"
+other = "✓ Command execution mode set to: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.saved_command_q_alias_q_run_zev"]
-other = "✓ Saved command %q as alias %q\nRun it with: zev %s\n"
+other = "✓ Saved command %q as alias %q\nRun it with: zev %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.script_q_created_successfully"]
-other = "✓ Script %q created successfully\n"
+other = "✓ Script %q created successfully"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.script_q_removed_successfully"]
-other = "✓ Script %q removed successfully\n"
+other = "✓ Script %q removed successfully"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.script_q_updated_successfully"]
-other = "✓ Script %q updated successfully\n"
+other = "✓ Script %q updated successfully"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1164,7 +1164,7 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_recovery_title"]
-other = "Command failed. Choose the next action:"
+other = "Command failed. Choose the next action"
 leftDelim = "[[["
 rightDelim = "]]]"
 
@@ -1204,17 +1204,17 @@ leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_recovery_analysis_title"]
-other = "Command failure analysis (suggestions are not executed):"
+other = "Command failure analysis (suggestions are not executed)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_recovery_correction_title"]
-other = "Suggested correction (not executed):"
+other = "Suggested correction (not executed)"
 leftDelim = "[[["
 rightDelim = "]]]"
 
 ["cli.run_recovery_warning"]
-other = "   Warning: %s\n"
+other = "Warning: %s"
 leftDelim = "[[["
 rightDelim = "]]]"
 

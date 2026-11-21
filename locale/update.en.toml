@@ -2,37 +2,37 @@
 other = "Update Zev from a stable release or the latest main commit and run migrations"
 
 ["update.checking"]
-other = "Checking the latest stable Zev release...\n"
+other = "Checking the latest stable Zev release..."
 
 ["update.checking_main"]
-other = "Checking the latest main commit...\n"
+other = "Checking the latest main commit..."
 
 ["update.installed"]
-other = "Zev %s installed; all migrations completed.\n"
+other = "Zev %s installed; all migrations completed."
 
 ["update.current"]
-other = "Zev %s is current or newer; all migrations completed.\n"
+other = "Zev %s is current or newer; all migrations completed."
 
 ["update.migrating"]
-other = "Migrating %s...\n"
+other = "Migrating %s..."
 
 ["update.migrate_only"]
 other = "Run local data migrations without downloading or replacing Zev"
 
 ["update.migrations_done"]
-other = "All Zev data migrations completed.\n"
+other = "All Zev data migrations completed."
 
 ["update.protocol"]
 other = "Print the self-update compatibility protocol"
 
 ["update.available"]
-other = "Update available: Zev %s. Run `zev update` to update.\n"
+other = "Update available: Zev %s. Run `zev update` to update."
 
 ["update.available_main"]
-other = "A newer main commit is available: %s. Run `zev update main` to update.\n"
+other = "A newer main commit is available: %s. Run `zev update main` to update."
 
 ["update.main_warning"]
-other = "⚠️ The main branch is under active development and may not work reliably or without errors.\n"
+other = "⚠️ The main branch is under active development and may not work reliably or without errors."
 
 ["update.main_stable_compatibility_warning"]
-other = "⚠️ Zev does not guarantee compatibility between main and the stable release. You may need to edit files manually or reinstall Zev.\n"
+other = "⚠️ Zev does not guarantee compatibility between main and the stable release. You may need to edit files manually or reinstall Zev."
