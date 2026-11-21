@@ -98,7 +98,7 @@ func configureQueryTools(cmd *cobra.Command, params toolProviderParams) (domain.
 			return prompt.ConfirmContext(ctx, prompt.ApprovalOptions{Prompt: title, Output: cmd.ErrOrStderr(), Input: cmd.InOrStdin()})
 		}
 	}
-	if mode == toolModeBypass {
+	if mode == toolModeBypass && !flags.Print && !flags.JSON {
 		if _, err := fmt.Fprintln(cmd.ErrOrStderr(), locale.Text(locale.KeyToolsWarningToolBypassPermitsArbitraryCommandsUser)); err != nil {
 			return nil, fmt.Errorf("write tool warning: %w", errors.Join(err, executor.Close()))
 		}

@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/ra1phdd/zev/internal/core/domain"
@@ -67,8 +66,8 @@ func TestMachineProviderWritesOnlyResultToStdout(t *testing.T) {
 	if out.String() != "echo second\n" {
 		t.Fatalf("stdout=%q", out.String())
 	}
-	if !strings.Contains(stderr.String(), "Fetching suggestions...") {
-		t.Fatalf("stderr=%q", stderr.String())
+	if stderr.Len() != 0 {
+		t.Fatalf("machine stderr=%q", stderr.String())
 	}
 }
 
@@ -119,8 +118,8 @@ func TestMachineProviderJSONOutput(t *testing.T) {
 			} else if out.String() != tc.want {
 				t.Fatalf("stdout=%q", out.String())
 			}
-			if tc.option == 2 && !bytes.Contains(stderr.Bytes(), []byte("fixture warning")) {
-				t.Fatalf("warning absent: %q", stderr.String())
+			if stderr.Len() != 0 {
+				t.Fatalf("machine stderr=%q", stderr.String())
 			}
 		})
 	}

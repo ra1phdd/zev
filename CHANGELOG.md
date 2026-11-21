@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Keep `--print` and `--json` query output machine-clean: suppress fetch progress and non-fatal danger warnings from stderr.
 - Automatically retry failed query `--execute` commands with provider-generated corrections; `--option` selects the initial and subsequent suggestion.
 - Remove redundant provider and operation prefixes around already-safe provider errors.
 - Explain how to explicitly allow a sensitive project context file when one is rejected.

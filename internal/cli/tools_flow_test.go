@@ -120,8 +120,8 @@ func TestMachineNativeToolLoop(t *testing.T) {
 			if calls != expected {
 				t.Fatalf("calls=%d want=%d", calls, expected)
 			}
-			if tc.mode == toolModeBypass && tc.enabled && !strings.Contains(diagnostics.String(), toolModeBypass) {
-				t.Error("missing bypass warning")
+			if strings.Contains(diagnostics.String(), toolModeBypass) {
+				t.Errorf("tool approval diagnostics leaked into query output: %q", diagnostics.String())
 			}
 		})
 	}

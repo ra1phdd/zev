@@ -561,12 +561,10 @@ func (s *querySession) warnHistory(err error) {
 }
 
 func (s *querySession) fetch(ctx context.Context) error {
-	progressOut := s.cmd.OutOrStdout()
-	if s.machine {
-		progressOut = s.cmd.ErrOrStderr()
-	}
-	if err := writeQueryOutput(progressOut, "%s", locale.Text(locale.KeyQueryFetchingSuggestions)); err != nil {
-		return err
+	if !s.machine {
+		if err := writeQueryOutput(s.cmd.OutOrStdout(), "%s", locale.Text(locale.KeyQueryFetchingSuggestions)); err != nil {
+			return err
+		}
 	}
 	response, err := s.svc.GetOptionsWithHistory(ctx, s.history)
 	if err != nil {

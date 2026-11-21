@@ -87,11 +87,6 @@ func writeMachineResult(cmd *cobra.Command, flags parsedFlags, response *domain.
 		return machineError(exitArguments, fmt.Errorf(locale.Text(locale.KeyCliOptionDNotAvailableProviderReturnedSummary), option, len(response.Commands)))
 	}
 	selected := response.Commands[option-1]
-	if selected.IsDangerous {
-		if err := writeQueryWarning(cmd.ErrOrStderr(), &selected); err != nil {
-			return err
-		}
-	}
 	if flags.JSON {
 		result := machineOutput{SchemaVersion: 1, Status: "ok", SelectedOption: option, Commands: response.Commands}
 		if err := json.NewEncoder(cmd.OutOrStdout()).Encode(result); err != nil {

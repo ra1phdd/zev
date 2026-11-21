@@ -8,17 +8,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
 const (
-	englishPrompt   = "Show the largest files in this directory"
-	russianLocale   = "ru_RU.UTF-8"
-	fixtureModel    = "fixture-model"
-	fixtureOnly     = "fixture-only"
-	russianProgress = "Получение вариантов команд"
-	englishProgress = "Fetching suggestions"
+	englishPrompt = "Show the largest files in this directory"
+	russianLocale = "ru_RU.UTF-8"
+	fixtureModel  = "fixture-model"
+	fixtureOnly   = "fixture-only"
 )
 
 func TestQueryLanguageAndReadOnlyPipeline(t *testing.T) {
@@ -36,13 +33,13 @@ func TestQueryLanguageAndReadOnlyPipeline(t *testing.T) {
 		}
 	}))
 	t.Cleanup(server.Close)
-	for _, tc := range []struct{ name, prompt, configured, override, system, want string }{
-		{name: "Russian auto", prompt: "Покажи самые большие файлы в текущей директории", system: "en", want: russianProgress},
-		{name: "English auto ignores Russian system", prompt: englishPrompt, system: russianLocale, want: englishProgress},
-		{name: "Bulgarian falls back", prompt: "Покажи най-големите файлове в тази директория", system: russianLocale, want: englishProgress},
-		{name: "fixed English", prompt: "Покажи самые большие файлы в текущей директории", configured: "en", system: russianLocale, want: englishProgress},
-		{name: "fixed Russian", prompt: englishPrompt, configured: "ru", system: "en", want: russianProgress},
-		{name: "ambient ZEV_LANG is ignored", prompt: "Покажи самые большие файлы в текущей директории", configured: "en", override: "ru", system: russianLocale, want: englishProgress},
+	for _, tc := range []struct{ name, prompt, configured, override, system string }{
+		{name: "Russian auto", prompt: "Покажи самые большие файлы в текущей директории", system: "en"},
+		{name: "English auto ignores Russian system", prompt: englishPrompt, system: russianLocale},
+		{name: "Bulgarian falls back", prompt: "Покажи най-големите файлове в тази директория", system: russianLocale},
+		{name: "fixed English", prompt: "Покажи самые большие файлы в текущей директории", configured: "en", system: russianLocale},
+		{name: "fixed Russian", prompt: englishPrompt, configured: "ru", system: "en"},
+		{name: "ambient ZEV_LANG is ignored", prompt: "Покажи самые большие файлы в текущей директории", configured: "en", override: "ru", system: russianLocale},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -59,8 +56,8 @@ func TestQueryLanguageAndReadOnlyPipeline(t *testing.T) {
 			if err := cmd.Run(); err != nil {
 				t.Fatalf("query failed: %v, %s", err, diagnostic.String())
 			}
-			if !strings.Contains(diagnostic.String(), tc.want) {
-				t.Fatalf("UI=%q, want %q", diagnostic.String(), tc.want)
+			if diagnostic.Len() != 0 {
+				t.Fatalf("machine diagnostics=%q", diagnostic.String())
 			}
 			var got struct {
 				SchemaVersion int    `json:"schema_version"` //nolint:tagliatelle // Existing machine contract uses snake_case.
@@ -75,9 +72,6 @@ func TestQueryLanguageAndReadOnlyPipeline(t *testing.T) {
 			}
 			if got.SchemaVersion != 1 || got.Status != "ok" || len(got.Commands) != 1 || got.Commands[0].Command != command || got.Commands[0].Dangerous {
 				t.Fatalf("machine contract changed: %s", out.String())
-			}
-			if strings.Contains(diagnostic.String(), "⚠") || strings.Contains(diagnostic.String(), "Warning:") {
-				t.Fatalf("safe pipeline warned: %s", diagnostic.String())
 			}
 		})
 	}
